@@ -447,7 +447,7 @@ def background_loop(self, is_validator):
 
         except Exception as e:
             logger.info(
-                "An error occurred trying to update settings from the cloud: " + e
+                f"An error occurred trying to update settings from the cloud: {e}."
             )
 
     # Clean up the wandb runs and cache folders
