@@ -262,12 +262,14 @@ def background_loop(self, is_validator):
             # Delete any invalid batches
             for batch in invalid_batches:
                 logger.info(f"Removing invalid batch: {batch['batch_id']}")
-                self.batches.remove(batch)
+                if batch in self.batches:
+                    self.batches.remove(batch)
 
             # Delete any successful batches
             for batch in batches_for_deletion:
                 logger.info(f"Removing successful batch: {batch['batch_id']}")
-                self.batches.remove(batch)
+                if batch in self.batches:
+                    self.batches.remove(batch)
 
     except Exception as e:
         logger.info(
