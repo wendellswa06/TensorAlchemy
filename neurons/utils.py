@@ -444,7 +444,7 @@ def background_loop(self, is_validator):
                         self.request_frequency += self.manual_validator_timeout
 
                     logger.info(
-                        "Retrieved the latest validator settings: " + validator_settings
+                        f"Retrieved the latest validator settings: {validator_settings}"
                     )
 
         except Exception as e:
