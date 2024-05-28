@@ -219,8 +219,6 @@ def background_loop(self, is_validator):
             for batch in self.batches:
                 for attempt in range(0, max_retries):
                     try:
-                        d = {}
-                        t = "asda + d"
                         filtered_batch = filter_batch_before_submission(batch)
                         response = post_batch(self.api_url, filtered_batch)
                         if response.status_code == 200:
@@ -233,7 +231,7 @@ def background_loop(self, is_validator):
 
                         response_data = response.json()
                         if "code" in response_data:
-                            if response_data.code == MINIMUM_VALID_IMAGES_ERROR:
+                            if response_data["code"] == MINIMUM_VALID_IMAGES_ERROR:
                                 invalid_batches.append(batch)
 
                         logger.info(f"{response_data=}")
