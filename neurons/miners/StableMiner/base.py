@@ -369,7 +369,7 @@ class BaseMiner(ABC):
         # Retrieve the coldkey of the caller
         caller_coldkey = get_coldkey_for_hotkey(self, caller_hotkey)
 
-        priority = None
+        priority = 0
 
         if (
             caller_coldkey in self.coldkey_whitelist
@@ -382,8 +382,7 @@ class BaseMiner(ABC):
 
         try:
             caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
-            if not priority:
-                priority = float(self.metagraph.S[caller_uid])
+            priority = max(priority, float(self.metagraph.S[caller_uid]))
             logger.info(
                 f"Prioritizing key {synapse.dendrite.hotkey}"
                 + f" with value: {priority}."
