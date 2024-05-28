@@ -133,8 +133,8 @@ def process_manual_vote(
             reward_i_normalized[reward_i] = 1.0
             rewards += reward_weights[-1] * reward_i_normalized.to(device)
             if not disable_log_rewards:
-                event["human_reward_model"] = reward_i_normalized.tolist()
-                event["human_reward_model_normalized"] = reward_i_normalized.tolist()
+                event["manual_reward_model"] = reward_i_normalized.tolist()
+                event["manual_reward_model_normalized"] = reward_i_normalized.tolist()
 
             break
 

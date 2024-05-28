@@ -183,10 +183,10 @@ class StableValidator:
         # Init manual validator
         if not self.config.alchemy.disable_manual_validator:
             try:
-                if "ImageAlchemy" not in os.getcwd():
+                if "TensorAlchemy" not in os.getcwd():
                     raise Exception(
                         "Unable to load manual validator please `cd` "
-                        + "into the ImageAlchemy folder before running the validator"
+                        + "into the TensorAlchemy folder before running the validator"
                     )
 
                 logger.info("Setup streamlit credentials")
@@ -259,7 +259,7 @@ class StableValidator:
         self.reward_names = ["image_reward_model", "manual_reward_model"]
 
         self.human_voting_scores = torch.zeros((self.metagraph.n)).to(self.device)
-        self.human_voting_weight = 0.02 / 32
+        self.human_voting_weight = 0.10 / 32
         self.human_voting_reward_model = HumanValidationRewardModel(
             self.metagraph, self.api_url
         )

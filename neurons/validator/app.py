@@ -84,7 +84,7 @@ if not check_password():
     st.stop()
 
 directory = r"neurons/validator/images"
-st.markdown("# ImageAlchemy Human Validation")
+st.markdown("# TensorAlchemy Human Validation")
 st.markdown(
     "# Select what you think is the best image "
     + "from the batch of images below within 10 seconds ..."
