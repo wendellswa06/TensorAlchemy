@@ -374,7 +374,9 @@ def call_corcel(self, prompt):
 def generate_random_prompt_gpt(
     self,
     model="gpt-4",
-    prompt="You are an image prompt generator. Your purpose is to generate a single one sentence prompt that can be fed into Dalle-3.",
+    prompt="You are an image prompt generator. "
+    + "Your purpose is to generate a single one sentence prompt "
+    + "that can be fed into Dalle-3.",
 ):
     response = None
 
@@ -383,13 +385,14 @@ def generate_random_prompt_gpt(
         try:
             response = call_corcel(self, prompt)
             if response:
-                # Parse response to remove quotes and also adapt the bug with corcel where the output is repeated N times
+                # Parse response to remove quotes and also adapt
+                # the bug with corcel where the output is repeated N times
                 response = corcel_parse_response(response)
                 if response.startswith("{"):
                     response = None
         except Exception as e:
             logger.error(f"An unexpected error occurred calling corcel: {e}")
-            logger.error(f"Falling back to OpenAI if available...")
+            logger.error("Falling back to OpenAI if available...")
 
     if not response:
         if self.openai_client:
@@ -398,14 +401,15 @@ def generate_random_prompt_gpt(
                     response = call_openai(self.openai_client, model, prompt)
                 except Exception as e:
                     logger.error(f"An unexpected error occurred calling OpenAI: {e}")
-                    logger.error(f"Sleeping for 10 seconds and retrying once...")
+                    logger.error("Sleeping for 10 seconds and retrying once...")
                     time.sleep(10)
 
                 if response:
                     break
         else:
             logger.warning(
-                "Attempted to use OpenAI as a fallback but the OPENAI_API_KEY is not set."
+                "Attempted to use OpenAI as a fallback "
+                + "but the OPENAI_API_KEY is not set."
             )
 
     # Remove any double quotes from the output
@@ -419,7 +423,8 @@ def generate_followup_prompt_gpt(
     self,
     prompt,
     model="gpt-4",
-    followup_prompt="An image has now been generated from your first prompt. What is a second instruction that can be applied to this generated image?",
+    followup_prompt="An image has now been generated from your first prompt."
+    + " What is a second instruction that can be applied to this generated image?",
 ):
     # Update this for next week. Combine this and the method above.
     messages = [
@@ -498,7 +503,7 @@ def reinit_wandb(self):
     if self.wandb:
         try:
             self.wandb.finish()
-        except:
+        except Exception:
             pass
     init_wandb(self, reinit=True)
 
@@ -529,15 +534,16 @@ def get_promptdb_backup(netuid, prompt_history=[], limit=1):
                     or pd.isna(history.loc[i + 1, "prompt_i2i"])
                 ):
                     continue
-                else:
-                    prompt_tuple = (
-                        history.loc[i, "prompt_t2i"],
-                        history.loc[i + 1, "prompt_i2i"],
-                    )
-                    if prompt_tuple in prompt_history:
-                        continue
-                    else:
-                        prompt_history.append(prompt_tuple)
+
+                prompt_tuple = (
+                    history.loc[i, "prompt_t2i"],
+                    history.loc[i + 1, "prompt_i2i"],
+                )
+
+                if prompt_tuple in prompt_history:
+                    continue
+
+                prompt_history.append(prompt_tuple)
 
     return prompt_history
 
@@ -553,9 +559,9 @@ def get_device_name(device: torch.device):
                 else torch.cuda.current_device()
             )
             return device_name
-        else:
-            # Return 'CPU' as it does not have a specific name like GPUs do
-            return "CPU"
+
+        # Return 'CPU' as it does not have a specific name like GPUs do
+        return "CPU"
     except Exception as e:
         logger.error(f"failed to get device name: {e}")
         return "n/a"
