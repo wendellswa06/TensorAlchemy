@@ -7,7 +7,7 @@
 
 </div>
 
-This documentation is for starting and running a miner on the ImageAlchemy testnet. Note that we are continuing to push and test updates so you may notice the miner and/or validator encounter issues.
+This documentation is for starting and running a miner on the TensorAlchemy testnet. Note that we are continuing to push and test updates so you may notice the miner and/or validator encounter issues.
 
 ## MINER REQUIREMENTS
 - ⚗️ NVIDIA 4090 | A6000 or better
@@ -19,7 +19,7 @@ Python 3.10 is used in the steps below:
 
 ### STEP 1. CLONE REPOSITORY
 ```bash
-git clone https://github.com/Supreme-Emperor-Wang/ImageAlchemy.git ~/ImageAlchemy
+git clone https://github.com/TensorAlchemy/TensorAlchemy.git ~/TensorAlchemy
 ```
 
 ### STEP 2. INSTALL PREREQUISITES
@@ -29,19 +29,19 @@ sudo apt-get update && sudo apt-get install python3.10-venv
 
 ### STEP 3. CREATE A VENV
 ```bash
-python3.10 -m venv ~/venvs/ImageAlchemy && source ~/venvs/ImageAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
+python3.10 -m venv ~/venvs/TensorAlchemy && source ~/venvs/TensorAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
 ```
 
 ### STEP 4. INSTALL REQUIREMENTS INTO VENV
 ```bash
-source ~/venvs/ImageAlchemy/bin/activate && cd ~/ImageAlchemy && pip install -r requirements.txt
+source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -r requirements.txt
 ```
 
 ### STEP 5. LAUNCH MINER
 ```bash
-python ~/ImageAlchemy/neurons/miners/StableMiner/main.py --wallet.name NAME --wallet.hotkey HOTKEY --netuid 25 --subtensor.network test --axon.port 8101 --miner.device cuda:0 --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
+python ~/TensorAlchemy/neurons/miners/StableMiner/main.py --wallet.name NAME --wallet.hotkey HOTKEY --netuid 25 --subtensor.network test --axon.port 8101 --miner.device cuda:0 --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
 ```
 
 ### NOTES
-- ⚗️ ImageAlchemy is netuid 26 on production however it is netuid 25 on the testnet.
+- ⚗️ TensorAlchemy is netuid 26 on production however it is netuid 25 on the testnet.
 - ⚗️ You can remove the wandb options from the start command if you don’t want to log your miner’s images directly to your own wandb account.
