@@ -262,12 +262,14 @@ def background_loop(self, is_validator):
             # Delete any invalid batches
             for batch in invalid_batches:
                 logger.info(f"Removing invalid batch: {batch['batch_id']}")
-                self.batches.remove(batch)
+                if batch in self.batches:
+                    self.batches.remove(batch)
 
             # Delete any successful batches
             for batch in batches_for_deletion:
                 logger.info(f"Removing successful batch: {batch['batch_id']}")
-                self.batches.remove(batch)
+                if batch in self.batches:
+                    self.batches.remove(batch)
 
     except Exception as e:
         logger.info(
@@ -442,12 +444,12 @@ def background_loop(self, is_validator):
                         self.request_frequency += self.manual_validator_timeout
 
                     logger.info(
-                        "Retrieved the latest validator settings: " + validator_settings
+                        f"Retrieved the latest validator settings: {validator_settings}"
                     )
 
         except Exception as e:
             logger.info(
-                "An error occurred trying to update settings from the cloud: " + e
+                f"An error occurred trying to update settings from the cloud: {e}."
             )
 
     # Clean up the wandb runs and cache folders
