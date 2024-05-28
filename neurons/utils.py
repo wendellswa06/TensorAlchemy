@@ -377,13 +377,33 @@ def background_loop(self, is_validator):
                     validator_weights["manual_reward_model"] = 0.0
 
                 if "human_reward_model" in validator_weights:
-                    # FIXME: @KMFODA what are these for?
-                    SCALING_FACTOR: int = 256
-                    ADJUSTMENT_FACTOR: float = 1.5
+                    # NOTE: Scaling factor for the human reward model
+                    #
+                    # The human reward model updates the rewards for all
+                    # neurons (256 on mainnet) in each step, while the
+                    # other reward models only update rewards for a subset
+                    # of neurons (e.g., 12) per step.
+                    #
+                    # To avoid rewards being updated out of sync,
+                    # we scale down the human rewards in each step.
+                    #
+                    # The scaling factor is calculated as the total number
+                    # of neurons divided by the number of neurons updated
+                    # per step,
+                    #
+                    # Then multiplied by an adjustment factor (1.5) to account
+                    # for potential duplicate neuron selections during a full
+                    # epoch.
+                    #
+                    # The adjustment factor of 1.5 was determined empirically
+                    # based on the observed number of times UIDs received
+                    # duplicate calls in a full epoch on the mainnet.
+                    scaling_factor: int = 256
+                    adjustment_factor: float = 1.5
 
                     self.human_voting_weight = validator_weights[
                         "human_reward_model"
-                    ] / ((SCALING_FACTOR / N_NEURONS) * ADJUSTMENT_FACTOR)
+                    ] / ((scaling_factor / N_NEURONS) * adjustment_factor)
 
                 if validator_weights:
                     weights_to_add = []
