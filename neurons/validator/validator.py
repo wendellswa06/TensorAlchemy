@@ -186,7 +186,7 @@ class StableValidator:
                 if "TensorAlchemy" not in os.getcwd():
                     raise Exception(
                         "Unable to load manual validator please `cd` "
-                        + "into the ImageAlchemy folder before running the validator"
+                        + "into the TensorAlchemy folder before running the validator"
                     )
 
                 logger.info("Setup streamlit credentials")
