@@ -251,7 +251,7 @@ while True:
                         width=IMAGE_WIDTH,
                         use_column_width=True,
                     )
-        except:
+        except Exception:
             errored = True
 
     if not blacked_out and (not images or errored):

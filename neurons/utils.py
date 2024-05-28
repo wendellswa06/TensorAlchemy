@@ -377,9 +377,13 @@ def background_loop(self, is_validator):
                     validator_weights["manual_reward_model"] = 0.0
 
                 if "human_reward_model" in validator_weights:
+                    # FIXME: @KMFODA what are these for?
+                    SCALING_FACTOR: int = 256
+                    ADJUSTMENT_FACTOR: float = 1.5
+
                     self.human_voting_weight = validator_weights[
                         "human_reward_model"
-                    ] / ((256 / N_NEURONS) * 1.5)
+                    ] / ((SCALING_FACTOR / N_NEURONS) * ADJUSTMENT_FACTOR)
 
                 if validator_weights:
                     weights_to_add = []

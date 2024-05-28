@@ -1,7 +1,5 @@
 import base64
 import copy
-import os
-import random
 import time
 import uuid
 from asyncio import AbstractEventLoop
@@ -10,12 +8,11 @@ from datetime import datetime
 from io import BytesIO
 from typing import List
 
-import pandas as pd
 import requests
 import torch
 import torchvision.transforms as T
 from loguru import logger
-from neurons.constants import MOVING_AVERAGE_ALPHA, MOVING_AVERAGE_BETA
+from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration
 from neurons.utils import colored_log, sh
 from neurons.validator.event import EventSchema
@@ -39,7 +36,12 @@ def update_moving_averages(
     device: torch.device,
     alpha=MOVING_AVERAGE_ALPHA,
 ) -> torch.FloatTensor:
-    rewards = torch.nan_to_num(rewards, nan=0.0, posinf=0.0, neginf=0.0).to(device)
+    rewards = torch.nan_to_num(
+        rewards,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    ).to(device)
     moving_averaged_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * moving_averaged_scores.to(device)
@@ -73,7 +75,7 @@ def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
             validator.miner_query_history_count[
                 validator.metagraph.axons[uid].hotkey
             ] += 1
-    except:
+    except Exception:
         logger.error("Failed to log miner counts and histories")
 
     colored_log(
@@ -111,14 +113,14 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
 def save_images_data_for_manual_validation(
     responses: List[ImageGeneration], prompt: str
 ):
-    logger.info(f"Saving images...")
+    logger.info("Saving images...")
     for i, r in enumerate(responses):
         for image in r.images:
             T.transforms.ToPILImage()(bt.Tensor.deserialize(image)).save(
                 f"neurons/validator/images/{i}.png"
             )
 
-    logger.info(f"Saving prompt...")
+    logger.info("Saving prompt...")
     with open("neurons/validator/images/prompt.txt", "w") as f:
         f.write(prompt)
 
@@ -144,7 +146,7 @@ def post_moving_averages(
         else:
             logger.info("Successfully logged moving averages to the Averages API")
             return True
-    except:
+    except Exception:
         logger.info("Error logging moving averages to the Averages API")
         return False
 

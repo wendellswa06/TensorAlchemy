@@ -40,7 +40,8 @@ class WandbUtils:
             self._stop_run()
 
         logger.info(
-            f"Wandb starting run with project {self.config.wandb.project} and entity {self.config.wandb.entity}."
+            f"Wandb starting run with project {self.config.wandb.project} "
+            + f"and entity {self.config.wandb.entity}."
         )
 
         # Start new run
@@ -65,7 +66,8 @@ class WandbUtils:
             dir=WANDB_MINER_PATH,
         )
 
-        # Take the first two random words plus the name of the wallet, hotkey name and uid
+        # Take the first two random words
+        # plus the name of the wallet, hotkey name and uid
         self.wandb.name = (
             "-".join(self.wandb.name.split("-")[:2])
             + f"-{self.wallet.name}-{self.wallet.hotkey_str}-{self.uid}"

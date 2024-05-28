@@ -79,7 +79,7 @@ async def check_uid(dendrite, self, uid, response_times):
                     self.miner_query_history_count[key] = int(
                         np.array(list(self.miner_query_history_count.values())).mean()
                     )
-            except:
+            except Exception:
                 pass
             return False
     except Exception as e:
@@ -211,7 +211,7 @@ async def get_random_uids(
     sum_avg = 0
     try:
         sum_avg = sum(avg_num_list) / attempt_counter
-    except:
+    except Exception:
         pass
 
     logger.info(

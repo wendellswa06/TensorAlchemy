@@ -381,7 +381,7 @@ class BaseMiner(ABC):
             logger.info(
                 f"Prioritizing key {synapse.dendrite.hotkey} with value: {priority}."
             )
-        except:
+        except Exception:
             pass
 
         return priority

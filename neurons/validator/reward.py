@@ -330,7 +330,7 @@ class DefaultRewardFrameworkConfig:
                         images[idx] = np.zeros(
                             transform(images[idx]).shape
                         )  # black image
-                    except:
+                    except Exception:
                         images[idx] = np.zeros((1024, 1024, 3))
 
         if any(has_nsfw_concepts):
@@ -478,7 +478,7 @@ class BlacklistFilter(BaseRewardModel):
             # Check if the image can be serialized
             try:
                 img = bt.Tensor.deserialize(image)
-            except:
+            except Exception:
                 return 0.0
 
             # Check if the image is black image
@@ -950,14 +950,14 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
             if synapse.negative_prompt:
                 local_args["negative_prompt"] = [synapse.negative_prompt]
-        except:
+        except Exception:
             logger.error(
                 "Values for guidance_scale or negative_prompt were not provided."
             )
 
         try:
             local_args["num_inference_steps"] = synapse.steps
-        except:
+        except Exception:
             logger.error("Values for steps were not provided.")
 
         # Get the model
