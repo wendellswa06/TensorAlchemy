@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import List, Optional
 
-from reward import RewardModelType
+from neurons.validator.reward import RewardModelType
 
 
 @dataclass
@@ -61,4 +61,5 @@ class EventSchema:
             vtrust=event_dict["vtrust"],
             dividends=event_dict["dividends"],
             emissions=event_dict["emissions"],
+            # moving_averages=event_dict["moving_averages"]
         )

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-import torchvision.transforms as T
+from loguru import logger
 from torch import nn
 from transformers import CLIPConfig, CLIPVisionModel, PreTrainedModel
 
@@ -26,7 +26,10 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
             torch.ones(3, config.projection_dim), requires_grad=False
         )
 
-        self.concept_embeds_weights = nn.Parameter(torch.ones(17), requires_grad=False)
+        self.concept_embeds_weights = nn.Parameter(
+            torch.ones(17),
+            requires_grad=False,
+        )
         self.special_care_embeds_weights = nn.Parameter(
             torch.ones(3), requires_grad=False
         )
@@ -36,7 +39,8 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
     def forward(self, clip_input, images):
         pooled_output = self.vision_model(clip_input)[1]  # pooled_output
         image_embeds = self.visual_projection(pooled_output)
-        # we always cast to float32 as this does not cause significant overhead and is compatible with bfloat16
+        # we always cast to float32 as this does not cause significant
+        # overhead and is compatible with bfloat16
         special_cos_dist = (
             cosine_distance(image_embeds, self.special_care_embeds)
             .cpu()
@@ -91,11 +95,12 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
                         images[idx] = np.zeros(
                             self.transform(images[idx]).shape
                         )  # black image
-                    except:
+                    except Exception:
                         images[idx] = np.zeros((1024, 1024, 3))
         if any(has_nsfw_concepts):
-            print(
-                "Potential NSFW content was detected in one or more images. A black image will be returned instead."
+            logger.warning(
+                "Potential NSFW content was detected in one or more images. "
+                + "A black image will be returned instead."
                 " Try again with a different prompt and/or seed."
             )
         return images, has_nsfw_concepts

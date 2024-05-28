@@ -3,15 +3,15 @@ import os
 from threading import Timer
 
 import torch
-from utils import output_log
+from loguru import logger
+from neurons.constants import WANDB_MINER_PATH
+from utils import colored_log
 
 import bittensor as bt
 import wandb
 
-from neurons.constants import WANDB_MINER_PATH
 
-
-#### Wandb functions
+# Wandb functions
 class WandbTimer(Timer):
     def run(self):
         self.function(*self.args, **self.kwargs)
@@ -39,11 +39,12 @@ class WandbUtils:
         if self.wandb:
             self._stop_run()
 
-        output_log(
-            f"Wandb starting run with project {self.config.wandb.project} and entity {self.config.wandb.entity}."
+        logger.info(
+            f"Wandb starting run with project {self.config.wandb.project} "
+            + f"and entity {self.config.wandb.entity}."
         )
 
-        #### Start new run
+        # Start new run
         config = copy.deepcopy(self.config)
         config["model"] = self.config.model
 
@@ -65,15 +66,16 @@ class WandbUtils:
             dir=WANDB_MINER_PATH,
         )
 
-        #### Take the first two random words plus the name of the wallet, hotkey name and uid
+        # Take the first two random words
+        # plus the name of the wallet, hotkey name and uid
         self.wandb.name = (
             "-".join(self.wandb.name.split("-")[:2])
             + f"-{self.wallet.name}-{self.wallet.hotkey_str}-{self.uid}"
         )
-        output_log(f"Started new run: {self.wandb.name}", "c")
+        colored_log(f"Started new run: {self.wandb.name}", "c")
 
     def _add_images(self, synapse, file_type="jpg"):
-        ### Store the images and prompts for uploading to wandb
+        # Store the images and prompts for uploading to wandb
 
         self.event.update(
             {
@@ -98,7 +100,7 @@ class WandbUtils:
         self.wandb.finish()
 
     def _log(self):
-        #### Log incentive, trust, emissions, total requests, timeouts
+        # Log incentive, trust, emissions, total requests, timeouts
         self.event.update(self.miner.get_miner_info())
         self.event.update(
             {
