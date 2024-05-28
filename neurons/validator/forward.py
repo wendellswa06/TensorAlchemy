@@ -202,8 +202,12 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
 
     # Set seed to -1 so miners will use a random seed by default
     synapse = ImageGeneration(
-        generation_type=task_type, prompt=prompt, prompt_image=image or None, seed=-1
+        generation_type=task_type,
+        prompt=prompt,
+        prompt_image=image,
+        seed=-1,
     )
+
     synapse_info = (
         f"Timeout: {synapse.timeout:.2f} "
         f"| Height: {synapse.height} "
@@ -217,7 +221,12 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
     log_query_to_history(self, uids)
 
     # Sort responses
-    responses_empty_flag = [1 if not response.images else 0 for response in responses]
+    responses_empty_flag = [
+        #
+        1 if not response.images else 0
+        for response in responses
+    ]
+
     sorted_index = [
         item[0]
         for item in sorted(
@@ -318,7 +327,8 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 T.transforms.ToPILImage()(
                     bt.Tensor.deserialize(response.images[0])
                 ).save(im_file, format="PNG")
-                im_bytes = im_file.getvalue()  # im_bytes: image in binary format.
+                # im_bytes: image in binary format.
+                im_bytes = im_file.getvalue()
                 im_b64 = base64.b64encode(im_bytes)
                 images.append(im_b64.decode())
                 should_drop_entries.append(0)
@@ -327,7 +337,8 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 T.transforms.ToPILImage()(
                     torch.full([3, 1024, 1024], 255, dtype=torch.float)
                 ).save(im_file, format="PNG")
-                im_bytes = im_file.getvalue()  # im_bytes: image in binary format.
+                # im_bytes: image in binary format.
+                im_bytes = im_file.getvalue()
                 im_b64 = base64.b64encode(im_bytes)
                 images.append(im_b64.decode())
                 should_drop_entries.append(1)
@@ -335,15 +346,15 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
         # Update batches to be sent to the human validation platform
         self.batches.append(
             {
-                "batch_id": str(uuid.uuid4()),
-                "validator_hotkey": str(self.wallet.hotkey.ss58_address),
                 "prompt": prompt,
+                "computes": images,
+                "batch_id": str(uuid.uuid4()),
                 "nsfw_scores": event["nsfw_filter"],
                 "blacklist_scores": event["blacklist_filter"],
+                "should_drop_entries": should_drop_entries,
+                "validator_hotkey": str(self.wallet.hotkey.ss58_address),
                 "miner_hotkeys": [self.metagraph.hotkeys[uid] for uid in uids],
                 "miner_coldkeys": [self.metagraph.coldkeys[uid] for uid in uids],
-                "computes": images,
-                "should_drop_entries": should_drop_entries,
             }
         )
     except Exception as e:
