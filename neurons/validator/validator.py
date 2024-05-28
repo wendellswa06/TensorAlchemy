@@ -183,7 +183,7 @@ class StableValidator:
         # Init manual validator
         if not self.config.alchemy.disable_manual_validator:
             try:
-                if "ImageAlchemy" not in os.getcwd():
+                if "TensorAlchemy" not in os.getcwd():
                     raise Exception(
                         "Unable to load manual validator please `cd` "
                         + "into the ImageAlchemy folder before running the validator"
