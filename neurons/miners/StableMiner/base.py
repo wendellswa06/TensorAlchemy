@@ -32,7 +32,7 @@ import bittensor as bt
 
 class BaseMiner(ABC):
     def __init__(self):
-        #### Parse the config
+        # Parse the config
         self.config = self.get_config()
 
         self.wandb = None
@@ -41,14 +41,14 @@ class BaseMiner(ABC):
             bt.debug()
             logger.info("Enabling debug mode...")
 
-        #### Output the config
+        # Output the config
         colored_log("Outputting miner config:", color="green")
         colored_log(f"{self.config}", color="green")
 
-        #### Build args
+        # Build args
         self.t2i_args, self.i2i_args = self.get_args()
 
-        #### Init blacklists and whitelists
+        # Init blacklists and whitelists
         self.hotkey_blacklist = set()
         self.coldkey_blacklist = set()
         self.coldkey_whitelist = set(
@@ -60,29 +60,30 @@ class BaseMiner(ABC):
 
         self.storage_client = None
 
-        #### Initialise event dict
+        # Initialise event dict
         self.event = {}
 
-        #### Establish subtensor connection
+        # Establish subtensor connection
         logger.info("Establishing subtensor connection")
         self.subtensor = bt.subtensor(config=self.config)
 
-        #### Create the metagraph
+        # Create the metagraph
         self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid)
 
-        #### Configure the wallet
+        # Configure the wallet
         self.wallet = bt.wallet(config=self.config)
 
-        #### Wait until the miner is registered
+        # Wait until the miner is registered
         self.loop_until_registered()
 
-        ### Defaults
+        # Defaults
         self.stats = get_defaults(self)
 
-        ### Set up transform function
+        # Set up transform function
         self.transform = transforms.Compose([transforms.PILToTensor()])
 
-        ### Start the wandb logging thread if both project and entity have been provided
+        # Start the wandb logging thread if both project
+        # and entity have been provided
         if all(
             [
                 self.config.wandb.project,
@@ -94,18 +95,21 @@ class BaseMiner(ABC):
                 self, self.metagraph, self.config, self.wallet, self.event
             )
 
-        #### Start the generic background loop
+        # Start the generic background loop
         self.background_steps = 1
         self.background_timer = BackgroundTimer(300, background_loop, [self, False])
         self.background_timer.daemon = True
         self.background_timer.start()
 
-        ### Init history dict
+        # Init history dict
         self.request_dict = {}
 
     def start_axon(self):
-        #### Serve the axon
-        colored_log(f"Serving axon on port {self.config.axon.port}.", color="green")
+        # Serve the axon
+        colored_log(
+            f"Serving axon on port {self.config.axon.port}.",
+            color="green",
+        )
         self.axon = (
             bt.axon(
                 wallet=self.wallet,
@@ -139,7 +143,7 @@ class BaseMiner(ABC):
     def get_config(self) -> bt.config:
         argp = argparse.ArgumentParser(description="Miner Configs")
 
-        #### Add any args from the parent class
+        # Add any args from the parent class
         self.add_args(argp)
 
         argp.add_argument("--netuid", type=int, default=1)
@@ -174,7 +178,7 @@ class BaseMiner(ABC):
                 "miner",
             )
         )
-        #### Ensure the directory for logging exists
+        # Ensure the directory for logging exists
         if not os.path.exists(config.full_path):
             os.makedirs(config.full_path, exist_ok=True)
 
@@ -190,11 +194,14 @@ class BaseMiner(ABC):
             if index is not None:
                 self.miner_index = index
                 logger.info(
-                    f"Miner {self.config.wallet.hotkey} is registered with uid {self.metagraph.uids[self.miner_index]}.",
+                    f"Miner {self.config.wallet.hotkey} is registered with uid "
+                    + str(self.metagraph.uids[self.miner_index]),
                 )
                 break
+
             logger.warning(
-                f"Miner {self.config.wallet.hotkey} is not registered. Sleeping for 120 seconds...",
+                f"Miner {self.config.wallet.hotkey} is not registered. "
+                + "Sleeping for 120 seconds...",
             )
             time.sleep(120)
             self.metagraph.sync(subtensor=self.subtensor)
@@ -221,8 +228,7 @@ class BaseMiner(ABC):
         return index
 
     def check_still_registered(self):
-        self.miner_index = self.get_miner_index()
-        return True if self.miner_index is not None else False
+        return self.get_miner_index() is not None
 
     def get_incentive(self):
         return (
@@ -255,12 +261,12 @@ class BaseMiner(ABC):
         Image generation logic shared between both text-to-image and image-to-image
         """
 
-        ### Misc
+        # Misc
         timeout = synapse.timeout
         self.stats.total_requests += 1
         start_time = time.perf_counter()
 
-        ### Set up args
+        # Set up args
         local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
         local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
         local_args["width"] = synapse.width
@@ -271,17 +277,17 @@ class BaseMiner(ABC):
 
             if synapse.negative_prompt:
                 local_args["negative_prompt"] = [synapse.negative_prompt]
-        except:
+        except AttributeError:
             logger.info(
                 "Values for guidance_scale or negative_prompt were not provided."
             )
 
         try:
             local_args["num_inference_steps"] = synapse.steps
-        except:
+        except AttributeError:
             logger.info("Values for steps were not provided.")
 
-        ### Get the model
+        # Get the model
         model = self.mapping[synapse.generation_type]["model"]
 
         if synapse.generation_type == "image_to_image":
@@ -289,10 +295,10 @@ class BaseMiner(ABC):
                 bt.Tensor.deserialize(synapse.prompt_image)
             )
 
-        ### Output logs
+        # Output logs
         do_logs(self, synapse, local_args)
 
-        ### Generate images & serialize
+        # Generate images & serialize
         for attempt in range(3):
             try:
                 seed = synapse.seed if synapse.seed != -1 else self.config.miner.seed
@@ -321,29 +327,29 @@ class BaseMiner(ABC):
                         f"Failed to generate any images after {attempt+1} attempts."
                     )
 
-        ### Count timeouts
+        # Count timeouts
         if time.perf_counter() - start_time > timeout:
             self.stats.timeouts += 1
 
-        ### Log NSFW images
+        # Log NSFW images
         if any(nsfw_image_filter(self, images)):
             logger.info(f"An image was flagged as NSFW: discarding image.")
             self.stats.nsfw_count += 1
             synapse.images = []
 
-        ### Log to wandb
+        # Log to wandb
         try:
             if self.wandb:
-                ### Store the images and prompts for uploading to wandb
+                # Store the images and prompts for uploading to wandb
                 self.wandb._add_images(synapse)
 
-                #### Log to Wandb
+                # Log to Wandb
                 self.wandb._log()
 
         except Exception as e:
             logger.info(f"Error trying to log events to wandb.")
 
-        #### Log time to generate image
+        # Log time to generate image
         generation_time = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
         colored_log(
@@ -353,11 +359,11 @@ class BaseMiner(ABC):
         return synapse
 
     def _base_priority(self, synapse) -> float:
-        ### If hotkey or coldkey is whitelisted and not found on the metagraph, give a priority of 5,000
-        ### Caller hotkey
+        # If hotkey or coldkey is whitelisted and not found on the metagraph, give a priority of 5,000
+        # Caller hotkey
         caller_hotkey = synapse.dendrite.hotkey
 
-        ### Retrieve the coldkey of the caller
+        # Retrieve the coldkey of the caller
         caller_coldkey = get_coldkey_for_hotkey(self, caller_hotkey)
 
         if (
@@ -384,41 +390,41 @@ class BaseMiner(ABC):
         self, synapse, vpermit_tao_limit=VPERMIT_TAO, rate_limit=1
     ) -> typing.Tuple[bool, str]:
         try:
-            ### Get the name of the synapse
+            # Get the name of the synapse
             synapse_type = type(synapse).__name__
 
-            ### Caller hotkey
+            # Caller hotkey
             caller_hotkey = synapse.dendrite.hotkey
 
-            ### Retrieve the coldkey of the caller
+            # Retrieve the coldkey of the caller
             caller_coldkey = get_coldkey_for_hotkey(self, caller_hotkey)
 
-            ### Retrieve the stake of the caller
+            # Retrieve the stake of the caller
             caller_stake = get_caller_stake(self, synapse)
 
-            ### Count the request frequencies
+            # Count the request frequencies
             exceeded_rate_limit = False
             if synapse_type == "ImageGeneration":
-                ### Apply a rate limit from the same caller
+                # Apply a rate limit from the same caller
                 if caller_hotkey in self.request_dict.keys():
                     now = time.perf_counter()
 
-                    ### The difference in seconds between the current request and the previous one
+                    # The difference in seconds between the current request and the previous one
                     delta = now - self.request_dict[caller_hotkey]["history"][-1]
 
-                    ### E.g., 0.3 < 1.0
+                    # E.g., 0.3 < 1.0
                     if delta < rate_limit:
-                        ### Count number of rate limited calls from caller's hotkey
+                        # Count number of rate limited calls from caller's hotkey
                         self.request_dict[caller_hotkey]["rate_limited_count"] += 1
                         exceeded_rate_limit = True
 
-                    ### Store the data
+                    # Store the data
                     self.request_dict[caller_hotkey]["history"].append(now)
                     self.request_dict[caller_hotkey]["delta"].append(delta)
                     self.request_dict[caller_hotkey]["count"] += 1
 
                 else:
-                    ### For the first request, initialize the dictionary
+                    # For the first request, initialize the dictionary
                     self.request_dict[caller_hotkey] = {
                         "history": [time.perf_counter()],
                         "delta": [0],
@@ -426,8 +432,8 @@ class BaseMiner(ABC):
                         "rate_limited_count": 0,
                     }
 
-            ### Allow through any whitelisted keys unconditionally
-            ### Note that blocking these keys will result in a ban from the network
+            # Allow through any whitelisted keys unconditionally
+            # Note that blocking these keys will result in a ban from the network
             if caller_coldkey in self.coldkey_whitelist:
                 colored_log(
                     f"Whitelisting coldkey's {synapse_type} request from {caller_hotkey}.",
@@ -442,7 +448,7 @@ class BaseMiner(ABC):
                 )
                 return False, "Whitelisted hotkey recognized."
 
-            ### Reject request if rate limit was exceeded and key wasn't whitelisted
+            # Reject request if rate limit was exceeded and key wasn't whitelisted
             if exceeded_rate_limit:
                 colored_log(
                     f"Blacklisted a {synapse_type} request from {caller_hotkey}."
@@ -455,7 +461,7 @@ class BaseMiner(ABC):
                     f" Rate limit ({rate_limit:.2f}) exceeded. Delta: {delta:.2f}s.",
                 )
 
-            ### Blacklist requests from validators that aren't registered
+            # Blacklist requests from validators that aren't registered
             if caller_stake is None:
                 colored_log(
                     f"Blacklisted a non-registered hotkey's {synapse_type} request from {caller_hotkey}.",
@@ -466,7 +472,7 @@ class BaseMiner(ABC):
                     f"Blacklisted a non-registered hotkey's {synapse_type} request from {caller_hotkey}.",
                 )
 
-            ### Check that the caller has sufficient stake
+            # Check that the caller has sufficient stake
             if caller_stake < vpermit_tao_limit:
                 # colored_log(
                 #     f"Blacklisted a {synapse_type} request from {caller_hotkey} due to low stake: {caller_stake:.2f} < {vpermit_tao_limit}.",
@@ -501,21 +507,21 @@ class BaseMiner(ABC):
         colored_log("Starting miner loop.", color="green")
         step = 0
         while True:
-            #### Check the miner is still registered
+            # Check the miner is still registered
             is_registered = self.check_still_registered()
 
             if not is_registered:
                 colored_log("The miner is not currently registered.", color="red")
                 time.sleep(120)
 
-                ### Ensure the metagraph is synced before the next registration check
+                # Ensure the metagraph is synced before the next registration check
                 self.metagraph.sync(subtensor=self.subtensor)
                 continue
 
-            #### Output current statistics and set weights
+            # Output current statistics and set weights
             try:
                 if step % 5 == 0:
-                    #### Output metrics
+                    # Output metrics
                     log = (
                         f"Step: {step} | "
                         f"Block: {self.metagraph.block.item()} | "
@@ -528,18 +534,18 @@ class BaseMiner(ABC):
                     )
                     colored_log(log, color="green")
 
-                    ### Show the top 10 requestors by calls along with their delta
-                    ### Hotkey, count, delta, rate limited count
+                    # Show the top 10 requestors by calls along with their delta
+                    # Hotkey, count, delta, rate limited count
                     top_requestors = [
                         (k, v["count"], v["delta"], v["rate_limited_count"])
                         for k, v in self.request_dict.items()
                     ]
 
-                    ### Retrieve total number of requests
+                    # Retrieve total number of requests
                     total_requests_counted = sum([x[1] for x in top_requestors])
 
                     try:
-                        ### Sort by count
+                        # Sort by count
                         top_requestors = sorted(
                             top_requestors, key=lambda x: x[1], reverse=True
                         )[:10]
@@ -557,18 +563,19 @@ class BaseMiner(ABC):
                                 f"{sh('Top Callers')} -> Metrics\n{formatted_str}",
                                 color="cyan",
                             )
-                    except:
+                    except Exception:
                         pass
 
                 step += 1
                 time.sleep(60)
 
-            #### If someone intentionally stops the miner, it'll safely terminate operations.
+            # If someone intentionally stops the miner, it'll safely terminate operations.
             except KeyboardInterrupt:
                 self.axon.stop()
                 logger.success("Miner killed by keyboard interrupt.")
                 break
-            #### In case of unforeseen errors, the miner will log the error and continue operations.
+
+            # In case of unforeseen errors, the miner will log the error and continue operations.
             except Exception as e:
-                logger.info(traceback.format_exc())
+                logger.error(f"Unexpected error: {traceback.format_exc()}")
                 continue
