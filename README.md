@@ -2,7 +2,7 @@
 
 ![TensorAlchemy - Splash image](./contrib/TensorAlchemy-splash.png)
 
-# **TensorAlchemy: Decentralized AI Image Generation on Bittensor** <!-- omit in toc -->
+# **TensorAlchemy: Human Scoring and Decentralized Image Generation on Bittensor** <!-- omit in toc -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
@@ -35,29 +35,22 @@ Join our thriving Discord community to connect with fellow AI enthusiasts, artis
 1. Visit our [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
 )](https://github.com/TensorAlchemy/TensorAlchemy/tree/main/neurons) to explore the code behind TensorAlchemy
 2. Join our [![](https://dcbadge.limes.pink/api/server/tensoralchemy)](https://discord.gg/tensoralchemy) to stay updated and engage with the team
-3. Dive into AI image generation with [![Tensoralchemy button](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai)
+3. Dive into AI image generation with [![Tensoralchemy generation](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai)
+4. Start scoring images at [![Tensoralchemy validation](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai/validate)
 
 ## Mainnet docs
 
 
-#### Miner guide: 
-[
-![Miner guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/15nb9Cu8HTdq_wqpo-OO17OnE5wdZBTJVXPqOVk7i8MQ)
+**Miner guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/mainnet/miner.md) 
 
-#### Validator guide: 
-[
-![Validator guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/1ZJoglHVcra5X6-rcsJpIeHPrJfPXkjDfA11V8GXwzVc)
+**Validator guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/mainnet/validator.md)
 
 ## Testnet docs
 
-#### Miner guide: 
-[
-![Miner guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/1FzZe5EskEV0Q6BkOuVkqCrIEexzQZd_134eT74B7hPA)
+**Miner guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/testnet/miner.md) 
 
-#### Validator guide: 
-[
-![Validator guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/1gj6WOgjWBfKvYBc82r_lIiHNR_xfIT5me6QFXYgXrSU)
+**Validator guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/testnet/validator.md)
