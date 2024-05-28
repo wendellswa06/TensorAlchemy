@@ -30,6 +30,7 @@ from neurons.constants import (
     WANDB_MINER_PATH,
     WANDB_VALIDATOR_PATH,
 )
+from neurons.exceptions import MinimumValidImagesError
 from neurons.validator.utils import init_wandb
 from pydantic import BaseModel
 
@@ -167,7 +168,7 @@ def filter_batch_before_submission(batch: Dict[str, Any]) -> Dict[str, Any]:
         to_return["miner_hotkeys"].append(batch["miner_hotkeys"][idx])
 
     if len(to_return["computes"]) < MINIMUM_COMPUTES_FOR_SUBMIT:
-        raise Exception
+        raise MinimumValidImagesError()
 
     return dict(BatchSubmissionRequest(**to_return))
 
@@ -217,6 +218,8 @@ def background_loop(self, is_validator):
             for batch in self.batches:
                 for attempt in range(0, max_retries):
                     try:
+                        d = {}
+                        t = "asda + d"
                         filtered_batch = filter_batch_before_submission(batch)
                         response = post_batch(self.api_url, filtered_batch)
                         if response.status_code == 200:
@@ -237,6 +240,9 @@ def background_loop(self, is_validator):
                             "Failed to post batch. "
                             + f"Status code: {response.status_code}"
                         )
+                    except MinimumValidImagesError as e:
+                        invalid_batches.append(batch)
+                        attempt == max_retries
                     except Exception as e:
                         backoff *= 2  # Double the backoff for the next attempt
                         if attempt != max_retries:
@@ -253,6 +259,7 @@ def background_loop(self, is_validator):
                             + f"{attempt+1} times unsuccessfully. "
                             + f"Skipping this batch and moving to the next batch. Error: {e}"
                         )
+                        batches_for_deletion.append(batch)
                         break
 
             # Delete any invalid batches
