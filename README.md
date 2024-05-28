@@ -40,20 +40,16 @@ Join our thriving Discord community to connect with fellow AI enthusiasts, artis
 ## Mainnet docs
 
 
-#### Miner guide: 
-[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
-)](./contrib/guides/mainnet/miner.md)
+**Miner guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/mainnet/miner.md) 
 
-#### Validator guide: 
-[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+**Validator guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
 )](./contrib/guides/mainnet/validator.md)
 
 ## Testnet docs
 
-#### Miner guide: 
-[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
-)](./contrib/guides/testnet/miner.md)
+**Miner guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/testnet/miner.md) 
 
-#### Validator guide: 
-[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+**Validator guide:** [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
 )](./contrib/guides/testnet/validator.md)
