@@ -2,7 +2,7 @@
 
 ![TensorAlchemy - Splash image](./contrib/TensorAlchemy-splash.png)
 
-# **TensorAlchemy: Decentralized AI Image Generation on Bittensor** <!-- omit in toc -->
+# **TensorAlchemy: Human Scoring and Decentralized Image Generation on Bittensor** <!-- omit in toc -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
