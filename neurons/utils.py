@@ -241,8 +241,7 @@ def background_loop(self, is_validator):
                             + f"Status code: {response.status_code}"
                         )
                     except MinimumValidImagesError as e:
-                        if batch in self.batches:
-                            self.batches.remove(batch)
+                        invalid_batches.append(batch)
                         attempt == max_retries
                     except Exception as e:
                         backoff *= 2  # Double the backoff for the next attempt
@@ -260,8 +259,7 @@ def background_loop(self, is_validator):
                             + f"{attempt+1} times unsuccessfully. "
                             + f"Skipping this batch and moving to the next batch. Error: {e}"
                         )
-                        if batch in self.batches:
-                            self.batches.remove(batch)
+                        batches_for_deletion.append(batch)
                         break
 
             # Delete any invalid batches
