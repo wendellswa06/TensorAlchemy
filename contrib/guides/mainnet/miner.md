@@ -42,9 +42,11 @@ python ~/ImageAlchemy/neurons/miners/StableMiner/main.py --wallet.name NAME --wa
 
 - ⚗️ You can remove the wandb options from the start command if you don’t want to log your miner’s images directly to your own wandb account.
 - ⚗️ You can try adding the `--miner.optimize` flag to improve inference speed
-PREREQUISITES FOR GUIDE 2 & 3
 
-## INSTALL PM2
+
+## PREREQUISITES FOR GUIDE 2 & 3
+
+### INSTALL PM2
 
 ### INSTALL REQUIRED PACKAGES
 ```bash
@@ -104,7 +106,10 @@ pm2 start ~/ImageAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/venv
 
 Follow the prompts.
 
-Enter. Accept agreement. Enter. Type yes.
+- Enter. 
+- Accept agreement. 
+- Enter. 
+- Type yes.
 
 #### Create conda environment
 `conda create -n py310 python=3.10`
