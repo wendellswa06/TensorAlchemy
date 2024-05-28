@@ -44,8 +44,8 @@ import wandb
 
 class StableValidator:
     @classmethod
-    def check_config(cls, config: bt.config):
-        check_config(cls, config)
+    def check_config(cls, new_config: bt.config):
+        check_config(cls, new_config)
 
     @classmethod
     def add_args(cls, parser):
@@ -103,7 +103,9 @@ class StableValidator:
 
         if not self.corcel_api_key and not openai_api_key:
             raise ValueError(
-                "You must set either the CORCEL_API_KEY or OPENAI_API_KEY environment variables. It is preferable to use both."
+                "You must set either the CORCEL_API_KEY or "
+                + "OPENAI_API_KEY environment variables. "
+                + "It is preferable to use both."
             )
 
         wandb.login(anonymous="must")
@@ -142,7 +144,9 @@ class StableValidator:
         self.metagraph = bt.metagraph(
             netuid=self.config.netuid, network=self.subtensor.network, sync=False
         )  # Make sure not to sync without passing subtensor
-        self.metagraph.sync(subtensor=self.subtensor)  # Sync metagraph with subtensor.
+
+        # Sync metagraph with subtensor.
+        self.metagraph.sync(subtensor=self.subtensor)
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
         if "mock" not in self.config.wallet.name:
@@ -157,7 +161,8 @@ class StableValidator:
         # Init Weights.
         self.moving_average_scores = torch.zeros((self.metagraph.n)).to(self.device)
 
-        # Each validator gets a unique identity (UID) in the network for differentiation.
+        # Each validator gets a unique identity (UID)
+        # in the network for differentiation.
         self.my_subnet_uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
@@ -216,7 +221,12 @@ class StableValidator:
                     [
                         "streamlit",
                         "run",
-                        os.path.join(os.getcwd(), "neurons", "validator", "app.py"),
+                        os.path.join(
+                            os.getcwd(),
+                            "neurons",
+                            "validator",
+                            "app.py",
+                        ),
                         (
                             "--server.port"
                             if self.config.alchemy.streamlit_port is not None
@@ -403,10 +413,7 @@ class StableValidator:
 
             # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
-                logger.error(
-                    #                     f"Error in training loop: {e}\n"
-                    +traceback.format_exc(),
-                )
+                logger.error(traceback.format_exc())
                 sentry_sdk.capture_exception(e)
 
             # If the user interrupts the program, gracefully exit.
@@ -434,7 +441,9 @@ class StableValidator:
         """
         index = None
         try:
-            index = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+            index = self.metagraph.hotkeys.index(
+                self.wallet.hotkey.ss58_address,
+            )
         except ValueError:
             pass
         return index
@@ -450,7 +459,8 @@ class StableValidator:
         }
 
     def resync_metagraph(self):
-        """Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph."""
+        """Resyncs the metagraph and updates the hotkeys
+        and moving averages based on the new metagraph."""
 
         # Copies state of metagraph before syncing.
         previous_metagraph = copy.deepcopy(self.metagraph)
@@ -463,7 +473,8 @@ class StableValidator:
             return
 
         logger.info(
-            "Metagraph updated, re-syncing hotkeys, dendrite pool and moving averages"
+            "Metagraph updated, re-syncing hotkeys,"
+            + " dendrite pool and moving averages"
         )
 
         # Zero out all hotkeys that have been replaced.
@@ -493,14 +504,16 @@ class StableValidator:
             hotkey_ss58=self.wallet.hotkey.ss58_address,
         ):
             logger.error(
-                f"Wallet: {self.wallet} is not registered on netuid {self.config.netuid}."
-                f" Please register the hotkey before trying again"
+                f"Wallet: {self.wallet} is not registered on netuid"
+                + str(self.config.netuid)
+                + ". Please register the hotkey before trying again"
             )
             sys.exit(1)
 
     def should_sync_metagraph(self):
         """
-        Check if enough epoch blocks have elapsed since the last checkpoint to sync.
+        Check if enough epoch blocks have elapsed
+        since the last checkpoint to sync.
         """
         return (
             ttl_get_block(self) - self.metagraph.last_update[self.uid]
@@ -552,10 +565,12 @@ class StableValidator:
             if has_infs:
                 logger.info(f"Infs found in the model state: {has_infs}")
 
-            # Check to ensure that the size of the neruon weights matches the metagraph size.
+            # Check to ensure that the size of the neruon
+            # weights matches the metagraph size.
             if neuron_weights.shape != (self.metagraph.n,):
                 logger.warning(
-                    f"Neuron weights shape {neuron_weights.shape} does not match metagraph n {self.metagraph.n}"
+                    f"Neuron weights shape {neuron_weights.shape} "
+                    + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
                 self.moving_average_scores[: len(neuron_weights)] = neuron_weights.to(
@@ -602,7 +617,9 @@ class StableValidator:
                     axon=self.axon,
                 )
                 logger.info(
-                    f"Running validator {self.axon} on network: {self.config.subtensor.chain_endpoint} with netuid: {self.config.netuid}"
+                    f"Running validator {self.axon} "
+                    + f"on network: {self.config.subtensor.chain_endpoint} "
+                    + f"with netuid: {self.config.netuid}"
                 )
             except Exception as e:
                 logger.error(f"Failed to serve Axon with exception: {e}")
