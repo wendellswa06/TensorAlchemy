@@ -347,19 +347,22 @@ class BaseMiner(ABC):
                 self.wandb._log()
 
         except Exception as e:
-            logger.info(f"Error trying to log events to wandb.")
+            logger.info("Error trying to log events to wandb.")
 
         # Log time to generate image
         generation_time = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
         colored_log(
-            f"{sh('Time')} -> {generation_time:.2f}s | Average: {self.stats.generation_time / self.stats.total_requests:.2f}s",
+            str(sh("Time"))
+            + f" -> {generation_time:.2f}s "
+            + f"| Average: {self.stats.generation_time / self.stats.total_requests:.2f}s",
             color="yellow",
         )
         return synapse
 
     def _base_priority(self, synapse) -> float:
-        # If hotkey or coldkey is whitelisted and not found on the metagraph, give a priority of 5,000
+        # If hotkey or coldkey is whitelisted
+        # and not found on the metagraph, give a priority of 5,000
         # Caller hotkey
         caller_hotkey = synapse.dendrite.hotkey
 
@@ -372,14 +375,16 @@ class BaseMiner(ABC):
         ):
             priority = 5000
             logger.info(
-                f"Prioritizing whitelisted key {synapse.dendrite.hotkey} with default value: {priority}."
+                f"Prioritizing whitelisted key {synapse.dendrite.hotkey}"
+                + f" with default value: {priority}."
             )
 
         try:
             caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
             priority = float(self.metagraph.S[caller_uid])
             logger.info(
-                f"Prioritizing key {synapse.dendrite.hotkey} with value: {priority}."
+                f"Prioritizing key {synapse.dendrite.hotkey}"
+                + f" with value: {priority}."
             )
         except Exception:
             pass
@@ -409,12 +414,14 @@ class BaseMiner(ABC):
                 if caller_hotkey in self.request_dict.keys():
                     now = time.perf_counter()
 
-                    # The difference in seconds between the current request and the previous one
+                    # The difference in seconds between
+                    # the current request and the previous one
                     delta = now - self.request_dict[caller_hotkey]["history"][-1]
 
                     # E.g., 0.3 < 1.0
                     if delta < rate_limit:
-                        # Count number of rate limited calls from caller's hotkey
+                        # Count number of rate limited
+                        # calls from caller's hotkey
                         self.request_dict[caller_hotkey]["rate_limited_count"] += 1
                         exceeded_rate_limit = True
 
@@ -433,22 +440,26 @@ class BaseMiner(ABC):
                     }
 
             # Allow through any whitelisted keys unconditionally
-            # Note that blocking these keys will result in a ban from the network
+            # Note that blocking these keys
+            # will result in a ban from the network
             if caller_coldkey in self.coldkey_whitelist:
                 colored_log(
-                    f"Whitelisting coldkey's {synapse_type} request from {caller_hotkey}.",
+                    f"Whitelisting coldkey's {synapse_type}"
+                    + f" request from {caller_hotkey}.",
                     color="green",
                 )
                 return False, "Whitelisted coldkey recognized."
 
             if caller_hotkey in self.hotkey_whitelist:
                 colored_log(
-                    f"Whitelisting hotkey's {synapse_type} request from {caller_hotkey}.",
+                    f"Whitelisting hotkey's {synapse_type}"
+                    + f" request from {caller_hotkey}.",
                     color="green",
                 )
                 return False, "Whitelisted hotkey recognized."
 
-            # Reject request if rate limit was exceeded and key wasn't whitelisted
+            # Reject request if rate limit was exceeded
+            # and key wasn't whitelisted
             if exceeded_rate_limit:
                 colored_log(
                     f"Blacklisted a {synapse_type} request from {caller_hotkey}."
@@ -464,23 +475,24 @@ class BaseMiner(ABC):
             # Blacklist requests from validators that aren't registered
             if caller_stake is None:
                 colored_log(
-                    f"Blacklisted a non-registered hotkey's {synapse_type} request from {caller_hotkey}.",
+                    f"Blacklisted a non-registered hotkey's {synapse_type}"
+                    + f" request from {caller_hotkey}.",
                     color="red",
                 )
                 return (
                     True,
-                    f"Blacklisted a non-registered hotkey's {synapse_type} request from {caller_hotkey}.",
+                    f"Blacklisted a non-registered hotkey's {synapse_type}"
+                    + f" request from {caller_hotkey}.",
                 )
 
             # Check that the caller has sufficient stake
             if caller_stake < vpermit_tao_limit:
-                # colored_log(
-                # f"Blacklisted a {synapse_type} request from {caller_hotkey} due to low stake: {caller_stake:.2f} < {vpermit_tao_limit}.",
-                # color="red",
-                # )
                 return (
                     True,
-                    f"Blacklisted a {synapse_type} request from {caller_hotkey} due to low stake: {caller_stake:.2f} < {vpermit_tao_limit}",
+                    f"Blacklisted a {synapse_type}"
+                    + f" request from {caller_hotkey}"
+                    + f" due to low stake: {caller_stake:.2f}"
+                    + f" < {vpermit_tao_limit}",
                 )
 
             logger.info(f"Allowing recognized hotkey {caller_hotkey}")
@@ -514,7 +526,8 @@ class BaseMiner(ABC):
                 colored_log("The miner is not currently registered.", color="red")
                 time.sleep(120)
 
-                # Ensure the metagraph is synced before the next registration check
+                # Ensure the metagraph is synced
+                # before the next registration check
                 self.metagraph.sync(subtensor=self.subtensor)
                 continue
 
@@ -534,8 +547,8 @@ class BaseMiner(ABC):
                     )
                     colored_log(log, color="green")
 
-                    # Show the top 10 requestors by calls along with their delta
-                    # Hotkey, count, delta, rate limited count
+                    # Show the top 10 requestors by calls along
+                    # with their delta Hotkey, count, delta, rate limited count
                     top_requestors = [
                         (k, v["count"], v["delta"], v["rate_limited_count"])
                         for k, v in self.request_dict.items()
@@ -553,7 +566,9 @@ class BaseMiner(ABC):
                         if len(top_requestors) > 0:
                             formatted_str = "\n".join(
                                 [
-                                    f"Hotkey: {x[0]}, Count: {x[1]} ({((x[1] / total_requests_counted)*100) if total_requests_counted > 0 else 0:.2f}%), Average delta: {sum(x[2]) / len(x[2]) if len(x[2]) > 0 else 0:.2f}, Rate limited count: {x[3]}"
+                                    f"Hotkey: {x[0]}, "
+                                    + f"Count: {x[1]} ({((x[1] / total_requests_counted)*100) if total_requests_counted > 0 else 0:.2f}%), "
+                                    + f"Average delta: {sum(x[2]) / len(x[2]) if len(x[2]) > 0 else 0:.2f}, Rate limited count: {x[3]}"
                                     for x in top_requestors
                                 ]
                             )
@@ -569,13 +584,15 @@ class BaseMiner(ABC):
                 step += 1
                 time.sleep(60)
 
-            # If someone intentionally stops the miner, it'll safely terminate operations.
+            # If someone intentionally stops the miner,
+            # it'll safely terminate operations.
             except KeyboardInterrupt:
                 self.axon.stop()
                 logger.success("Miner killed by keyboard interrupt.")
                 break
 
-            # In case of unforeseen errors, the miner will log the error and continue operations.
+            # In case of unforeseen errors,
+            # the miner will log the error and continue operations.
             except Exception as e:
                 logger.error(f"Unexpected error: {traceback.format_exc()}")
                 continue
