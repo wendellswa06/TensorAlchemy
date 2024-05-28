@@ -35,8 +35,8 @@ Join our thriving Discord community to connect with fellow AI enthusiasts, artis
 1. Visit our [![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
 )](https://github.com/TensorAlchemy/TensorAlchemy/tree/main/neurons) to explore the code behind TensorAlchemy
 2. Join our [![](https://dcbadge.limes.pink/api/server/tensoralchemy)](https://discord.gg/tensoralchemy) to stay updated and engage with the team
-3. Dive into AI image generation with [![Tensoralchemy button](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai)
-4. Start scoring images at [![Tensoralchemy button](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai/validate)
+3. Dive into AI image generation with [![Tensoralchemy generation](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai)
+4. Start scoring images at [![Tensoralchemy validation](./contrib/tensoralchemy-button.png)](https://tensoralchemy.ai/validate)
 
 ## Mainnet docs
 
