@@ -41,14 +41,12 @@ Join our thriving Discord community to connect with fellow AI enthusiasts, artis
 
 
 #### Miner guide: 
-[
-![Miner guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/15nb9Cu8HTdq_wqpo-OO17OnE5wdZBTJVXPqOVk7i8MQ)
+[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/mainnet/miner.md)
 
 #### Validator guide: 
-[
-![Validator guide](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-](https://docs.google.com/document/d/1ZJoglHVcra5X6-rcsJpIeHPrJfPXkjDfA11V8GXwzVc)
+[![Github icon](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+)](./contrib/guides/mainnet/validator.md)
 
 ## Testnet docs
 
