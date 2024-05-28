@@ -1,16 +1,23 @@
-import asyncio
-import copy
 import os
-import subprocess
+import sys
+import copy
 import time
+import asyncio
+import subprocess
 import traceback
+
 from time import sleep
 
 import sentry_sdk
 import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
-from neurons.utils import BackgroundTimer, background_loop, colored_log, get_defaults
+from neurons.utils import (
+    BackgroundTimer,
+    background_loop,
+    colored_log,
+    get_defaults,
+)
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
 from neurons.validator.reward import (
@@ -53,17 +60,18 @@ class StableValidator:
         while True:
             try:
                 index = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
-            except:
+            except Exception:
                 pass
+
             if index is not None:
                 logger.info(
-                    f"Validator {self.config.wallet.hotkey} is registered with uid {self.metagraph.uids[index]}.",
-                    "g",
+                    f"Validator {self.config.wallet.hotkey} is registered with uid: "
+                    + str(self.metagraph.uids[index]),
                 )
                 break
             logger.warning(
-                f"Validator {self.config.wallet.hotkey} is not registered. Sleeping for 120 seconds...",
-                "r",
+                f"Validator {self.config.wallet.hotkey} is not registered. "
+                + "Sleeping for 120 seconds...",
             )
             time.sleep(120)
             self.metagraph.sync(subtensor=self.subtensor)
@@ -88,9 +96,6 @@ class StableValidator:
         openai_api_key = os.environ.get("OPENAI_API_KEY")
         self.corcel_api_key = os.environ.get("CORCEL_API_KEY")
 
-        # if not self.corcel_api_key:
-        #     print("Please set the CORCEL_API_KEY environment variable.")
-
         if not openai_api_key:
             logger.error("Please set the OPENAI_API_KEY environment variable.")
         else:
@@ -103,12 +108,6 @@ class StableValidator:
 
         wandb.login(anonymous="must")
 
-        # Init prompt backup db
-        # try:
-        #     self.prompt_history_db = get_promptdb_backup(self.config.netuid)
-        # except Exception as e:
-        #     print(f"Unexpected error occurred loading the backup prompts: {e}")
-        #     self.prompt_history_db = []
         self.prompt_generation_failures = 0
 
         # Init subtensor
@@ -122,12 +121,13 @@ class StableValidator:
             sentry_sdk.set_context(
                 "cuda_device", {"name": get_device_name(self.device)}
             )
-        except:
-            logger.error("failed to set sentry context")
+        except Exception:
+            logger.error("Failed to set sentry context")
 
         self.api_url = DEV_URL if self.subtensor.network == "test" else PROD_URL
         if self.config.alchemy.force_prod:
             self.api_url = PROD_URL
+
         logger.info(f"Using server {self.api_url}")
 
         # Init wallet.
@@ -146,7 +146,7 @@ class StableValidator:
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
         if "mock" not in self.config.wallet.name:
-            #### Wait until the miner is registered
+            # Wait until the miner is registered
             self.loop_until_registered()
 
         self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
@@ -156,9 +156,6 @@ class StableValidator:
 
         # Init Weights.
         self.moving_average_scores = torch.zeros((self.metagraph.n)).to(self.device)
-        # print(
-        #     f"Loaded moving_averaged_scores: {str(self.moving_average_scores)}"
-        # )
 
         # Each validator gets a unique identity (UID) in the network for differentiation.
         self.my_subnet_uid = self.metagraph.hotkeys.index(
@@ -183,9 +180,12 @@ class StableValidator:
             try:
                 if "ImageAlchemy" not in os.getcwd():
                     raise Exception(
-                        "Unable to load manual validator please cd into the ImageAlchemy folder before running the validator"
+                        "Unable to load manual validator please `cd` "
+                        + "into the ImageAlchemy folder before running the validator"
                     )
-                logger.info("Setting streamlit credentials")
+
+                logger.info("Setup streamlit credentials")
+
                 if not os.path.exists("streamlit_credentials.txt"):
                     hashkey = pwgenerator.generate()
                     password = pwgenerator.generate()
@@ -212,7 +212,7 @@ class StableValidator:
                 # Sleep until the credentials file is written
                 sleep(5)
                 logger.info("Loading Manual Validator")
-                process = subprocess.Popen(
+                subprocess.Popen(
                     [
                         "streamlit",
                         "run",
@@ -278,7 +278,7 @@ class StableValidator:
             init_wandb(self)
             logger.info("Loaded wandb")
             self.wandb_loaded = True
-        except Exception as e:
+        except Exception:
             self.wandb_loaded = False
             logger.error("Unable to load wandb. Retrying in 5 minnutes.")
             logger.error(f"wandb loading error: {traceback.format_exc()}")
@@ -305,7 +305,12 @@ class StableValidator:
         # Start the generic background loop
         self.storage_client = None
         self.background_steps = 1
-        self.background_timer = BackgroundTimer(60, background_loop, [self, True])
+        self.background_timer = BackgroundTimer(
+            #
+            60,
+            background_loop,
+            [self, True],
+        )
         self.background_timer.daemon = True
         self.background_timer.start()
 
@@ -315,21 +320,21 @@ class StableValidator:
                 self.metagraph.axons[uid].hotkey: float("inf")
                 for uid in range(self.metagraph.n.item())
             }
-        except:
+        except Exception:
             pass
         try:
             self.miner_query_history_count = {
                 self.metagraph.axons[uid].hotkey: 0
                 for uid in range(self.metagraph.n.item())
             }
-        except:
+        except Exception:
             pass
         try:
             self.miner_query_history_fail_count = {
                 self.metagraph.axons[uid].hotkey: 0
                 for uid in range(self.metagraph.n.item())
             }
-        except:
+        except Exception:
             pass
 
     async def run(self):
@@ -343,7 +348,8 @@ class StableValidator:
                 # Reduce calls to miner to be approximately 1 per 5 minutes
                 if self.step > 0:
                     logger.info(
-                        f"Waiting for {self.request_frequency} seconds before querying miners again..."
+                        f"Waiting for {self.request_frequency} "
+                        + "seconds before querying miners again..."
                     )
                     sleep(self.request_frequency)
 
@@ -359,22 +365,22 @@ class StableValidator:
                 if prompt is None:
                     logger.warning(f"The prompt was not generated successfully.")
 
-                    ### Prevent loop from forming if the prompt error occurs on the first step
+                    # Prevent loop from forming if the prompt
+                    # error occurs on the first step
                     if self.step == 0:
                         self.step += 1
 
                     continue
 
                 # Text to Image Run
-                t2i_event = run_step(
-                    self, prompt, axons, uids, task_type="text_to_image"
-                )
+                run_step(self, prompt, axons, uids, task_type="text_to_image")
                 # Re-sync with the network. Updates the metagraph.
                 try:
                     self.sync()
                 except Exception as e:
                     logger.error(
-                        f"An unexpected error occurred trying to sync the metagraph: {e}"
+                        "An unexpected error occurred"
+                        + f" trying to sync the metagraph: {e}"
                     )
 
                 # Save Previous Sates
@@ -383,7 +389,8 @@ class StableValidator:
                 # End the current step and prepare for the next iteration.
                 self.step += 1
 
-                # Assuming each step is 3 minutes restart wandb run ever 3 hours to avoid overloading a validators storage space
+                # Assuming each step is 3 minutes restart wandb run ever
+                # 3 hours to avoid overloading a validators storage space
                 if self.step % 360 == 0 and self.step != 0:
                     logger.info("Re-initializing wandb run...")
                     try:
@@ -397,13 +404,17 @@ class StableValidator:
 
             # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
-                logger.error(f"Error in training loop: {e}\n{traceback.format_exc()}")
+                logger.error(
+                    #
+                    f"Error in training loop: {e}\n"
+                    + traceback.format_exc(),
+                )
                 sentry_sdk.capture_exception(e)
 
             # If the user interrupts the program, gracefully exit.
             except KeyboardInterrupt:
                 logger.warning("Keyboard interrupt detected. Exiting validator.")
-                exit()
+                sys.exit(1)
 
     def sync(self):
         """
@@ -487,7 +498,7 @@ class StableValidator:
                 f"Wallet: {self.wallet} is not registered on netuid {self.config.netuid}."
                 f" Please register the hotkey before trying again"
             )
-            exit()
+            sys.exit(1)
 
     def should_sync_metagraph(self):
         """
@@ -503,9 +514,9 @@ class StableValidator:
         ma_scores_sum = sum(ma_scores)
         if any([ma_scores_sum == len(ma_scores), ma_scores_sum == 0]):
             return False
-        else:
-            # Check if enough epoch blocks have elapsed since the last epoch.
-            return (ttl_get_block(self) % self.prev_block) >= self.epoch_length
+
+        # Check if enough epoch blocks have elapsed since the last epoch.
+        return (ttl_get_block(self) % self.prev_block) >= self.epoch_length
 
     def save_state(self):
         r"""Save hotkeys, neuron model and moving average scores to filesystem."""
@@ -597,8 +608,6 @@ class StableValidator:
                 )
             except Exception as e:
                 logger.error(f"Failed to serve Axon with exception: {e}")
-                pass
 
         except Exception as e:
             logger.error(f"Failed to create Axon initialize with exception: {e}")
-            pass
