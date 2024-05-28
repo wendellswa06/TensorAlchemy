@@ -1,6 +1,7 @@
 import _thread
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -500,6 +501,26 @@ def background_loop(self, is_validator):
                     logger.info("Cleaned all synced wandb runs.")
                     subprocess.Popen(["wandb artifact cache cleanup 5GB"], shell=True)
                     logger.info("Cleaned all wandb cache data > 5GB.")
+
+                ### Catch any runs that the stock wandb function doesn't
+                runs = [
+                    x
+                    for x in os.listdir(f"{wandb_path}/wandb")
+                    if "run-" in x and not "latest-run" in x
+                ]
+
+                ### Leave the most recent 3 runs
+                try:
+                    if len(runs) > 3:
+                        ### Sort runs
+                        runs = sorted(runs, key=lambda x : datetime.strptime(x.split("run-")[-1].rsplit("-")[0], "%Y%m%d_%H%M%S"))
+                        for run in runs[:-3]:
+                            shutil.rmtree(f"{wandb_path}/wandb/{run}")
+                            
+                        logger.info("Finished cleaning out old runs...")
+                except Exception as e:
+                    logger.warning(f"Failed to manually delete old wandb runs: {e}")
+
             else:
                 logger.warning(f"The path {wandb_path} doesn't exist yet.")
         except Exception as e:
