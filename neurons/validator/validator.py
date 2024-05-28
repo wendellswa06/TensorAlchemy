@@ -306,7 +306,6 @@ class StableValidator:
         self.storage_client = None
         self.background_steps = 1
         self.background_timer = BackgroundTimer(
-            #
             60,
             background_loop,
             [self, True],
@@ -405,9 +404,8 @@ class StableValidator:
             # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
                 logger.error(
-                    #
-                    f"Error in training loop: {e}\n"
-                    + traceback.format_exc(),
+                    #                     f"Error in training loop: {e}\n"
+                    +traceback.format_exc(),
                 )
                 sentry_sdk.capture_exception(e)
 

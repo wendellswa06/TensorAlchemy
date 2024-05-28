@@ -110,7 +110,7 @@ def check_uid_availability(
             return False
     # # Filter for miners that are processing other responses
     # if not await check_uid(dendrite, metagraph.axons[uid], uid):
-    #     return False
+    # return False
     # # Available otherwise.
     return True
 
@@ -149,7 +149,7 @@ async def get_random_uids(
     # # This prioritises miners that have been queried less than average
     # candidate_uids = [i for i,_ in sorted(zip(candidate_uids, [self.miner_query_history_count[self.metagraph.axons[uid].hotkey] for uid in candidate_uids]))]
 
-    ### Random sort candidate_uids
+    # Random sort candidate_uids
     random.shuffle(candidate_uids)
 
     # Find the first K uids that respond with IsAlive
@@ -268,7 +268,7 @@ def calculate_mean_dissimilarity(dissimilarity_matrix):
     # Ensure sum of values is 1 (normalize)
     # sum_values = sum(mean_dissimilarities)
     # if sum_values != 0:
-    #     mean_dissimilarities = [value / sum_values for value in mean_dissimilarities]
+    # mean_dissimilarities = [value / sum_values for value in mean_dissimilarities]
 
     return mean_dissimilarities
 
@@ -282,7 +282,7 @@ def cosine_distance(image_embeds, text_embeds):
 def corcel_parse_response(text):
     split = text.split('"')
     if len(split) == 3:
-        ### Has quotes
+        # Has quotes
         split = [x for x in split if x]
 
         if split:
@@ -378,12 +378,12 @@ def generate_random_prompt_gpt(
 ):
     response = None
 
-    ### Generate the prompt from corcel if we have an API key
+    # Generate the prompt from corcel if we have an API key
     if self.corcel_api_key:
         try:
             response = call_corcel(self, prompt)
             if response:
-                ### Parse response to remove quotes and also adapt the bug with corcel where the output is repeated N times
+                # Parse response to remove quotes and also adapt the bug with corcel where the output is repeated N times
                 response = corcel_parse_response(response)
                 if response.startswith("{"):
                     response = None
@@ -408,7 +408,7 @@ def generate_random_prompt_gpt(
                 "Attempted to use OpenAI as a fallback but the OPENAI_API_KEY is not set."
             )
 
-    ### Remove any double quotes from the output
+    # Remove any double quotes from the output
     if response:
         response = response.replace('"', "")
 
@@ -421,7 +421,7 @@ def generate_followup_prompt_gpt(
     model="gpt-4",
     followup_prompt="An image has now been generated from your first prompt. What is a second instruction that can be applied to this generated image?",
 ):
-    ### Update this for next week. Combine this and the method above.
+    # Update this for next week. Combine this and the method above.
     messages = [
         {"role": "system", "content": "You are an image prompt generator."},
         {"role": "assistant", "content": f"{prompt}"},

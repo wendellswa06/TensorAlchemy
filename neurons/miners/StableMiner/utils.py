@@ -15,7 +15,7 @@ from neurons.utils import COLORS, colored_log, sh
 import bittensor as bt
 
 
-#### Wrapper for the raw images
+# Wrapper for the raw images
 class Images:
     def __init__(self, images):
         self.images = images
@@ -95,12 +95,12 @@ def do_logs(self, synapse, local_args):
         color="cyan",
     )
 
-    ### Output stake
+    # Output stake
     requester_stake = get_caller_stake(self, synapse)
     if requester_stake is None:
         requester_stake = -1
 
-    ### Retrieve the coldkey of the caller
+    # Retrieve the coldkey of the caller
     caller_coldkey = get_coldkey_for_hotkey(self, hotkey)
 
     temp_string = f"Stake {int(requester_stake):,}"

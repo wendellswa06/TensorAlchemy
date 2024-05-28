@@ -9,7 +9,7 @@ IA_MINER_WHITELIST = "whitelist_for_miners.json"
 WANDB_MINER_PATH = os.path.expanduser("~/.ImageAlchemy/wandb/miner")
 WANDB_VALIDATOR_PATH = os.path.expanduser("~/.ImageAlchemy/wandb/validator")
 
-### Validator only
+# Validator only
 N_NEURONS = 12
 N_NEURONS_TO_QUERY = 18
 VPERMIT_TAO = 1024

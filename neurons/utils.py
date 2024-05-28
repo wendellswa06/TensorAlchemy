@@ -112,23 +112,19 @@ MINIMUM_VALID_IMAGES_ERROR: str = "MINIMUM_VALID_IMAGES_ERROR"
 
 class BatchSubmissionRequest(BaseModel):
     batch_id: str
-    #
     # Results
     prompt: str
     computes: List[str]
 
-    #
     # Filtering
     nsfw_scores: List[float]
     blacklist_scores: List[int] = []
     should_drop_entries: List[int] = []
 
-    #
     # Miner
     miner_hotkeys: List[str]
     miner_coldkeys: List[str]
 
-    #
     # Validator
     validator_hotkey: str
 
@@ -407,8 +403,8 @@ def background_loop(self, is_validator):
                         )
 
                     # self.reward_weights = torch.tensor(
-                    #     [v for k, v in validator_weights.items() if "manual" not in k],
-                    #     dtype=torch.float32,
+                    # [v for k, v in validator_weights.items() if "manual" not in k],
+                    # dtype=torch.float32,
                     # ).to(self.device)
 
                 # Update settings

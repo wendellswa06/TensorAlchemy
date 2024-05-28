@@ -475,8 +475,8 @@ class BaseMiner(ABC):
             # Check that the caller has sufficient stake
             if caller_stake < vpermit_tao_limit:
                 # colored_log(
-                #     f"Blacklisted a {synapse_type} request from {caller_hotkey} due to low stake: {caller_stake:.2f} < {vpermit_tao_limit}.",
-                #     color="red",
+                # f"Blacklisted a {synapse_type} request from {caller_hotkey} due to low stake: {caller_stake:.2f} < {vpermit_tao_limit}.",
+                # color="red",
                 # )
                 return (
                     True,

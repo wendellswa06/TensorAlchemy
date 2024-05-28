@@ -40,7 +40,7 @@ def read_requirements(path):
                     processed_requirements.append(pkg_name.group(2))
                 else:
                     # You may decide to raise an exception here,
-                    # if you want to ensure every VCS link has an #egg=<package_name> at the end
+                    # if you want to ensure every VCS link has an # egg=<package_name> at the end
                     continue
             else:
                 processed_requirements.append(req)
