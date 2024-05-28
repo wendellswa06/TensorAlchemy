@@ -7,7 +7,7 @@
 
 </div>
 
-This documentation is for starting and running a miner on the ImageAlchemy mainnet.
+This documentation is for starting and running a miner on the TensorAlchemy mainnet.
 
 
 ## MINER REQUIREMENTS
@@ -17,13 +17,13 @@ This documentation is for starting and running a miner on the ImageAlchemy mainn
 - ⚗️ CUDA 12.0 or higher
 
 
-Below are several guides which include instructions to get mining with the Image Alchemy subnet.
+Below are several guides which include instructions to get mining with the Tensor Alchemy subnet.
 
 ## GUIDE 1 (venv)
 
 ### STEP 1. CLONE REPOSITORY
 ```bash
-git clone https://github.com/Supreme-Emperor-Wang/ImageAlchemy.git ~/ImageAlchemy
+git clone https://github.com/TensorAlchemy/TensorAlchemy.git ~/TensorAlchemy
 ```
 
 ### STEP 2. INSTALL PREREQUISITES
@@ -33,17 +33,17 @@ sudo apt-get update && sudo apt-get install python3.10-venv
 
 ### STEP 3. CREATE A VENV
 ```bash
-python3.10 -m venv ~/venvs/ImageAlchemy && source ~/venvs/ImageAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
+python3.10 -m venv ~/venvs/TensorAlchemy && source ~/venvs/TensorAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
 ```
 
 ### STEP 4. INSTALL REQUIREMENTS INTO VENV
 ```bash
-source ~/venvs/ImageAlchemy/bin/activate && cd ~/ImageAlchemy && pip install -e .
+source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -e .
 ```
 
 ### STEP 5. LAUNCH MINER
 ```bash
-python ~/ImageAlchemy/neurons/miners/StableMiner/main.py --wallet.name NAME --wallet.hotkey HOTKEY --netuid 26 --subtensor.network finney --axon.port 8101 --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
+python ~/TensorAlchemy/neurons/miners/StableMiner/main.py --wallet.name NAME --wallet.hotkey HOTKEY --netuid 26 --subtensor.network finney --axon.port 8101 --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
 ```
 
 
@@ -78,7 +78,7 @@ sudo rm /etc/apt/sources.list.d/Keymetrics_pm2.list
 
 ### STEP 1. CLONE REPOSITORY
 ```bash
-git clone https://github.com/Supreme-Emperor-Wang/ImageAlchemy.git ~/ImageAlchemy
+git clone https://github.com/TensorAlchemy/TensorAlchemy.git ~/TensorAlchemy
 ```
 
 
@@ -90,17 +90,17 @@ sudo apt-get update && sudo apt-get install python3.10-venv
 
 ### STEP 3. CREATE A VENV
 ```bash
-python3.10 -m venv ~/venvs/ImageAlchemy && source ~/venvs/ImageAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
+python3.10 -m venv ~/venvs/TensorAlchemy && source ~/venvs/TensorAlchemy/bin/activate && pip install wheel && pip install --upgrade setuptools
 ```
 
 ### STEP 4. INSTALL REQUIREMENTS INTO VENV
 ```bash
-source ~/venvs/ImageAlchemy/bin/activate && cd ~/ImageAlchemy && pip install -e .
+source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -e .
 ```
 
 ### STEP 5. LAUNCH MINER
 ```bash
-pm2 start ~/ImageAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/venvs/ImageAlchemy/bin/python --restart-delay 30000 --name NAME --  --wallet.name WALLET --wallet.hotkey HOTKEY --axon.port PORT --netuid 26 --subtensor.network finney --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
+pm2 start ~/TensorAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/venvs/TensorAlchemy/bin/python --restart-delay 30000 --name NAME --  --wallet.name WALLET --wallet.hotkey HOTKEY --axon.port PORT --netuid 26 --subtensor.network finney --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
 ```
 
 
@@ -112,7 +112,7 @@ pm2 start ~/ImageAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/venv
 
 ### STEP 1. CLONE REPOSITORY
 ```bash
-git clone https://github.com/Supreme-Emperor-Wang/ImageAlchemy.git ~/ImageAlchemy
+git clone https://github.com/TensorAlchemy/TensorAlchemy.git ~/TensorAlchemy
 ```
 
 
@@ -157,12 +157,12 @@ conda config --set auto_activate_base false
 
 ### STEP 3. INSTALL REQUIREMENTS INTO CONDA ENV
 ```bash
-cd ~/ImageAlchemy && pip install -e .
+cd ~/TensorAlchemy && pip install -e .
 ```
 
 ### STEP 4. LAUNCH MINER
 ```bash
-pm2 start ~/ImageAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/anaconda3/envs/py310/bin/python --restart-delay 30000 --name NAME --  --wallet.name WALLET --wallet.hotkey HOTKEY --axon.port PORT --netuid 26 --subtensor.network finney --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
+pm2 start ~/TensorAlchemy/neurons/miners/StableMiner/main.py --interpreter ~/anaconda3/envs/py310/bin/python --restart-delay 30000 --name NAME --  --wallet.name WALLET --wallet.hotkey HOTKEY --axon.port PORT --netuid 26 --subtensor.network finney --miner.device cuda:0 --logging.debug --wandb.entity ENTITY --wandb.project PROJECT --wandb.api_key APIKEY
 ```
 
 ### NOTES
