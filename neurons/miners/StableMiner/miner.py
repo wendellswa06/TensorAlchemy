@@ -9,8 +9,6 @@ from neurons.safety import StableDiffusionSafetyChecker
 from transformers import CLIPImageProcessor
 from utils import colored_log, warm_up
 
-import bittensor as bt
-
 
 class StableMiner(BaseMiner):
     def __init__(self):
@@ -69,7 +67,8 @@ class StableMiner(BaseMiner):
 
             # Warm up model
             colored_log(
-                ">>> Warming up model with compile... this takes roughly two minutes...",
+                ">>> Warming up model with compile... "
+                + "this takes roughly two minutes...",
                 color="yellow",
             )
             warm_up(self.t2i_model, self.t2i_args)
