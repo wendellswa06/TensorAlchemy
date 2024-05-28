@@ -56,7 +56,7 @@ def check_config(cls, to_check: bt.config):
     )
 
 
-def add_args(cls, parser):
+def add_args(_cls, parser):
     # Netuid Arg
     parser.add_argument("--netuid", type=int, help="Network netuid", default=26)
 

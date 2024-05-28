@@ -55,7 +55,7 @@ def set_weights(self):
             logger.info("Error logging weights to the Weights API")
         else:
             logger.info("Successfully logged weights to the Weights API")
-    except:
+    except Exception:
         logger.info("Error logging weights to the Weights API")
 
     # print("raw_weights", raw_weights)

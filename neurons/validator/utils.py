@@ -79,7 +79,7 @@ async def check_uid(dendrite, self, uid, response_times):
                     self.miner_query_history_count[key] = int(
                         np.array(list(self.miner_query_history_count.values())).mean()
                     )
-            except:
+            except Exception:
                 pass
             return False
     except Exception as e:
@@ -110,7 +110,7 @@ def check_uid_availability(
             return False
     # # Filter for miners that are processing other responses
     # if not await check_uid(dendrite, metagraph.axons[uid], uid):
-    #     return False
+    # return False
     # # Available otherwise.
     return True
 
@@ -149,7 +149,7 @@ async def get_random_uids(
     # # This prioritises miners that have been queried less than average
     # candidate_uids = [i for i,_ in sorted(zip(candidate_uids, [self.miner_query_history_count[self.metagraph.axons[uid].hotkey] for uid in candidate_uids]))]
 
-    ### Random sort candidate_uids
+    # Random sort candidate_uids
     random.shuffle(candidate_uids)
 
     # Find the first K uids that respond with IsAlive
@@ -211,7 +211,7 @@ async def get_random_uids(
     sum_avg = 0
     try:
         sum_avg = sum(avg_num_list) / attempt_counter
-    except:
+    except Exception:
         pass
 
     logger.info(
@@ -268,7 +268,7 @@ def calculate_mean_dissimilarity(dissimilarity_matrix):
     # Ensure sum of values is 1 (normalize)
     # sum_values = sum(mean_dissimilarities)
     # if sum_values != 0:
-    #     mean_dissimilarities = [value / sum_values for value in mean_dissimilarities]
+    # mean_dissimilarities = [value / sum_values for value in mean_dissimilarities]
 
     return mean_dissimilarities
 
@@ -282,7 +282,7 @@ def cosine_distance(image_embeds, text_embeds):
 def corcel_parse_response(text):
     split = text.split('"')
     if len(split) == 3:
-        ### Has quotes
+        # Has quotes
         split = [x for x in split if x]
 
         if split:
@@ -374,22 +374,25 @@ def call_corcel(self, prompt):
 def generate_random_prompt_gpt(
     self,
     model="gpt-4",
-    prompt="You are an image prompt generator. Your purpose is to generate a single one sentence prompt that can be fed into Dalle-3.",
+    prompt="You are an image prompt generator. "
+    + "Your purpose is to generate a single one sentence prompt "
+    + "that can be fed into Dalle-3.",
 ):
     response = None
 
-    ### Generate the prompt from corcel if we have an API key
+    # Generate the prompt from corcel if we have an API key
     if self.corcel_api_key:
         try:
             response = call_corcel(self, prompt)
             if response:
-                ### Parse response to remove quotes and also adapt the bug with corcel where the output is repeated N times
+                # Parse response to remove quotes and also adapt
+                # the bug with corcel where the output is repeated N times
                 response = corcel_parse_response(response)
                 if response.startswith("{"):
                     response = None
         except Exception as e:
             logger.error(f"An unexpected error occurred calling corcel: {e}")
-            logger.error(f"Falling back to OpenAI if available...")
+            logger.error("Falling back to OpenAI if available...")
 
     if not response:
         if self.openai_client:
@@ -398,17 +401,18 @@ def generate_random_prompt_gpt(
                     response = call_openai(self.openai_client, model, prompt)
                 except Exception as e:
                     logger.error(f"An unexpected error occurred calling OpenAI: {e}")
-                    logger.error(f"Sleeping for 10 seconds and retrying once...")
+                    logger.error("Sleeping for 10 seconds and retrying once...")
                     time.sleep(10)
 
                 if response:
                     break
         else:
             logger.warning(
-                "Attempted to use OpenAI as a fallback but the OPENAI_API_KEY is not set."
+                "Attempted to use OpenAI as a fallback "
+                + "but the OPENAI_API_KEY is not set."
             )
 
-    ### Remove any double quotes from the output
+    # Remove any double quotes from the output
     if response:
         response = response.replace('"', "")
 
@@ -419,9 +423,10 @@ def generate_followup_prompt_gpt(
     self,
     prompt,
     model="gpt-4",
-    followup_prompt="An image has now been generated from your first prompt. What is a second instruction that can be applied to this generated image?",
+    followup_prompt="An image has now been generated from your first prompt."
+    + " What is a second instruction that can be applied to this generated image?",
 ):
-    ### Update this for next week. Combine this and the method above.
+    # Update this for next week. Combine this and the method above.
     messages = [
         {"role": "system", "content": "You are an image prompt generator."},
         {"role": "assistant", "content": f"{prompt}"},
@@ -498,7 +503,7 @@ def reinit_wandb(self):
     if self.wandb:
         try:
             self.wandb.finish()
-        except:
+        except Exception:
             pass
     init_wandb(self, reinit=True)
 
@@ -529,15 +534,16 @@ def get_promptdb_backup(netuid, prompt_history=[], limit=1):
                     or pd.isna(history.loc[i + 1, "prompt_i2i"])
                 ):
                     continue
-                else:
-                    prompt_tuple = (
-                        history.loc[i, "prompt_t2i"],
-                        history.loc[i + 1, "prompt_i2i"],
-                    )
-                    if prompt_tuple in prompt_history:
-                        continue
-                    else:
-                        prompt_history.append(prompt_tuple)
+
+                prompt_tuple = (
+                    history.loc[i, "prompt_t2i"],
+                    history.loc[i + 1, "prompt_i2i"],
+                )
+
+                if prompt_tuple in prompt_history:
+                    continue
+
+                prompt_history.append(prompt_tuple)
 
     return prompt_history
 
@@ -553,9 +559,9 @@ def get_device_name(device: torch.device):
                 else torch.cuda.current_device()
             )
             return device_name
-        else:
-            # Return 'CPU' as it does not have a specific name like GPUs do
-            return "CPU"
+
+        # Return 'CPU' as it does not have a specific name like GPUs do
+        return "CPU"
     except Exception as e:
         logger.error(f"failed to get device name: {e}")
         return "n/a"

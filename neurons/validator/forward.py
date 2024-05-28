@@ -1,7 +1,5 @@
 import base64
 import copy
-import os
-import random
 import time
 import uuid
 from asyncio import AbstractEventLoop
@@ -10,12 +8,11 @@ from datetime import datetime
 from io import BytesIO
 from typing import List
 
-import pandas as pd
 import requests
 import torch
 import torchvision.transforms as T
 from loguru import logger
-from neurons.constants import MOVING_AVERAGE_ALPHA, MOVING_AVERAGE_BETA
+from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration
 from neurons.utils import colored_log, sh
 from neurons.validator.event import EventSchema
@@ -39,7 +36,12 @@ def update_moving_averages(
     device: torch.device,
     alpha=MOVING_AVERAGE_ALPHA,
 ) -> torch.FloatTensor:
-    rewards = torch.nan_to_num(rewards, nan=0.0, posinf=0.0, neginf=0.0).to(device)
+    rewards = torch.nan_to_num(
+        rewards,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    ).to(device)
     moving_averaged_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * moving_averaged_scores.to(device)
@@ -73,7 +75,7 @@ def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
             validator.miner_query_history_count[
                 validator.metagraph.axons[uid].hotkey
             ] += 1
-    except:
+    except Exception:
         logger.error("Failed to log miner counts and histories")
 
     colored_log(
@@ -111,14 +113,14 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
 def save_images_data_for_manual_validation(
     responses: List[ImageGeneration], prompt: str
 ):
-    logger.info(f"Saving images...")
+    logger.info("Saving images...")
     for i, r in enumerate(responses):
         for image in r.images:
             T.transforms.ToPILImage()(bt.Tensor.deserialize(image)).save(
                 f"neurons/validator/images/{i}.png"
             )
 
-    logger.info(f"Saving prompt...")
+    logger.info("Saving prompt...")
     with open("neurons/validator/images/prompt.txt", "w") as f:
         f.write(prompt)
 
@@ -144,7 +146,7 @@ def post_moving_averages(
         else:
             logger.info("Successfully logged moving averages to the Averages API")
             return True
-    except:
+    except Exception:
         logger.info("Error logging moving averages to the Averages API")
         return False
 
@@ -198,10 +200,14 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
         color="yellow",
     )
 
-    ### Set seed to -1 so miners will use a random seed by default
+    # Set seed to -1 so miners will use a random seed by default
     synapse = ImageGeneration(
-        generation_type=task_type, prompt=prompt, prompt_image=image or None, seed=-1
+        generation_type=task_type,
+        prompt=prompt,
+        prompt_image=image,
+        seed=-1,
     )
+
     synapse_info = (
         f"Timeout: {synapse.timeout:.2f} "
         f"| Height: {synapse.height} "
@@ -215,7 +221,12 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
     log_query_to_history(self, uids)
 
     # Sort responses
-    responses_empty_flag = [1 if not response.images else 0 for response in responses]
+    responses_empty_flag = [
+        #
+        1 if not response.images else 0
+        for response in responses
+    ]
+
     sorted_index = [
         item[0]
         for item in sorted(
@@ -316,7 +327,8 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 T.transforms.ToPILImage()(
                     bt.Tensor.deserialize(response.images[0])
                 ).save(im_file, format="PNG")
-                im_bytes = im_file.getvalue()  # im_bytes: image in binary format.
+                # im_bytes: image in binary format.
+                im_bytes = im_file.getvalue()
                 im_b64 = base64.b64encode(im_bytes)
                 images.append(im_b64.decode())
                 should_drop_entries.append(0)
@@ -325,7 +337,8 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 T.transforms.ToPILImage()(
                     torch.full([3, 1024, 1024], 255, dtype=torch.float)
                 ).save(im_file, format="PNG")
-                im_bytes = im_file.getvalue()  # im_bytes: image in binary format.
+                # im_bytes: image in binary format.
+                im_bytes = im_file.getvalue()
                 im_b64 = base64.b64encode(im_bytes)
                 images.append(im_b64.decode())
                 should_drop_entries.append(1)
@@ -333,15 +346,15 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
         # Update batches to be sent to the human validation platform
         self.batches.append(
             {
-                "batch_id": str(uuid.uuid4()),
-                "validator_hotkey": str(self.wallet.hotkey.ss58_address),
                 "prompt": prompt,
+                "computes": images,
+                "batch_id": str(uuid.uuid4()),
                 "nsfw_scores": event["nsfw_filter"],
                 "blacklist_scores": event["blacklist_filter"],
+                "should_drop_entries": should_drop_entries,
+                "validator_hotkey": str(self.wallet.hotkey.ss58_address),
                 "miner_hotkeys": [self.metagraph.hotkeys[uid] for uid in uids],
                 "miner_coldkeys": [self.metagraph.coldkeys[uid] for uid in uids],
-                "computes": images,
-                "should_drop_entries": should_drop_entries,
             }
         )
     except Exception as e:

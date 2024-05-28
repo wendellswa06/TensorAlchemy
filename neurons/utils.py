@@ -112,23 +112,19 @@ MINIMUM_VALID_IMAGES_ERROR: str = "MINIMUM_VALID_IMAGES_ERROR"
 
 class BatchSubmissionRequest(BaseModel):
     batch_id: str
-    #
     # Results
     prompt: str
     computes: List[str]
 
-    #
     # Filtering
     nsfw_scores: List[float]
     blacklist_scores: List[int] = []
     should_drop_entries: List[int] = []
 
-    #
     # Miner
     miner_hotkeys: List[str]
     miner_coldkeys: List[str]
 
-    #
     # Validator
     validator_hotkey: str
 
@@ -381,9 +377,33 @@ def background_loop(self, is_validator):
                     validator_weights["manual_reward_model"] = 0.0
 
                 if "human_reward_model" in validator_weights:
+                    # NOTE: Scaling factor for the human reward model
+                    #
+                    # The human reward model updates the rewards for all
+                    # neurons (256 on mainnet) in each step, while the
+                    # other reward models only update rewards for a subset
+                    # of neurons (e.g., 12) per step.
+                    #
+                    # To avoid rewards being updated out of sync,
+                    # we scale down the human rewards in each step.
+                    #
+                    # The scaling factor is calculated as the total number
+                    # of neurons divided by the number of neurons updated
+                    # per step,
+                    #
+                    # Then multiplied by an adjustment factor (1.5) to account
+                    # for potential duplicate neuron selections during a full
+                    # epoch.
+                    #
+                    # The adjustment factor of 1.5 was determined empirically
+                    # based on the observed number of times UIDs received
+                    # duplicate calls in a full epoch on the mainnet.
+                    adjustment_factor: float = 1.5
+                    total_number_of_neurons: int = self.metagraph.n.item()
+
                     self.human_voting_weight = validator_weights[
                         "human_reward_model"
-                    ] / ((256 / N_NEURONS) * 1.5)
+                    ] / ((total_number_of_neurons / N_NEURONS) * adjustment_factor)
 
                 if validator_weights:
                     weights_to_add = []
@@ -407,8 +427,8 @@ def background_loop(self, is_validator):
                         )
 
                     # self.reward_weights = torch.tensor(
-                    #     [v for k, v in validator_weights.items() if "manual" not in k],
-                    #     dtype=torch.float32,
+                    # [v for k, v in validator_weights.items() if "manual" not in k],
+                    # dtype=torch.float32,
                     # ).to(self.device)
 
                 # Update settings

@@ -330,7 +330,7 @@ class DefaultRewardFrameworkConfig:
                         images[idx] = np.zeros(
                             transform(images[idx]).shape
                         )  # black image
-                    except:
+                    except Exception:
                         images[idx] = np.zeros((1024, 1024, 3))
 
         if any(has_nsfw_concepts):
@@ -478,7 +478,7 @@ class BlacklistFilter(BaseRewardModel):
             # Check if the image can be serialized
             try:
                 img = bt.Tensor.deserialize(image)
-            except:
+            except Exception:
                 return 0.0
 
             # Check if the image is black image
@@ -796,7 +796,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
     def get_config(self) -> bt.config:
         argp = argparse.ArgumentParser(description="Miner Configs")
 
-        #### Add any args from the parent class
+        # Add any args from the parent class
         argp.add_argument("--netuid", type=int, default=1)
         argp.add_argument("--wandb.project", type=str, default="")
         argp.add_argument("--wandb.entity", type=str, default="")
@@ -842,20 +842,20 @@ class ModelDiversityRewardModel(BaseRewardModel):
                 ),
             ]
         )
-        ### Set up transform functionc
+        # Set up transform functionc
         self.transform = transforms.Compose([transforms.PILToTensor()])
         self.device = validator_config.get_default_device()
         self.threshold = 0.95
         self.config = self.get_config()
         self.stats = get_defaults(self)
 
-        #### Load Defaut Arguments
+        # Load Defaut Arguments
         self.t2i_args, self.i2i_args = self.get_args()
 
-        #### Load the model
+        # Load the model
         self.load_models()
 
-        #### Optimize model
+        # Optimize model
         self.optimize_models()
 
     def get_args(self) -> Dict:
@@ -865,7 +865,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         }, {"guidance_scale": 5, "strength": 0.6}
 
     def load_models(self):
-        ### Load the text-to-image model
+        # Load the text-to-image model
         self.t2i_model = AutoPipelineForText2Image.from_pretrained(
             self.config.miner.model,
             torch_dtype=torch.float16,
@@ -877,7 +877,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
             self.t2i_model.scheduler.config
         )
 
-        ### Load the image to image model using the same pipeline (efficient)
+        # Load the image to image model using the same pipeline (efficient)
         self.i2i_model = AutoPipelineForImage2Image.from_pipe(self.t2i_model).to(
             self.config.miner.device,
         )
@@ -891,7 +891,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         ).to(self.config.miner.device)
         self.processor = CLIPImageProcessor()
 
-        ### Set up mapping for the different synapse types
+        # Set up mapping for the different synapse types
         self.mapping = {
             "text_to_image": {"args": self.t2i_args, "model": self.t2i_model},
             "image_to_image": {"args": self.i2i_args, "model": self.i2i_model},
@@ -903,7 +903,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
                 self.t2i_model.unet, mode="reduce-overhead", fullgraph=True
             )
 
-            #### Warm up model
+            # Warm up model
             colored_log(
                 ">>> Warming up model with compile... this takes roughly two minutes...",
                 color="yellow",
@@ -934,12 +934,12 @@ class ModelDiversityRewardModel(BaseRewardModel):
         Image generation logic shared between both text-to-image and image-to-image
         """
 
-        ### Misc
+        # Misc
         timeout = synapse.timeout
         self.stats.total_requests += 1
         start_time = time.perf_counter()
 
-        ### Set up args
+        # Set up args
         local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
         local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
         local_args["width"] = synapse.width
@@ -950,24 +950,24 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
             if synapse.negative_prompt:
                 local_args["negative_prompt"] = [synapse.negative_prompt]
-        except:
+        except Exception:
             logger.error(
                 "Values for guidance_scale or negative_prompt were not provided."
             )
 
         try:
             local_args["num_inference_steps"] = synapse.steps
-        except:
+        except Exception:
             logger.error("Values for steps were not provided.")
 
-        ### Get the model
+        # Get the model
         model = self.mapping[synapse.generation_type]["model"]
 
         if synapse.generation_type == "image_to_image":
             local_args["image"] = T.transforms.ToPILImage()(
                 bt.Tensor.deserialize(synapse.prompt_image)
             )
-        ### Generate images & serialize
+        # Generate images & serialize
         for attempt in range(3):
             try:
                 seed = synapse.seed if synapse.seed != -1 else self.config.miner.seed
@@ -997,17 +997,17 @@ class ModelDiversityRewardModel(BaseRewardModel):
                     )
                     sentry_sdk.capture_exception(e)
 
-        ### Count timeouts
+        # Count timeouts
         if time.perf_counter() - start_time > timeout:
             self.stats.timeouts += 1
 
-        ### Log NSFW images
+        # Log NSFW images
         if any(nsfw_image_filter(self, images)):
             logger.error(f"An image was flagged as NSFW: discarding image.")
             self.stats.nsfw_count += 1
             synapse.images = []
 
-        #### Log time to generate image
+        # Log time to generate image
         generation_time = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
         return synapse

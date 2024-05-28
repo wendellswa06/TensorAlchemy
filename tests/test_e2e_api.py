@@ -1,8 +1,3 @@
-import sys
-
-sys.path.append("/home/ubuntu/ImageAlchemy/")
-
-
 import base64
 import copy
 import uuid

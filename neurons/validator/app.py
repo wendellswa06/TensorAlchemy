@@ -84,14 +84,14 @@ if not check_password():
     st.stop()
 
 directory = r"neurons/validator/images"
-st.markdown("### ImageAlchemy Human Validation")
-# st.markdown("#### Prompt:")
+st.markdown("# ImageAlchemy Human Validation")
 st.markdown(
-    "##### Select what you think is the best image from the batch of images below within 10 seconds ..."
+    "# Select what you think is the best image "
+    + "from the batch of images below within 10 seconds ..."
 )
 
 prompt_text = st.empty()
-empty_image_text = "###### AWAITING NEXT BATCH ..."
+empty_image_text = "# AWAITING NEXT BATCH ..."
 # debug = st.empty()
 
 col1, col2, col3, col4 = st.columns(4)
@@ -237,7 +237,7 @@ while True:
         try:
             prompt = open(f"{directory}/prompt.txt", "r").read()
             prompt = prompt.replace('"', "")
-            prompt_text.markdown(f"###### Prompt: {prompt}")
+            prompt_text.markdown(f"# Prompt: {prompt}")
             for i in range(0, len(image_list)):
                 if len(images) > i:
                     image_list[i].image(
@@ -251,7 +251,7 @@ while True:
                         width=IMAGE_WIDTH,
                         use_column_width=True,
                     )
-        except:
+        except Exception:
             errored = True
 
     if not blacked_out and (not images or errored):
