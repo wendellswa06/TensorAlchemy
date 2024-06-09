@@ -8,7 +8,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import List
 
-import requests
 import torch
 import torchvision.transforms as T
 from loguru import logger
@@ -21,6 +20,7 @@ from neurons.validator.reward import (
     get_automated_rewards,
     get_human_rewards,
 )
+from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import ttl_get_block
 
 import bittensor as bt
@@ -128,10 +128,10 @@ def save_images_data_for_manual_validation(
 
 
 def post_moving_averages(
-    api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
+    sign_key: str, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
 ):
     try:
-        response = requests.post(
+        response = SignedRequests(private_key_hex=sign_key).post(
             f"{api_url}/validator/averages",
             json={
                 "averages": {
@@ -186,20 +186,25 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
         logger.error(f"Unable to log event to wandb due to the following error: {e}")
 
 
-def run_step(self, task, axons, uids):
+def run_step(validator, task, axons, uids):
     # Get Arguments
     prompt = task.prompt
     batch_id = task.task_id
     task_type = task.task_type
 
-    time_elapsed = datetime.now() - self.stats.start_time
+    time_elapsed = datetime.now() - validator.stats.start_time
 
     colored_log(
-        f"{sh('Info')} -> Date {datetime.strftime(self.stats.start_time, '%Y/%m/%d %H:%M')} | Elapsed {time_elapsed} | RPM {self.stats.total_requests/(time_elapsed.total_seconds()/60):.2f}",
+        sh("Info")
+        + f"-> Date {datetime.strftime(validator.stats.start_time, '%Y/%m/%d %H:%M')}"
+        + f" | Elapsed {time_elapsed}"
+        + f" | RPM {validator.stats.total_requests / (time_elapsed.total_seconds() / 60):.2f}",
         color="green",
     )
     colored_log(
-        f"{sh('Request')} -> Type: {task_type} | Total requests sent {self.stats.total_requests:,} | Timeouts {self.stats.timeouts:,}",
+        f"{sh('Request')} -> Type: {task_type}"
+        + f" | Total requests sent {validator.stats.total_requests:,}"
+        + f" | Timeouts {validator.stats.timeouts:,}",
         color="cyan",
     )
     colored_log(
@@ -227,10 +232,10 @@ def run_step(self, task, axons, uids):
     )
 
     responses = query_axons(
-        self.loop, self.dendrite, axons, synapse, self.query_timeout
+        validator.loop, validator.dendrite, axons, synapse, validator.query_timeout
     )
 
-    log_query_to_history(self, uids)
+    log_query_to_history(validator, uids)
 
     # Sort responses
     responses_empty_flag = [
@@ -247,7 +252,7 @@ def run_step(self, task, axons, uids):
         )
     ]
 
-    uids = torch.tensor([uids[index] for index in sorted_index]).to(self.device)
+    uids = torch.tensor([uids[index] for index in sorted_index]).to(validator.device)
     responses = [responses[index] for index in sorted_index]
 
     colored_log(f"{sh('Info')} -> {synapse_info}", color="magenta")
@@ -256,7 +261,7 @@ def run_step(self, task, axons, uids):
         color="yellow",
     )
 
-    validator_info = self.get_validator_info()
+    validator_info = validator.get_validator_info()
     colored_log(
         f"{sh('Stats')} -> Block: {validator_info['block']} "
         f"| Stake: {validator_info['stake']:.4f} "
@@ -267,7 +272,7 @@ def run_step(self, task, axons, uids):
         color="cyan",
     )
 
-    self.stats.total_requests += 1
+    validator.stats.total_requests += 1
 
     start_time = time.time()
 
@@ -275,31 +280,33 @@ def run_step(self, task, axons, uids):
     log_responses(responses, prompt)
 
     # Save images for manual validator
-    if not self.config.alchemy.disable_manual_validator:
+    if not validator.config.alchemy.disable_manual_validator:
         save_images_data_for_manual_validation(responses, prompt)
     scattered_rewards, event, rewards = get_automated_rewards(
-        self, responses, uids, task_type
+        validator, responses, uids, task_type
     )
 
-    scattered_rewards_adjusted = get_human_rewards(self, scattered_rewards)
+    scattered_rewards_adjusted = get_human_rewards(validator, scattered_rewards)
 
     scattered_rewards_adjusted = filter_rewards(
-        self.isalive_dict, self.isalive_threshold, scattered_rewards_adjusted
+        validator.isalive_dict, validator.isalive_threshold, scattered_rewards_adjusted
     )
 
-    self.moving_average_scores = update_moving_averages(
-        self.moving_average_scores, scattered_rewards_adjusted, self.device
+    validator.moving_average_scores = update_moving_averages(
+        validator.moving_average_scores, scattered_rewards_adjusted, validator.device
     )
 
     # Save moving averages scores on backend
-    post_moving_averages(self.api_url, self.hotkeys, self.moving_average_scores)
+    post_moving_averages(
+        validator.api_url, validator.hotkeys, validator.moving_average_scores
+    )
 
     try:
-        for i, average in enumerate(self.moving_average_scores):
-            if (self.metagraph.axons[i].hotkey in self.hotkey_blacklist) or (
-                self.metagraph.axons[i].coldkey in self.coldkey_blacklist
+        for i, average in enumerate(validator.moving_average_scores):
+            if (validator.metagraph.axons[i].hotkey in validator.hotkey_blacklist) or (
+                validator.metagraph.axons[i].coldkey in validator.coldkey_blacklist
             ):
-                self.moving_average_scores[i] = 0
+                validator.moving_average_scores[i] = 0
 
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
@@ -308,12 +315,12 @@ def run_step(self, task, axons, uids):
         # Log the step event.
         event.update(
             {
-                "block": ttl_get_block(self),
+                "block": ttl_get_block(validator),
                 "step_length": time.time() - start_time,
                 "prompt_t2i": prompt if task_type == "text_to_image" else None,
                 "prompt_i2i": prompt if task_type == "image_to_image" else None,
                 "uids": uids.tolist(),
-                "hotkeys": [self.metagraph.axons[uid].hotkey for uid in uids],
+                "hotkeys": [validator.metagraph.axons[uid].hotkey for uid in uids],
                 "images": [
                     (
                         response.images[0]
@@ -323,7 +330,6 @@ def run_step(self, task, axons, uids):
                     for response, reward in zip(responses, rewards.tolist())
                 ],
                 "rewards": rewards.tolist(),
-                # "moving_averages": self.moving_average_scores
             }
         )
         event.update(validator_info)
@@ -356,25 +362,25 @@ def run_step(self, task, axons, uids):
                 should_drop_entries.append(1)
 
         # Update batches to be sent to the human validation platform
-        if batch_id not in self.batches.keys():
-            self.batches[batch_id] = {
+        if batch_id not in validator.batches.keys():
+            validator.batches[batch_id] = {
                 "prompt": prompt,
                 "computes": images,
                 "batch_id": batch_id,
                 "nsfw_scores": event["nsfw_filter"],
                 "blacklist_scores": event["blacklist_filter"],
                 "should_drop_entries": should_drop_entries,
-                "validator_hotkey": str(self.wallet.hotkey.ss58_address),
-                "miner_hotkeys": [self.metagraph.hotkeys[uid] for uid in uids],
-                "miner_coldkeys": [self.metagraph.coldkeys[uid] for uid in uids],
+                "validator_hotkey": str(validator.wallet.hotkey.ss58_address),
+                "miner_hotkeys": [validator.metagraph.hotkeys[uid] for uid in uids],
+                "miner_coldkeys": [validator.metagraph.coldkeys[uid] for uid in uids],
             }
 
         # Upload the batches to the Human Validation Platform
-        upload_batches(self.batches, self.api_url)
+        upload_batches(validator.batches, validator.api_url)
 
     except Exception as e:
         logger.error(f"An unexpected error occurred appending the batch: {e}")
 
-    log_event_to_wandb(self.wandb, event, prompt)
+    log_event_to_wandb(validator.wandb, event, prompt)
 
     return event

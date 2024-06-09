@@ -10,7 +10,6 @@ from typing import Dict, List
 
 import ImageReward as RM
 import numpy as np
-import requests
 import sentry_sdk
 import torch
 import torch.nn.functional as F
@@ -34,6 +33,7 @@ from neurons.protocol import ImageGeneration
 from neurons.safety import StableDiffusionSafetyChecker
 from neurons.utils import get_defaults
 from neurons.validator import config as validator_config
+from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import cosine_distance
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import (
@@ -44,6 +44,8 @@ from transformers import (
 )
 
 import bittensor as bt
+
+from neurons.validator.validator import StableValidator
 
 transform = T.Compose([T.PILToTensor()])
 
@@ -197,12 +199,12 @@ def get_automated_rewards(self, responses, uids, task_type):
     return scattered_rewards, event, rewards
 
 
-def get_human_rewards(self, rewards, mock=False, mock_winner=None, mock_loser=None):
-    _, human_voting_scores_normalised = self.human_voting_reward_model.get_rewards(
-        self.hotkeys, mock, mock_winner, mock_loser
+def get_human_rewards(validator, rewards, mock=False, mock_winner=None, mock_loser=None):
+    _, human_voting_scores_normalised = validator.human_voting_reward_model.get_rewards(
+        validator.hotkeys, mock, mock_winner, mock_loser
     )
     scattered_rewards_adjusted = rewards + (
-        self.human_voting_weight * human_voting_scores_normalised
+            validator.human_voting_weight * human_voting_scores_normalised
     )
     return scattered_rewards_adjusted
 
@@ -226,19 +228,19 @@ def apply_human_voting_weight(
     scattered_rewards_adjusted = rewards + (human_voting_weight * human_voting_scores)
     return scattered_rewards_adjusted
 
-
+# TODO: not sure how come we have 2 get_human_rewards functions
 def get_human_rewards(
-    self,
+    validator,
     rewards: torch.Tensor,
     mock: bool = False,
     mock_winner: str = None,
     mock_loser: str = None,
 ) -> torch.Tensor:
     human_voting_scores = get_human_voting_scores(
-        self.human_voting_reward_model, self.hotkeys, mock, mock_winner, mock_loser
+        validator.human_voting_reward_model, validator.hotkeys, mock, mock_winner, mock_loser
     )
     scattered_rewards_adjusted = apply_human_voting_weight(
-        rewards, human_voting_scores, self.human_voting_weight
+        rewards, human_voting_scores, validator.human_voting_weight
     )
     return scattered_rewards_adjusted
 
@@ -570,14 +572,15 @@ class HumanValidationRewardModel(BaseRewardModel):
     def name(self) -> str:
         return RewardModelType.human.value
 
-    def __init__(self, metagraph, api_url):
+    def __init__(self, validator, metagraph, api_url):
         super().__init__()
+        self.validator:StableValidator = validator
         self.device = validator_config.get_default_device()
         self.human_voting_scores = torch.zeros((metagraph.n)).to(self.device)
         self.api_url = api_url
 
     def get_votes(self, api_url: str, timeout: int = 2):
-        human_voting_scores = requests.get(f"{api_url}/votes", timeout=timeout)
+        human_voting_scores = SignedRequests(self.validator.wallet.hotkey.privatekey.hex()).get(f"{api_url}/votes", timeout=timeout)
         return human_voting_scores
 
     def get_rewards(

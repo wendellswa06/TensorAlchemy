@@ -139,6 +139,8 @@ def create_dummy_batches(metagraph):
 
 @pytest.mark.parametrize("network", ["test", "finney"])
 def test_post_moving_averages(network):
+    # TODO: not sure how we should update e2e tests for signed requests;
+    #  one option is to create a test validator and use it
     _, moving_averages, api_url, hotkeys = get_args(network, neuron)
     response = post_moving_averages(api_url, hotkeys, moving_averages)
     assert response == True
