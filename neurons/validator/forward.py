@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import datetime
 from io import BytesIO
 from typing import List
-
+from substrateinterface import Keypair, KeypairType
 import torch
 import torchvision.transforms as T
 from loguru import logger
@@ -128,10 +128,10 @@ def save_images_data_for_manual_validation(
 
 
 def post_moving_averages(
-    sign_key: str, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
+    hotkey: KeyPair, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
 ):
     try:
-        response = SignedRequests(private_key_hex=sign_key).post(
+        response = SignedRequests(hotkey=hotkey).post(
             f"{api_url}/validator/averages",
             json={
                 "averages": {
@@ -298,7 +298,7 @@ def run_step(validator, task, axons, uids):
 
     # Save moving averages scores on backend
     post_moving_averages(
-        validator.wallet.hotkey.private_key.hex(),
+        validator.wallet.hotkey,
         validator.api_url,
         validator.hotkeys,
         validator.moving_average_scores,

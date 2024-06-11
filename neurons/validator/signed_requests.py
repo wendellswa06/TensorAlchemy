@@ -2,16 +2,15 @@ import requests
 import ecdsa
 import base64
 import time
+from substrateinterface import Keypair, KeypairType
 
 
 class SignedRequests:
-    def __init__(self, private_key_hex: str):
-        self.private_key = ecdsa.SigningKey.from_string(
-            bytes.fromhex(private_key_hex), curve=ecdsa.SECP256k1
-        )
+    def __init__(self, hotkey: KeyPair):
+        self.hotkey=hotkey
 
     def sign_message(self, message: str) -> str:
-        signature = self.private_key.sign(message.encode())
+        signature = self.hotkey.sign(message.encode())
         return base64.b64encode(signature).decode()
 
     def get(self, url: str, params: dict = None, **kwargs):

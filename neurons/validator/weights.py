@@ -28,10 +28,8 @@ from neurons.validator.signed_requests import SignedRequests
 # Utils for weights setting on chain.
 
 
-def post_weights(
-    private_key_hex, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor
-):
-    response = SignedRequests(private_key_hex=private_key_hex).post(
+def post_weights(hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
+    response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/validator/weights",
         json={
             "weights": {
@@ -54,7 +52,7 @@ def set_weights(validator):
 
     try:
         response = post_weights(
-            validator.wallet.hotkey.private_key.hex(),
+            validator.wallet.hotkey,
             validator.api_url,
             validator.hotkeys,
             raw_weights,
