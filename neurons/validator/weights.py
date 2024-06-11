@@ -3,14 +3,13 @@
 # Copyright © 2023 Opentensor Foundation
 from typing import List
 
-import neurons.validator as validator
-import pandas as pd
-import requests
 import torch
 from loguru import logger
-from neurons.validator.utils import ttl_get_block
 
 import bittensor as bt
+
+from neurons.validator.signed_requests import SignedRequests
+
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -29,8 +28,8 @@ import bittensor as bt
 # Utils for weights setting on chain.
 
 
-def post_weights(api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
-    response = requests.post(
+def post_weights(private_key_hex, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
+    response = SignedRequests(private_key_hex=private_key_hex).post(
         f"{api_url}/validator/weights",
         json={
             "weights": {
@@ -44,13 +43,13 @@ def post_weights(api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
     return response
 
 
-def set_weights(self):
+def set_weights(validator):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
-    raw_weights = torch.nn.functional.normalize(self.moving_average_scores, p=1, dim=0)
+    raw_weights = torch.nn.functional.normalize(validator.moving_average_scores, p=1, dim=0)
 
     try:
-        response = post_weights(self.api_url, self.hotkeys, raw_weights)
+        response = post_weights(validator.wallet.hotkey.privatekey.hex(), validator.api_url, validator.hotkeys, raw_weights)
         if response.status_code != 200:
             logger.info("Error logging weights to the Weights API")
         else:
@@ -66,18 +65,18 @@ def set_weights(self):
         processed_weight_uids,
         processed_weights,
     ) = bt.utils.weight_utils.process_weights_for_netuid(
-        uids=self.metagraph.uids.to("cpu"),
+        uids=validator.metagraph.uids.to("cpu"),
         weights=raw_weights.to("cpu"),
-        netuid=self.config.netuid,
-        subtensor=self.subtensor,
-        metagraph=self.metagraph,
+        netuid=validator.config.netuid,
+        subtensor=validator.subtensor,
+        metagraph=validator.metagraph,
     )
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
     # Set the weights on chain via our subtensor connection.
-    self.subtensor.set_weights(
-        wallet=self.wallet,
-        netuid=self.config.netuid,
+    validator.subtensor.set_weights(
+        wallet=validator.wallet,
+        netuid=validator.config.netuid,
         uids=processed_weight_uids,
         weights=processed_weights,
         wait_for_finalization=False,
