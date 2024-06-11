@@ -586,7 +586,7 @@ class HumanValidationRewardModel(BaseRewardModel):
 
     def get_votes(self, api_url: str, timeout: int = 2):
         human_voting_scores = SignedRequests(
-            self.validator.wallet.hotkey.privatekey.hex()
+            self.validator.wallet.hotkey.private_key.hex()
         ).get(f"{api_url}/votes", timeout=timeout)
         return human_voting_scores
 
