@@ -45,8 +45,6 @@ from transformers import (
 
 import bittensor as bt
 
-from neurons.validator.validator import StableValidator
-
 transform = T.Compose([T.PILToTensor()])
 
 
@@ -574,7 +572,7 @@ class HumanValidationRewardModel(BaseRewardModel):
 
     def __init__(self, validator, metagraph, api_url):
         super().__init__()
-        self.validator:StableValidator = validator
+        self.validator = validator
         self.device = validator_config.get_default_device()
         self.human_voting_scores = torch.zeros((metagraph.n)).to(self.device)
         self.api_url = api_url
