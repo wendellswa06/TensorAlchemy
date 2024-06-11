@@ -14,7 +14,7 @@ import torchvision.transforms as T
 from loguru import logger
 from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration
-from neurons.utils import colored_log, sh
+from neurons.utils import colored_log, sh, upload_batches
 from neurons.validator.event import EventSchema
 from neurons.validator.reward import (
     filter_rewards,
@@ -75,8 +75,10 @@ def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
             validator.miner_query_history_count[
                 validator.metagraph.axons[uid].hotkey
             ] += 1
-    except Exception:
-        logger.error("Failed to log miner counts and histories")
+    except Exception as e:
+        logger.error(
+            f"Failed to log miner counts and histories due to the following error: {e}"
+        )
 
     colored_log(
         f"{sh('Miner Counts')} -> Max: {max(validator.miner_query_history_count.values()):.2f} "
@@ -184,7 +186,12 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
         logger.error(f"Unable to log event to wandb due to the following error: {e}")
 
 
-def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
+def run_step(self, task, axons, uids):
+    # Get Arguments
+    prompt = task.prompt
+    batch_id = task.task_id
+    task_type = task.task_type
+
     time_elapsed = datetime.now() - self.stats.start_time
 
     colored_log(
@@ -202,10 +209,15 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
 
     # Set seed to -1 so miners will use a random seed by default
     synapse = ImageGeneration(
-        generation_type=task_type,
         prompt=prompt,
-        prompt_image=image,
-        seed=-1,
+        generation_type=task_type,
+        prompt_image=task.images,
+        seed=task.seed,
+        guidance_scale=task.guidance_scale,
+        steps=task.steps,
+        num_images_per_prompt=task.num_images_per_prompt,
+        width=task.width,
+        height=task.height,
     )
 
     synapse_info = (
@@ -344,7 +356,6 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 should_drop_entries.append(1)
 
         # Update batches to be sent to the human validation platform
-        batch_id = str(uuid.uuid4())
         if batch_id not in self.batches.keys():
             self.batches[batch_id] = {
                 "prompt": prompt,
@@ -357,6 +368,10 @@ def run_step(self, prompt, axons, uids, task_type="text_to_image", image=None):
                 "miner_hotkeys": [self.metagraph.hotkeys[uid] for uid in uids],
                 "miner_coldkeys": [self.metagraph.coldkeys[uid] for uid in uids],
             }
+
+        # Upload the batches to the Human Validation Platform
+        upload_batches(self.batches, self.api_url)
+
     except Exception as e:
         logger.error(f"An unexpected error occurred appending the batch: {e}")
 

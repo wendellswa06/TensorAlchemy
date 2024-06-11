@@ -17,10 +17,23 @@ import torch
 import torch.nn as nn
 from loguru import logger
 from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO, WANDB_VALIDATOR_PATH
-from neurons.protocol import IsAlive
+from neurons.protocol import IsAlive, denormalize
 
 import bittensor as bt
 import wandb
+
+
+# Get tasks from the client server
+async def get_task(api_url, timeout=1):
+    task = None
+    for i in range(30):
+        await asyncio.sleep(1)
+        response = requests.get(f"{api_url}/tasks", timeout=timeout)
+        if response.status_code == 200:
+            task = response.json()
+            return denormalize(**task)
+
+    return task
 
 
 def _ttl_hash_gen(seconds: int):

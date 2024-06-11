@@ -5,12 +5,14 @@ import subprocess
 import sys
 import time
 import traceback
+import uuid
 from time import sleep
 
 import sentry_sdk
 import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
+from neurons.protocol import denormalize
 from neurons.utils import BackgroundTimer, background_loop, colored_log, get_defaults
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
@@ -24,6 +26,7 @@ from neurons.validator.utils import (
     generate_random_prompt_gpt,
     get_device_name,
     get_random_uids,
+    get_task,
     init_wandb,
     reinit_wandb,
     ttl_get_block,
@@ -372,11 +375,23 @@ class StableValidator:
 
                 axons = [self.metagraph.axons[uid] for uid in uids]
 
-                # Generate prompt + followup_prompt
-                prompt = generate_random_prompt_gpt(self)
+                task = await get_task(self.api_url)
+                if task is None:
+                    task = denormalize(
+                        image_count=1,
+                        task_type="text_to_image",
+                        task_id=str(uuid.uuid4()),
+                        guidance_scale=7.5,
+                        negative_prompt=None,
+                        prompt=generate_random_prompt_gpt(self),
+                        seed=-1,
+                        steps=30,
+                        width=1024,
+                        height=1024,
+                    )
 
-                if prompt is None:
-                    logger.warning(f"The prompt was not generated successfully.")
+                if task.prompt is None:
+                    logger.warning("The prompt was not generated successfully.")
 
                     # Prevent loop from forming if the prompt
                     # error occurs on the first step
@@ -386,7 +401,7 @@ class StableValidator:
                     continue
 
                 # Text to Image Run
-                run_step(self, prompt, axons, uids, task_type="text_to_image")
+                run_step(self, task, axons, uids)
                 # Re-sync with the network. Updates the metagraph.
                 try:
                     self.sync()
