@@ -6,7 +6,7 @@ from substrateinterface import Keypair, KeypairType
 
 
 class SignedRequests:
-    def __init__(self, hotkey: KeyPair):
+    def __init__(self, hotkey: Keypair):
         self.hotkey=hotkey
 
     def sign_message(self, message: str) -> str:

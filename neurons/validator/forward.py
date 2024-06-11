@@ -128,7 +128,7 @@ def save_images_data_for_manual_validation(
 
 
 def post_moving_averages(
-    hotkey: KeyPair, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
+    hotkey: Keypair, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
 ):
     try:
         response = SignedRequests(hotkey=hotkey).post(
