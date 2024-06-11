@@ -371,12 +371,186 @@ def call_corcel(self, prompt):
     return response
 
 
+def get_random_creature():
+    creatures = [
+        "cat",
+        "dog",
+        "elephant",
+        "lion",
+        "butterfly",
+        "eagle",
+        "dolphin",
+        "snake",
+        "dragon",
+        "unicorn",
+        "phoenix",
+        "mermaid",
+        "centaur",
+        "griffin",
+        "werewolf",
+        "fairy",
+        "goblin",
+        "minotaur",
+        "pegasus",
+        "kraken",
+        "octopus",
+        "panda",
+        "giraffe",
+        "kangaroo",
+        "penguin",
+        "parrot",
+        "tiger",
+        "bear",
+        "rabbit",
+        "turtle",
+        "fox",
+        "owl",
+    ]
+    return random.choice(creatures)
+
+
+def get_random_adjective():
+    adjectives = [
+        "happy",
+        "sad",
+        "excited",
+        "tired",
+        "hungry",
+        "playful",
+        "curious",
+        "brave",
+        "majestic",
+        "enchanted",
+        "mysterious",
+        "radiant",
+        "ethereal",
+        "vibrant",
+        "serene",
+        "whimsical",
+        "luminous",
+        "enigmatic",
+        "shiny",
+        "colorful",
+        "rusty",
+        "old",
+        "new",
+        "large",
+        "small",
+        "tall",
+        "short",
+        "wide",
+        "narrow",
+        "thick",
+        "thin",
+        "smooth",
+    ]
+    return random.choice(adjectives)
+
+
+def get_random_object():
+    objects = [
+        "book",
+        "pen",
+        "phone",
+        "camera",
+        "guitar",
+        "bicycle",
+        "car",
+        "cup",
+        "crystal",
+        "tome",
+        "amulet",
+        "scepter",
+        "chalice",
+        "orb",
+        "mirror",
+        "locket",
+        "tapestry",
+        "sculpture",
+        "lamp",
+        "chair",
+        "table",
+        "umbrella",
+        "hammer",
+        "scissors",
+        "knife",
+        "spoon",
+        "fork",
+        "paintbrush",
+        "vase",
+        "clock",
+        "globe",
+        "telescope",
+    ]
+    return random.choice(objects)
+
+
+def get_random_background():
+    backgrounds = [
+        "beach",
+        "mountains",
+        "city",
+        "countryside",
+        "park",
+        "library",
+        "cafe",
+        "bedroom",
+        "forest",
+        "castle",
+        "cave",
+        "island",
+        "desert",
+        "underwater",
+        "sky",
+        "garden",
+        "ruins",
+        "stadium",
+        "mall",
+        "factory",
+        "farm",
+        "school",
+        "hospital",
+        "airport",
+        "train station",
+        "bridge",
+        "tunnel",
+        "highway",
+        "river",
+        "lake",
+        "ocean",
+        "space",
+    ]
+    return random.choice(backgrounds)
+
+
+def generate_haiku_prompt() -> str:
+    creature = get_random_creature()
+    adjective = get_random_adjective()
+    object = get_random_object()
+    background = get_random_background()
+
+    return (
+        "You are an image prompt generator. "
+        + "Your purpose is to generate a single, "
+        + "concise haiku that can be used as a prompt for Dalle-3. "
+        + "The haiku must incorporate the following elements:\n\n"
+        f"- Creature: {creature}\n"
+        f"- Adjective: {adjective}\n"
+        f"- Object: {object}\n"
+        f"- Background: {background}\n\n"
+        f"Please ensure that the haiku is creative, "
+        + "visually descriptive, and coherent. "
+        + "The haiku should be written in the traditional "
+        + "format of three lines with a 5-7-5 syllable structure. "
+        + "Avoid using any additional elements or deviating from "
+        + "the specified creature, adjective, object, and background.\n\n"
+    )
+
+
 def generate_random_prompt_gpt(
     self,
     model="gpt-4",
-    prompt="You are an image prompt generator. "
-    + "Your purpose is to generate a single one sentence prompt "
-    + "that can be fed into Dalle-3.",
+    prompt=generate_haiku_prompt(),
 ):
     response = None
 
