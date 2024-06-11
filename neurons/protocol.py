@@ -39,8 +39,9 @@ class ImageGenerationTaskModel(BaseModel):
     steps: int
     task_type: str
 
-
-def denormalize(image_count: int, **kwargs) -> ImageGenerationTaskModel:
+def denormalize_image_model(
+    id: str, image_count: int, **kwargs
+) -> ImageGenerationTaskModel:
     return ImageGenerationTaskModel(
         task_id=id,
         num_images_per_prompt=image_count,

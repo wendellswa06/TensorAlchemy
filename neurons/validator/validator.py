@@ -12,7 +12,7 @@ import sentry_sdk
 import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
-from neurons.protocol import denormalize
+from neurons.protocol import denormalize, denormalize_image_model
 from neurons.utils import BackgroundTimer, background_loop, colored_log, get_defaults
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
@@ -377,10 +377,10 @@ class StableValidator:
 
                 task = await get_task(self.api_url)
                 if task is None:
-                    task = denormalize(
+                    task = denormalize_image_model(
+                        id=str(uuid.uuid4()),
                         image_count=1,
                         task_type="TEXT_TO_IMAGE",
-                        task_id=str(uuid.uuid4()),
                         guidance_scale=7.5,
                         negative_prompt=None,
                         prompt=generate_random_prompt_gpt(self),
