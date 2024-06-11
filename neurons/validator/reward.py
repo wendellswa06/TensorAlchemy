@@ -197,12 +197,14 @@ def get_automated_rewards(self, responses, uids, task_type):
     return scattered_rewards, event, rewards
 
 
-def get_human_rewards(validator, rewards, mock=False, mock_winner=None, mock_loser=None):
+def get_human_rewards(
+    validator, rewards, mock=False, mock_winner=None, mock_loser=None
+):
     _, human_voting_scores_normalised = validator.human_voting_reward_model.get_rewards(
         validator.hotkeys, mock, mock_winner, mock_loser
     )
     scattered_rewards_adjusted = rewards + (
-            validator.human_voting_weight * human_voting_scores_normalised
+        validator.human_voting_weight * human_voting_scores_normalised
     )
     return scattered_rewards_adjusted
 
@@ -226,6 +228,7 @@ def apply_human_voting_weight(
     scattered_rewards_adjusted = rewards + (human_voting_weight * human_voting_scores)
     return scattered_rewards_adjusted
 
+
 # TODO: not sure how come we have 2 get_human_rewards functions
 def get_human_rewards(
     validator,
@@ -235,7 +238,11 @@ def get_human_rewards(
     mock_loser: str = None,
 ) -> torch.Tensor:
     human_voting_scores = get_human_voting_scores(
-        validator.human_voting_reward_model, validator.hotkeys, mock, mock_winner, mock_loser
+        validator.human_voting_reward_model,
+        validator.hotkeys,
+        mock,
+        mock_winner,
+        mock_loser,
     )
     scattered_rewards_adjusted = apply_human_voting_weight(
         rewards, human_voting_scores, validator.human_voting_weight
@@ -578,7 +585,9 @@ class HumanValidationRewardModel(BaseRewardModel):
         self.api_url = api_url
 
     def get_votes(self, api_url: str, timeout: int = 2):
-        human_voting_scores = SignedRequests(self.validator.wallet.hotkey.privatekey.hex()).get(f"{api_url}/votes", timeout=timeout)
+        human_voting_scores = SignedRequests(
+            self.validator.wallet.hotkey.privatekey.hex()
+        ).get(f"{api_url}/votes", timeout=timeout)
         return human_voting_scores
 
     def get_rewards(

@@ -28,7 +28,9 @@ from neurons.validator.signed_requests import SignedRequests
 # Utils for weights setting on chain.
 
 
-def post_weights(private_key_hex, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
+def post_weights(
+    private_key_hex, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor
+):
     response = SignedRequests(private_key_hex=private_key_hex).post(
         f"{api_url}/validator/weights",
         json={
@@ -46,10 +48,17 @@ def post_weights(private_key_hex, api_url: str, hotkeys: List[str], raw_weights:
 def set_weights(validator):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
-    raw_weights = torch.nn.functional.normalize(validator.moving_average_scores, p=1, dim=0)
+    raw_weights = torch.nn.functional.normalize(
+        validator.moving_average_scores, p=1, dim=0
+    )
 
     try:
-        response = post_weights(validator.wallet.hotkey.privatekey.hex(), validator.api_url, validator.hotkeys, raw_weights)
+        response = post_weights(
+            validator.wallet.hotkey.privatekey.hex(),
+            validator.api_url,
+            validator.hotkeys,
+            raw_weights,
+        )
         if response.status_code != 200:
             logger.info("Error logging weights to the Weights API")
         else:
@@ -57,10 +66,6 @@ def set_weights(validator):
     except Exception:
         logger.info("Error logging weights to the Weights API")
 
-    # print("raw_weights", raw_weights)
-    # print("top10 values", raw_weights.sort()[0])
-    # print("top10 uids", raw_weights.sort()[1])
-    # Process the raw weights to final_weights via subtensor limitations.
     (
         processed_weight_uids,
         processed_weights,

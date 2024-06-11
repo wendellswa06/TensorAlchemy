@@ -67,7 +67,7 @@ setup(
     description="This is the TensorAlchemy subnet",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/TensorAlchemy/TensorAlchemy"
+    url="https://github.com/TensorAlchemy/TensorAlchemy",
     author="TensorAlchemy",
     packages=find_packages(),
     include_package_data=True,
