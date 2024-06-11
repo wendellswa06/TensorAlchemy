@@ -128,7 +128,10 @@ def save_images_data_for_manual_validation(
 
 
 def post_moving_averages(
-    hotkey: Keypair, api_url: str, hotkeys: List[str], moving_average_scores: torch.Tensor
+    hotkey: Keypair,
+    api_url: str,
+    hotkeys: List[str],
+    moving_average_scores: torch.Tensor,
 ):
     try:
         response = SignedRequests(hotkey=hotkey).post(
@@ -213,9 +216,11 @@ def run_step(validator, task, axons, uids):
     )
 
     # Set seed to -1 so miners will use a random seed by default
+
+    task_type_for_miner = task_type.lower()
     synapse = ImageGeneration(
         prompt=prompt,
-        generation_type=task_type,
+        generation_type=task_type_for_miner,
         prompt_image=task.images,
         seed=task.seed,
         guidance_scale=task.guidance_scale,
@@ -320,8 +325,8 @@ def run_step(validator, task, axons, uids):
             {
                 "block": ttl_get_block(validator),
                 "step_length": time.time() - start_time,
-                "prompt_t2i": prompt if task_type == "text_to_image" else None,
-                "prompt_i2i": prompt if task_type == "image_to_image" else None,
+                "prompt_t2i": prompt if task_type == "TEXT_TO_IMAGE" else None,
+                "prompt_i2i": prompt if task_type == "IMAGE_TO_IMAGE" else None,
                 "uids": uids.tolist(),
                 "hotkeys": [validator.metagraph.axons[uid].hotkey for uid in uids],
                 "images": [

@@ -76,7 +76,7 @@ class ImageGeneration(bt.Synapse):
     num_images_per_prompt: int = pydantic.Field(1, allow_mutation=False)
     height: int = pydantic.Field(1024, allow_mutation=False)
     width: int = pydantic.Field(1024, allow_mutation=False)
-    generation_type: str = pydantic.Field("text_to_image", allow_mutation=False)
+    generation_type: str = pydantic.Field("TEXT_TO_IMAGE", allow_mutation=False)
     guidance_scale: float = pydantic.Field(7.5, allow_mutation=False)
     seed: int = pydantic.Field(1024, allow_mutation=False)
     steps: int = pydantic.Field(50, allow_mutation=False)
