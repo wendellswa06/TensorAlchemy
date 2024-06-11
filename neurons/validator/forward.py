@@ -298,7 +298,7 @@ def run_step(validator, task, axons, uids):
 
     # Save moving averages scores on backend
     post_moving_averages(
-        validator.wallet.hotkey.privatekey.hex(),
+        validator.wallet.hotkey.private_key.hex(),
         validator.api_url,
         validator.hotkeys,
         validator.moving_average_scores,

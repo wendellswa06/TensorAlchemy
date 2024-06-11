@@ -54,7 +54,7 @@ def set_weights(validator):
 
     try:
         response = post_weights(
-            validator.wallet.hotkey.privatekey.hex(),
+            validator.wallet.hotkey.private_key.hex(),
             validator.api_url,
             validator.hotkeys,
             raw_weights,
