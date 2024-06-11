@@ -290,7 +290,7 @@ class BaseMiner(ABC):
         # Get the model
         model = self.mapping[synapse.generation_type]["model"]
 
-        if synapse.generation_type == "image_to_image":
+        if synapse.generation_type == "IMAGE_TO_IMAGE":
             local_args["image"] = T.transforms.ToPILImage()(
                 bt.Tensor.deserialize(synapse.prompt_image)
             )

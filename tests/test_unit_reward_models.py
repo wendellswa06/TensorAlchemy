@@ -25,7 +25,7 @@ def setup() -> None:
 def test_black_image():
     responses = [
         ImageGeneration(
-            generation_type="text_to_image",
+            generation_type="TEXT_TO_IMAGE",
             seed=-1,
             model_type="alchemy",
             images=[
@@ -33,7 +33,7 @@ def test_black_image():
             ],
         ),
         ImageGeneration(
-            generation_type="text_to_image",
+            generation_type="TEXT_TO_IMAGE",
             seed=-1,
             model_type="alchemy",
             images=[
@@ -51,7 +51,7 @@ def test_black_image():
 def test_incorrect_image_size():
     responses = [
         ImageGeneration(
-            generation_type="text_to_image",
+            generation_type="TEXT_TO_IMAGE",
             seed=-1,
             model_type="alchemy",
             images=[
@@ -59,7 +59,7 @@ def test_incorrect_image_size():
             ],
         ),
         ImageGeneration(
-            generation_type="text_to_image",
+            generation_type="TEXT_TO_IMAGE",
             seed=-1,
             model_type="alchemy",
             images=[
@@ -78,7 +78,7 @@ def test_nsfw_image():
     nsfw_image_url = "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a05eaa75-ac8c-4460-b6b0-b7eb47e06987/width=1024/00027-4120052916.jpeg"
     transform = transforms.Compose([transforms.PILToTensor()])
     response_nsfw = ImageGeneration(
-        generation_type="text_to_image",
+        generation_type="TEXT_TO_IMAGE",
         seed=-1,
         model_type="alchemy",
         prompt="An nsfw woman.",
@@ -89,7 +89,7 @@ def test_nsfw_image():
         ],
     )
     response_no_nsfw = ImageGeneration(
-        generation_type="text_to_image",
+        generation_type="TEXT_TO_IMAGE",
         seed=-1,
         model_type="alchemy",
         prompt="A majestic lion jumping from a big stone at night",

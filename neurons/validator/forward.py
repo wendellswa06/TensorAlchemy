@@ -320,8 +320,8 @@ def run_step(validator, task, axons, uids):
             {
                 "block": ttl_get_block(validator),
                 "step_length": time.time() - start_time,
-                "prompt_t2i": prompt if task_type == "text_to_image" else None,
-                "prompt_i2i": prompt if task_type == "image_to_image" else None,
+                "prompt_t2i": prompt if task_type == "TEXT_TO_IMAGE" else None,
+                "prompt_i2i": prompt if task_type == "IMAGE_TO_IMAGE" else None,
                 "uids": uids.tolist(),
                 "hotkeys": [validator.metagraph.axons[uid].hotkey for uid in uids],
                 "images": [

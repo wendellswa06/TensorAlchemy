@@ -379,7 +379,7 @@ class StableValidator:
                 if task is None:
                     task = denormalize(
                         image_count=1,
-                        task_type="text_to_image",
+                        task_type="TEXT_TO_IMAGE",
                         task_id=str(uuid.uuid4()),
                         guidance_scale=7.5,
                         negative_prompt=None,

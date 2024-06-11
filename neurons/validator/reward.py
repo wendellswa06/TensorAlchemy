@@ -903,8 +903,8 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
         # Set up mapping for the different synapse types
         self.mapping = {
-            "text_to_image": {"args": self.t2i_args, "model": self.t2i_model},
-            "image_to_image": {"args": self.i2i_args, "model": self.i2i_model},
+            "TEXT_TO_IMAGE": {"args": self.t2i_args, "model": self.t2i_model},
+            "IMAGE_TO_IMAGE": {"args": self.i2i_args, "model": self.i2i_model},
         }
 
     def optimize_models(self):
@@ -973,7 +973,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         # Get the model
         model = self.mapping[synapse.generation_type]["model"]
 
-        if synapse.generation_type == "image_to_image":
+        if synapse.generation_type == "IMAGE_TO_IMAGE":
             local_args["image"] = T.transforms.ToPILImage()(
                 bt.Tensor.deserialize(synapse.prompt_image)
             )
