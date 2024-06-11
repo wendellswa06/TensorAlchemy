@@ -391,7 +391,7 @@ class StableValidator:
                     )
 
                 if task.prompt is None:
-                    logger.warning(f"The prompt was not generated successfully.")
+                    logger.warning("The prompt was not generated successfully.")
 
                     # Prevent loop from forming if the prompt
                     # error occurs on the first step

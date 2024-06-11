@@ -189,8 +189,8 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
 def run_step(self, task, axons, uids):
     # Get Arguments
     prompt = task.prompt
-    task_type = task.task_type
     batch_id = task.task_id
+    task_type = task.task_type
 
     time_elapsed = datetime.now() - self.stats.start_time
 
