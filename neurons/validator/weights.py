@@ -28,7 +28,9 @@ from neurons.validator.signed_requests import SignedRequests
 # Utils for weights setting on chain.
 
 
-def post_weights(hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
+def post_weights(
+    hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor
+):
     response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/validator/weights",
         json={

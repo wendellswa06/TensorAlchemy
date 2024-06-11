@@ -1,5 +1,4 @@
 import requests
-import ecdsa
 import base64
 import time
 from substrateinterface import Keypair, KeypairType
