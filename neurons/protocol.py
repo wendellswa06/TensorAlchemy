@@ -40,7 +40,7 @@ class ImageGenerationTaskModel(BaseModel):
     task_type: str
 
 
-def denormalize(id: str, image_count: int, **kwargs) -> ImageGenerationTaskModel:
+def denormalize(image_count: int, **kwargs) -> ImageGenerationTaskModel:
     return ImageGenerationTaskModel(
         task_id=id,
         num_images_per_prompt=image_count,
