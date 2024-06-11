@@ -12,7 +12,7 @@ import sentry_sdk
 import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
-from neurons.protocol import denormalize, denormalize_image_model
+from neurons.protocol import denormalize_image_model
 from neurons.utils import BackgroundTimer, background_loop, colored_log, get_defaults
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
