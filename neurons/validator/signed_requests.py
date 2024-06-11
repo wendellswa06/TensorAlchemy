@@ -2,11 +2,12 @@ import requests
 import base64
 import time
 from substrateinterface import Keypair, KeypairType
+from loguru import logger
 
 
 class SignedRequests:
     def __init__(self, hotkey: Keypair):
-        self.hotkey=hotkey
+        self.hotkey = hotkey
 
     def sign_message(self, message: str) -> str:
         signature = self.hotkey.sign(message.encode())
@@ -33,15 +34,19 @@ class SignedRequests:
         json: dict = None,
         **kwargs,
     ):
-        timestamp = str(int(time.time()))
-        message = f"{method} {url}?timestamp={timestamp}"
+        try:
+            timestamp = str(int(time.time()))
+            message = f"{method} {url}?timestamp={timestamp}"
 
-        signature = self.sign_message(message)
+            signature = self.sign_message(message)
 
-        headers = kwargs.get("headers", {})
-        headers.update({"X-Signature": signature, "X-Timestamp": timestamp})
-        kwargs["headers"] = headers
-
+            headers = kwargs.get("headers", {})
+            headers.update({"X-Signature": signature, "X-Timestamp": timestamp})
+            kwargs["headers"] = headers
+        except Exception as e:
+            logger.error(
+                "Exception raised while signing request; sending plain old request"
+            )
         return requests.request(
             method, url, params=params, data=data, json=json, **kwargs
         )
