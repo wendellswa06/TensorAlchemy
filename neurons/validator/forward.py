@@ -298,7 +298,10 @@ def run_step(validator, task, axons, uids):
 
     # Save moving averages scores on backend
     post_moving_averages(
-        validator.api_url, validator.hotkeys, validator.moving_average_scores
+        validator.wallet.hotkey.privatekey.hex(),
+        validator.api_url,
+        validator.hotkeys,
+        validator.moving_average_scores,
     )
 
     try:
