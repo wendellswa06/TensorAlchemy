@@ -7,7 +7,7 @@ import time
 import traceback
 from functools import lru_cache, update_wrapper
 from math import floor
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Optional
 
 import neurons.validator as validator
 import numpy as np
@@ -385,176 +385,219 @@ def call_corcel(self, prompt):
 
 
 def get_random_creature():
-    creatures = [
-        "cat",
-        "dog",
-        "elephant",
-        "lion",
-        "butterfly",
-        "eagle",
-        "dolphin",
-        "snake",
-        "dragon",
-        "unicorn",
-        "phoenix",
-        "mermaid",
-        "centaur",
-        "griffin",
-        "werewolf",
-        "fairy",
-        "goblin",
-        "minotaur",
-        "pegasus",
-        "kraken",
-        "octopus",
-        "panda",
-        "giraffe",
-        "kangaroo",
-        "penguin",
-        "parrot",
-        "tiger",
-        "bear",
-        "rabbit",
-        "turtle",
-        "fox",
-        "owl",
-    ]
-    return random.choice(creatures)
+    return random.choice(
+        [
+            "cat",
+            "dog",
+            "elephant",
+            "lion",
+            "butterfly",
+            "eagle",
+            "dolphin",
+            "snake",
+            "dragon",
+            "unicorn",
+            "phoenix",
+            "mermaid",
+            "centaur",
+            "griffin",
+            "werewolf",
+            "fairy",
+            "goblin",
+            "minotaur",
+            "pegasus",
+            "kraken",
+            "octopus",
+            "panda",
+            "giraffe",
+            "kangaroo",
+            "penguin",
+            "parrot",
+            "tiger",
+            "bear",
+            "rabbit",
+            "turtle",
+            "fox",
+            "owl",
+        ]
+    )
+
+
+def get_random_perspective():
+    return random.choice(
+        [
+            "aerial",
+            "close-up",
+            "panoramic",
+            "microscopic",
+            "bird's-eye",
+            "worm's-eye",
+            "fisheye",
+            "top-down",
+            "side-view",
+            "rear-view",
+            "isometric",
+            "first-person",
+            "third-person",
+            "macro",
+            "wide-angle",
+            "telephoto",
+            "tilted",
+            "skewed",
+            "distorted",
+            "flipped",
+            "mirrored",
+            "kaleidoscopic",
+            "cross-section",
+            "cutaway",
+            "translucent",
+            "x-ray",
+            "thermal",
+            "infrared",
+            "ultraviolet",
+            "low-angle",
+            "high-angle",
+        ]
+    )
 
 
 def get_random_adjective():
-    adjectives = [
-        "happy",
-        "sad",
-        "excited",
-        "tired",
-        "hungry",
-        "playful",
-        "curious",
-        "brave",
-        "majestic",
-        "enchanted",
-        "mysterious",
-        "radiant",
-        "ethereal",
-        "vibrant",
-        "serene",
-        "whimsical",
-        "luminous",
-        "enigmatic",
-        "shiny",
-        "colorful",
-        "rusty",
-        "old",
-        "new",
-        "large",
-        "small",
-        "tall",
-        "short",
-        "wide",
-        "narrow",
-        "thick",
-        "thin",
-        "smooth",
-    ]
-    return random.choice(adjectives)
+    return random.choice(
+        [
+            "happy",
+            "sad",
+            "excited",
+            "tired",
+            "hungry",
+            "playful",
+            "curious",
+            "brave",
+            "majestic",
+            "enchanted",
+            "mysterious",
+            "radiant",
+            "ethereal",
+            "vibrant",
+            "serene",
+            "whimsical",
+            "luminous",
+            "enigmatic",
+            "shiny",
+            "colorful",
+            "rusty",
+            "old",
+            "new",
+            "large",
+            "small",
+            "tall",
+            "short",
+            "wide",
+            "narrow",
+            "thick",
+            "thin",
+            "smooth",
+        ]
+    )
 
 
 def get_random_object():
-    objects = [
-        "book",
-        "pen",
-        "phone",
-        "camera",
-        "guitar",
-        "bicycle",
-        "car",
-        "cup",
-        "crystal",
-        "tome",
-        "amulet",
-        "scepter",
-        "chalice",
-        "orb",
-        "mirror",
-        "locket",
-        "tapestry",
-        "sculpture",
-        "lamp",
-        "chair",
-        "table",
-        "umbrella",
-        "hammer",
-        "scissors",
-        "knife",
-        "spoon",
-        "fork",
-        "paintbrush",
-        "vase",
-        "clock",
-        "globe",
-        "telescope",
-    ]
-    return random.choice(objects)
+    return random.choice(
+        [
+            "book",
+            "pen",
+            "phone",
+            "camera",
+            "guitar",
+            "bicycle",
+            "car",
+            "cup",
+            "crystal",
+            "tome",
+            "amulet",
+            "scepter",
+            "chalice",
+            "orb",
+            "mirror",
+            "locket",
+            "tapestry",
+            "sculpture",
+            "lamp",
+            "chair",
+            "table",
+            "umbrella",
+            "hammer",
+            "scissors",
+            "knife",
+            "spoon",
+            "fork",
+            "paintbrush",
+            "vase",
+            "clock",
+            "globe",
+            "telescope",
+        ]
+    )
 
 
 def get_random_background():
-    backgrounds = [
-        "beach",
-        "mountains",
-        "city",
-        "countryside",
-        "park",
-        "library",
-        "cafe",
-        "bedroom",
-        "forest",
-        "castle",
-        "cave",
-        "island",
-        "desert",
-        "underwater",
-        "sky",
-        "garden",
-        "ruins",
-        "stadium",
-        "mall",
-        "factory",
-        "farm",
-        "school",
-        "hospital",
-        "airport",
-        "train station",
-        "bridge",
-        "tunnel",
-        "highway",
-        "river",
-        "lake",
-        "ocean",
-        "space",
-    ]
-    return random.choice(backgrounds)
+    return random.choice(
+        [
+            "beach",
+            "mountains",
+            "city",
+            "countryside",
+            "park",
+            "library",
+            "cafe",
+            "bedroom",
+            "forest",
+            "castle",
+            "cave",
+            "island",
+            "desert",
+            "underwater",
+            "sky",
+            "garden",
+            "ruins",
+            "stadium",
+            "mall",
+            "factory",
+            "farm",
+            "school",
+            "hospital",
+            "airport",
+            "train station",
+            "bridge",
+            "tunnel",
+            "highway",
+            "river",
+            "lake",
+            "ocean",
+            "space",
+        ]
+    )
 
 
-def generate_haiku_prompt() -> str:
-    creature = get_random_creature()
-    adjective = get_random_adjective()
-    object = get_random_object()
-    background = get_random_background()
+def generate_story_prompt() -> str:
+    random_creature = get_random_creature()
+    random_adjective = get_random_adjective()
+    random_object = get_random_object()
+    random_background = get_random_background()
+    random_perspective = get_random_perspective()
 
     return (
         "You are an image prompt generator. "
         + "Your purpose is to generate a single, "
-        + "concise haiku that can be used as a prompt for Dalle-3. "
-        + "The haiku must incorporate the following elements:\n\n"
-        f"- Creature: {creature}\n"
-        f"- Adjective: {adjective}\n"
-        f"- Object: {object}\n"
-        f"- Background: {background}\n\n"
-        f"Please ensure that the haiku is creative, "
+        + "short story that can be used as a prompt for Dalle-3. "
+        + "The story must incorporate the following elements:\n\n"
+        f"- Object: {random_object}\n"
+        f"- Creature: {random_creature}\n"
+        f"- Adjective: {random_adjective}\n"
+        f"- Background: {random_background}\n\n"
+        f"- Perspective: {random_perspective}\n\n"
+        f"Please ensure that the story is creative, "
         + "visually descriptive, and coherent. "
-        + "The haiku should be written in the traditional "
-        + "format of three lines with a 5-7-5 syllable structure. "
+        + "The story should be less than 30 words. "
         + "Avoid using any additional elements or deviating from "
         + "the specified creature, adjective, object, and background.\n\n"
     )
@@ -562,10 +605,12 @@ def generate_haiku_prompt() -> str:
 
 def generate_random_prompt_gpt(
     self,
-    model="gpt-4",
-    prompt=generate_haiku_prompt(),
+    model: str = "gpt-4",
+    prompt: Optional[str] = None,
 ):
     response = None
+    if not prompt:
+        prompt = generate_story_prompt()
 
     # Generate the prompt from corcel if we have an API key
     if self.corcel_api_key:
