@@ -13,7 +13,15 @@ import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
 from neurons.protocol import denormalize_image_model
-from neurons.utils import BackgroundTimer, background_loop, colored_log, get_defaults
+from neurons.utils import (
+    BackgroundTimer,
+    background_loop,
+    clean_nsfw_from_prompt,
+    colored_log,
+    get_defaults,
+    update_task_state,
+)
+from neurons.validator.backend.models import TaskState
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
 from neurons.validator.reward import (
@@ -307,7 +315,32 @@ class StableValidator:
                 #       trying to get a task from the user
                 #       before going on and creating a synthetic task
                 task = await get_task(self.api_url)
-                if task is None:
+                if task is not None:
+                    if task.prompt != clean_nsfw_from_prompt(task.prompt):
+                        try:
+                            await update_task_state(
+                                self.api_url, task.task_id, TaskState.REJECTED
+                            )
+                        except:
+                            bt.logging.info(
+                                f"Failed to post {task.task_id} to the {TaskState.REJECTED.value} endpoint"
+                            )
+                        bt.logging.info(
+                            f"Task {task.task_id} prompt {task.prompt} classified as NSFW. Generating synthetic task instead."
+                        )
+                        task = denormalize_image_model(
+                            id=str(uuid.uuid4()),
+                            image_count=1,
+                            task_type="TEXT_TO_IMAGE",
+                            guidance_scale=7.5,
+                            negative_prompt=None,
+                            prompt=generate_random_prompt_gpt(self),
+                            seed=-1,
+                            steps=30,
+                            width=1024,
+                            height=1024,
+                        )
+                else:
                     task = denormalize_image_model(
                         id=str(uuid.uuid4()),
                         image_count=1,
