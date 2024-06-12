@@ -545,6 +545,13 @@ def get_random_object():
 def get_random_background():
     return random.choice(
         [
+            # Future prompts
+            "spaceship",
+            "near earth orbit",
+            "futuristic city",
+            "city of 2033",
+            "mars",
+            # Standard prompts
             "beach",
             "mountains",
             "city",
