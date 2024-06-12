@@ -198,13 +198,13 @@ def get_automated_rewards(self, responses, uids, task_type):
 
 
 def get_human_rewards(
-    validator, rewards, mock=False, mock_winner=None, mock_loser=None
+    val, rewards, mock=False, mock_winner=None, mock_loser=None
 ):
-    _, human_voting_scores_normalised = validator.human_voting_reward_model.get_rewards(
-        validator.hotkeys, mock, mock_winner, mock_loser
+    _, human_voting_scores_normalised = val.human_voting_reward_model.get_rewards(
+        val.hotkeys, mock, mock_winner, mock_loser
     )
     scattered_rewards_adjusted = rewards + (
-        validator.human_voting_weight * human_voting_scores_normalised
+        val.human_voting_weight * human_voting_scores_normalised
     )
     return scattered_rewards_adjusted
 
