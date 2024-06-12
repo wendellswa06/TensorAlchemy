@@ -191,8 +191,7 @@ class StableValidator:
         self.reward_weights = torch.tensor(
             [
                 1.0,
-                # FIXME: @Karim why was this a division by zero before?
-                1 / 3,
+                0,
             ],
             dtype=torch.float32,
         ).to(self.device)
