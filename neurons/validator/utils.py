@@ -587,24 +587,31 @@ def generate_story_prompt() -> str:
     random_adjective = get_random_adjective()
     random_object = get_random_object()
     random_background = get_random_background()
+
     random_perspective = get_random_perspective()
 
-    return (
+    to_return: str = (
         "You are an image prompt generator. "
         + "Your purpose is to generate a single, "
         + "short story that can be used as a prompt for Dalle-3. "
-        + "The story must incorporate the following elements:\n\n"
-        f"- Object: {random_object}\n"
-        f"- Creature: {random_creature}\n"
-        f"- Adjective: {random_adjective}\n"
-        f"- Background: {random_background}\n\n"
-        f"- Perspective: {random_perspective}\n\n"
-        f"Please ensure that the story is creative, "
+        + "Please ensure that the story is creative, "
         + "visually descriptive, and coherent. "
         + "The story should be less than 30 words. "
         + "Avoid using any additional elements or deviating from "
-        + "the specified creature, adjective, object, and background.\n\n"
+        + "the specified creature, adjective, object, and background."
+        + "The story **must** incorporate the following elements:\n\n"
+        + f"- Background: {random_background}\n\n"
+        + f"- Creature: {random_creature}\n"
+        + f"- Adjective: {random_adjective}\n"
     )
+
+    if random.random() > 0.85:
+        to_return += f"- Object: {random_object}\n"
+
+    if random.random() > 0.85:
+        to_return += f"- Perspective: {random_perspective}\n\n"
+
+    return to_return
 
 
 def generate_random_prompt_gpt(
