@@ -373,12 +373,6 @@ def background_loop(self, is_validator):
                     self.storage_client, bucket_name, IA_VALIDATOR_WEIGHT_FILES
                 )
 
-                if (
-                    "manual_reward_model" in validator_weights
-                    and self.config.alchemy.disable_manual_validator
-                ):
-                    validator_weights["manual_reward_model"] = 0.0
-
                 if "human_reward_model" in validator_weights:
                     # NOTE: Scaling factor for the human reward model
                     #
@@ -450,11 +444,6 @@ def background_loop(self, is_validator):
                         "query_timeout", self.query_timeout
                     )
 
-                    self.manual_validator_timeout = validator_settings.get(
-                        "manual_validator_timeout",
-                        self.manual_validator_timeout,
-                    )
-
                     self.async_timeout = validator_settings.get(
                         "async_timeout", self.async_timeout
                     )
@@ -462,9 +451,6 @@ def background_loop(self, is_validator):
                     self.epoch_length = validator_settings.get(
                         "epoch_length", self.epoch_length
                     )
-
-                    if self.config.alchemy.disable_manual_validator:
-                        self.request_frequency += self.manual_validator_timeout
 
                     logger.info(
                         f"Retrieved the latest validator settings: {validator_settings}"

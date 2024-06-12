@@ -89,66 +89,6 @@ def apply_masking_functions(
     return rewards, event
 
 
-def process_manual_vote(
-    rewards: torch.Tensor,
-    reward_weights: list,
-    disable_log_rewards: bool,
-    start_time: float,
-    manual_validator_timeout: float,
-    device: torch.device,
-) -> tuple[torch.Tensor, dict, bool]:
-    event = {}
-    received_vote = False
-
-    while (time.perf_counter() - start_time) < manual_validator_timeout:
-        time.sleep(1)
-        # If manual vote received
-        if os.path.exists("neurons/validator/images/vote.txt"):
-            # loop until vote is successfully saved
-            while open("neurons/validator/images/vote.txt", "r").read() == "":
-                time.sleep(0.05)
-                continue
-
-            try:
-                reward_i = (
-                    int(open("neurons/validator/images/vote.txt", "r").read()) - 1
-                )
-            except Exception as e:
-                logger.error(f"An unexpected error occurred parsing the vote: {e}")
-                break
-
-            if reward_i >= len(rewards):
-                logger.info(
-                    f"Received invalid vote for Image {reward_i+1}: it doesn't exist."
-                )
-                break
-
-            logger.info(f"Received manual vote for Image {reward_i+1}")
-
-            received_vote = True
-
-            reward_i_normalized: torch.FloatTensor = torch.zeros(
-                len(rewards), dtype=torch.float32
-            ).to(device)
-            reward_i_normalized[reward_i] = 1.0
-            rewards += reward_weights[-1] * reward_i_normalized.to(device)
-            if not disable_log_rewards:
-                event["manual_reward_model"] = reward_i_normalized.tolist()
-                event["manual_reward_model_normalized"] = reward_i_normalized.tolist()
-
-            break
-
-    if not received_vote:
-        delta = 1 - reward_weights[-1]
-        if delta != 0:
-            rewards /= delta
-        else:
-            logger.warning("The reward weight difference was 0 which is unexpected.")
-        logger.info("No valid vote was received")
-
-    return rewards, event
-
-
 def get_automated_rewards(self, responses, uids, task_type):
     event = {"task_type": task_type}
 
@@ -166,29 +106,6 @@ def get_automated_rewards(self, responses, uids, task_type):
         self.masking_functions, responses, rewards, self.device
     )
     event.update(masking_event)
-
-    if not self.config.alchemy.disable_manual_validator:
-        logger.info(
-            f"Waiting {self.manual_validator_timeout} seconds for manual vote..."
-        )
-        start_time = time.perf_counter()
-
-        rewards, manual_event = process_manual_vote(
-            rewards,
-            self.reward_weights,
-            self.config.alchemy.disable_log_rewards,
-            start_time,
-            self.manual_validator_timeout,
-            self.device,
-        )
-        event.update(manual_event)
-
-        # Delete contents of images folder except for black image
-        if os.path.exists("neurons/validator/images"):
-            for file in os.listdir("neurons/validator/images"):
-                os.remove(
-                    f"neurons/validator/images/{file}"
-                ) if file != "black.png" else "_"
 
     scattered_rewards: torch.FloatTensor = self.moving_average_scores.scatter(
         0, uids, rewards
@@ -585,9 +502,9 @@ class HumanValidationRewardModel(BaseRewardModel):
         self.api_url = api_url
 
     def get_votes(self, api_url: str, timeout: int = 2):
-        human_voting_scores = SignedRequests(
-            self.validator.wallet.hotkey
-        ).get(f"{api_url}/votes", timeout=timeout)
+        human_voting_scores = SignedRequests(self.validator.wallet.hotkey).get(
+            f"{api_url}/votes", timeout=timeout
+        )
         return human_voting_scores
 
     def get_rewards(

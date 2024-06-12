@@ -23,7 +23,6 @@ def setup() -> None:
         "--wallet.name",
         "validator",
         "--wallet.hotkey default",
-        "--alchemy.disable_manual_validator",
     ]
     validator = StableValidator()
     validator.load_state()
