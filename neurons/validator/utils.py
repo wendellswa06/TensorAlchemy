@@ -419,6 +419,7 @@ def get_random_creature():
             "turtle",
             "fox",
             "owl",
+            "human being",
         ]
     )
 
@@ -535,6 +536,8 @@ def get_random_object():
             "clock",
             "globe",
             "telescope",
+            "human",
+            "human face",
         ]
     )
 
