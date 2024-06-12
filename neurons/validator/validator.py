@@ -303,6 +303,9 @@ class StableValidator:
 
                 axons = [self.metagraph.axons[uid] for uid in uids]
 
+                # NOTE: Will wait for around 30 seconds
+                #       trying to get a task from the user
+                #       before going on and creating a synthetic task
                 task = await get_task(self.api_url)
                 if task is None:
                     task = denormalize_image_model(
