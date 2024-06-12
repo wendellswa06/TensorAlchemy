@@ -8,6 +8,7 @@ from loguru import logger
 
 import bittensor as bt
 
+from neurons.validator import validator
 from neurons.validator.signed_requests import SignedRequests
 
 
@@ -45,18 +46,18 @@ def post_weights(
     return response
 
 
-def set_weights(validator):
+def set_weights(val):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
-        validator.moving_average_scores, p=1, dim=0
+        val.moving_average_scores, p=1, dim=0
     )
 
     try:
         response = post_weights(
-            validator.wallet.hotkey,
-            validator.api_url,
-            validator.hotkeys,
+            val.wallet.hotkey,
+            val.api_url,
+            val.hotkeys,
             raw_weights,
         )
         if response.status_code != 200:
@@ -70,18 +71,18 @@ def set_weights(validator):
         processed_weight_uids,
         processed_weights,
     ) = bt.utils.weight_utils.process_weights_for_netuid(
-        uids=validator.metagraph.uids.to("cpu"),
+        uids=val.metagraph.uids.to("cpu"),
         weights=raw_weights.to("cpu"),
-        netuid=validator.config.netuid,
-        subtensor=validator.subtensor,
-        metagraph=validator.metagraph,
+        netuid=val.config.netuid,
+        subtensor=val.subtensor,
+        metagraph=val.metagraph,
     )
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
     # Set the weights on chain via our subtensor connection.
-    validator.subtensor.set_weights(
-        wallet=validator.wallet,
-        netuid=validator.config.netuid,
+    val.subtensor.set_weights(
+        wallet=val.wallet,
+        netuid=val.config.netuid,
         uids=processed_weight_uids,
         weights=processed_weights,
         wait_for_finalization=False,
