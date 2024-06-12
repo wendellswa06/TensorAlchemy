@@ -112,21 +112,6 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def save_images_data_for_manual_validation(
-    responses: List[ImageGeneration], prompt: str
-):
-    logger.info("Saving images...")
-    for i, r in enumerate(responses):
-        for image in r.images:
-            T.transforms.ToPILImage()(bt.Tensor.deserialize(image)).save(
-                f"neurons/validator/images/{i}.png"
-            )
-
-    logger.info("Saving prompt...")
-    with open("neurons/validator/images/prompt.txt", "w") as f:
-        f.write(prompt)
-
-
 def post_moving_averages(
     hotkey: Keypair,
     api_url: str,
@@ -284,9 +269,6 @@ def run_step(validator, task, axons, uids):
     # Log the results for monitoring purposes.
     log_responses(responses, prompt)
 
-    # Save images for manual validator
-    if not validator.config.alchemy.disable_manual_validator:
-        save_images_data_for_manual_validation(responses, prompt)
     scattered_rewards, event, rewards = get_automated_rewards(
         validator, responses, uids, task_type
     )

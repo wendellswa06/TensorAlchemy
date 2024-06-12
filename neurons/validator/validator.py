@@ -187,74 +187,12 @@ class StableValidator:
         # Init reward function
         self.reward_functions = [ImageRewardModel()]
 
-        # Init manual validator
-        if not self.config.alchemy.disable_manual_validator:
-            try:
-                if not is_valid_current_directory():
-                    raise Exception(
-                        "Unable to load manual validator please `cd` "
-                        + "into the TensorAlchemy folder before running the validator"
-                    )
-
-                logger.info("Setup streamlit credentials")
-
-                if not os.path.exists("streamlit_credentials.txt"):
-                    hashkey = pwgenerator.generate()
-                    password = pwgenerator.generate()
-                    username = self.wallet.hotkey.ss58_address
-                    with open("streamlit_credentials.txt", "w") as f:
-                        f.write(
-                            f"hashkey={hashkey}\nusername={username}\npassword={password}"
-                        )
-                else:
-                    credentials = open("streamlit_credentials.txt", "r").read()
-                    credentials_split = credentials.split("\n")
-                    if (
-                        ("hashkey" not in credentials_split[0])
-                        or ("username" not in credentials_split[0])
-                        or ("password" not in credentials_split[0])
-                    ):
-                        hashkey = pwgenerator.generate()
-                        password = pwgenerator.generate()
-                        username = self.wallet.hotkey.ss58_address
-                        with open("streamlit_credentials.txt", "w") as f:
-                            f.write(
-                                f"hashkey={hashkey}\nusername={username}\npassword={password}"
-                            )
-                # Sleep until the credentials file is written
-                sleep(5)
-                logger.info("Loading Manual Validator")
-                subprocess.Popen(
-                    [
-                        "streamlit",
-                        "run",
-                        os.path.join(
-                            os.getcwd(),
-                            "neurons",
-                            "validator",
-                            "app.py",
-                        ),
-                        (
-                            "--server.port"
-                            if self.config.alchemy.streamlit_port is not None
-                            else ""
-                        ),
-                        (
-                            f"{self.config.alchemy.streamlit_port}"
-                            if self.config.alchemy.streamlit_port is not None
-                            else ""
-                        ),
-                    ]
-                )
-            except Exception as e:
-                logger.error(f"Failed to Load Manual Validator due to error: {e}")
-                self.config.alchemy.disable_manual_validator = True
-
         # Init reward function
         self.reward_weights = torch.tensor(
             [
                 1.0,
-                1 / 3 if not self.config.alchemy.disable_manual_validator else 0.0,
+                # FIXME: @Karim why was this a division by zero before?
+                1 / 3,
             ],
             dtype=torch.float32,
         ).to(self.device)
@@ -263,7 +201,7 @@ class StableValidator:
             dim=-1
         ).unsqueeze(-1)
 
-        self.reward_names = ["image_reward_model", "manual_reward_model"]
+        self.reward_names = ["image_reward_model"]
 
         self.human_voting_scores = torch.zeros((self.metagraph.n)).to(self.device)
         self.human_voting_weight = 0.10 / 32
@@ -277,7 +215,6 @@ class StableValidator:
         # Set validator variables
         self.request_frequency = 35
         self.query_timeout = 20
-        self.manual_validator_timeout = 10
         self.async_timeout = 1.2
         self.epoch_length = 300
 
@@ -361,14 +298,6 @@ class StableValidator:
         self.step = 0
         while True:
             try:
-                # Reduce calls to miner to be approximately 1 per 5 minutes
-                if self.step > 0:
-                    logger.info(
-                        f"Waiting for {self.request_frequency} "
-                        + "seconds before querying miners again..."
-                    )
-                    sleep(self.request_frequency)
-
                 # Get a random number of uids
                 uids = await get_random_uids(self, self.dendrite, k=N_NEURONS)
                 uids = uids.to(self.device)
