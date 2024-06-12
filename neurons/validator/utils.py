@@ -659,7 +659,7 @@ def generate_random_prompt_gpt(
     if response:
         response = response.replace('"', "")
 
-    return response
+    return response.strip()
 
 
 def generate_followup_prompt_gpt(
