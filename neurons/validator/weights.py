@@ -8,7 +8,6 @@ from loguru import logger
 
 import bittensor as bt
 
-from neurons.validator import validator
 from neurons.validator.signed_requests import SignedRequests
 
 
@@ -79,6 +78,7 @@ def set_weights(val):
     )
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
+    from neurons.validator import validator
     # Set the weights on chain via our subtensor connection.
     val.subtensor.set_weights(
         wallet=val.wallet,
