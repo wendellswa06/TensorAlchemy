@@ -24,9 +24,9 @@ import wandb
 
 
 # Get tasks from the client server
-async def get_task(api_url, timeout=1):
+async def get_task(api_url, timeout=3):
     task = None
-    for i in range(30):
+    for _i in range(8):
         await asyncio.sleep(1)
         response = requests.get(f"{api_url}/tasks", timeout=timeout)
         if response.status_code == 200:
