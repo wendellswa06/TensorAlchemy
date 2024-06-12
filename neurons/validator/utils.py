@@ -582,6 +582,7 @@ def get_random_background():
 
 
 def generate_story_prompt() -> str:
+    random.seed(int(time.time()))
     random_creature = get_random_creature()
     random_adjective = get_random_adjective()
     random_object = get_random_object()
