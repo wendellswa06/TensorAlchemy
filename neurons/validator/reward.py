@@ -113,18 +113,6 @@ def get_automated_rewards(self, responses, uids, task_type):
     return scattered_rewards, event, rewards
 
 
-def get_human_rewards(
-    val, rewards, mock=False, mock_winner=None, mock_loser=None
-):
-    _, human_voting_scores_normalised = val.human_voting_reward_model.get_rewards(
-        val.hotkeys, mock, mock_winner, mock_loser
-    )
-    scattered_rewards_adjusted = rewards + (
-        val.human_voting_weight * human_voting_scores_normalised
-    )
-    return scattered_rewards_adjusted
-
-
 def get_human_voting_scores(
     human_voting_reward_model,
     hotkeys: str,
@@ -145,7 +133,6 @@ def apply_human_voting_weight(
     return scattered_rewards_adjusted
 
 
-# TODO: not sure how come we have 2 get_human_rewards functions
 def get_human_rewards(
     validator,
     rewards: torch.Tensor,
@@ -160,9 +147,11 @@ def get_human_rewards(
         mock_winner,
         mock_loser,
     )
+
     scattered_rewards_adjusted = apply_human_voting_weight(
         rewards, human_voting_scores, validator.human_voting_weight
     )
+
     return scattered_rewards_adjusted
 
 

@@ -205,12 +205,13 @@ def run_step(validator, task, axons, uids):
     task_type_for_miner = task_type.lower()
     synapse = ImageGeneration(
         prompt=prompt,
+        negative_prompt=task.negative_prompt,
         generation_type=task_type_for_miner,
         prompt_image=task.images,
         seed=task.seed,
         guidance_scale=task.guidance_scale,
         steps=task.steps,
-        num_images_per_prompt=task.num_images_per_prompt,
+        num_images_per_prompt=1,
         width=task.width,
         height=task.height,
     )
@@ -366,7 +367,11 @@ def run_step(validator, task, axons, uids):
             }
 
         # Upload the batches to the Human Validation Platform
-        upload_batches(validator.batches, validator.api_url)
+        upload_batches(
+            validator.wallet.hotkey,
+            validator.api_url,
+            validator.batches,
+        )
 
     except Exception as e:
         logger.error(f"An unexpected error occurred appending the batch: {e}")

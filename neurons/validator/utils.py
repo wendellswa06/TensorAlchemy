@@ -14,12 +14,18 @@ import pandas as pd
 import requests
 import torch
 import torch.nn as nn
-from loguru import logger
-from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO, WANDB_VALIDATOR_PATH
-from neurons.protocol import IsAlive, denormalize_image_model
 
-import bittensor as bt
 import wandb
+import bittensor as bt
+from loguru import logger
+
+from neurons.protocol import IsAlive, denormalize_image_model
+from neurons.validator.signed_requests import SignedRequests
+from neurons.constants import (
+    N_NEURONS_TO_QUERY,
+    VPERMIT_TAO,
+    WANDB_VALIDATOR_PATH,
+)
 
 
 def get_validator_version() -> str:
@@ -36,15 +42,29 @@ def get_validator_spec_version() -> int:
     return neurons.validator.__spec_version__
 
 
-# def get_validator
-
-
 # Get tasks from the client server
-async def get_task(api_url, timeout=3):
+async def get_task(validator, timeout=5):
     task = None
     for _i in range(60):
         await asyncio.sleep(1)
-        response = requests.get(f"{api_url}/tasks", timeout=timeout)
+        try:
+            response = SignedRequests(validator=validator).get(
+                f"{validator.api_url}/tasks", timeout=timeout
+            )
+
+            # No tasks found
+            if response.status_code == 404:
+                continue
+
+        except Exception as error:
+            logger.warning(
+                #
+                f"Failed to get task from {validator.api_url}/tasks: "
+                + str(error),
+            )
+
+            continue
+
         if response.status_code == 200:
             task = response.json()
             return denormalize_image_model(**task)

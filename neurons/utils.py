@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
+from substrateinterface import Keypair
 
-import httpx
 import requests
 import sentry_sdk
 import torch
@@ -38,6 +38,7 @@ from neurons.constants import (
     NSFW_WORDLIST_DEFAULT,
 )
 from neurons.exceptions import MinimumValidImagesError
+from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.backend.exceptions import UpdateTaskError
 from neurons.validator.backend.models import TaskState
 from neurons.validator.utils import init_wandb
@@ -91,7 +92,11 @@ NSFW_WORDS: List[str] = load_nsfw_words(NSFW_WORDLIST_URL)
 
 
 # Utility function for coloring logs
-def colored_log(message: str, color: str = "white", level: str = "INFO") -> None:
+def colored_log(
+    message: str,
+    color: str = "white",
+    level: str = "INFO",
+) -> None:
     logger.opt(colors=True).log(level, f"<bold><{color}>{message}</{color}></bold>")
 
 
@@ -121,21 +126,33 @@ class BackgroundTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
-async def update_task_state(api_url, task_id: str, state: TaskState, timeout=3) -> None:
+async def update_task_state(
+    hotkey: Keypair,
+    api_url: str,
+    task_id: str,
+    state: TaskState,
+    timeout=3,
+) -> None:
     endpoint = api_url
 
     if state == TaskState.FAILED:
         endpoint = f"{endpoint}/tasks/{task_id}/fail"
     elif endpoint == TaskState.REJECTED:
         endpoint = f"{endpoint}/tasks/{task_id}/reject"
+    else:
+        logger.warning(f"Not updating task state for state {state}")
+        return None
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(endpoint, timeout=timeout)
-        if response.status_code != 200:
-            raise UpdateTaskError(
-                f"updating task state failed with status_code "
-                f"{response.status_code}: {response.text}"
-            )
+    response = SignedRequests(hotkey=hotkey).post(
+        endpoint,
+        timeout=timeout,
+    )
+
+    if response.status_code != 200:
+        raise UpdateTaskError(
+            f"updating task state failed with status_code "
+            f"{response.status_code}: {response.text}"
+        )
 
     return None
 
@@ -150,8 +167,8 @@ def get_coldkey_for_hotkey(self, hotkey):
     return None
 
 
-def post_batch(api_url: str, batch: dict):
-    response = requests.post(
+def post_batch(hotkey: Keypair, api_url: str, batch: dict):
+    response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/batch",
         data=json.dumps(batch),
         headers={"Content-Type": "application/json"},
@@ -225,7 +242,7 @@ def filter_batch_before_submission(batch: Dict[str, Any]) -> Dict[str, Any]:
     return dict(BatchSubmissionRequest(**to_return))
 
 
-def upload_batches(batches, api_url):
+def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
     logger.info(f"Number of batches in queue: {len(batches)}")
     max_retries = 3
     backoff = 5
@@ -236,7 +253,7 @@ def upload_batches(batches, api_url):
         for attempt in range(0, max_retries):
             try:
                 filtered_batch = filter_batch_before_submission(batch)
-                response = post_batch(api_url, filtered_batch)
+                response = post_batch(hotkey, api_url, filtered_batch)
                 if response.status_code == 200:
                     logger.info(
                         "Successfully posted batch" + f" {filtered_batch['batch_id']}"
@@ -258,7 +275,12 @@ def upload_batches(batches, api_url):
                 batches_for_deletion.add(batch_id)
                 try:
                     loop.run_until_complete(
-                        update_task_state(api_url, batch_id, TaskState.FAILED)
+                        update_task_state(
+                            hotkey,
+                            api_url,
+                            batch_id,
+                            TaskState.FAILED,
+                        )
                     )
                 except:
                     bt.logging.info(
@@ -329,7 +351,7 @@ def background_loop(self, is_validator):
     # Send new batches to the Human Validation Bot
     try:
         if (self.background_steps % 1 == 0) and is_validator and (self.batches != {}):
-            upload_batches(self.batches, self.api_url)
+            upload_batches(self.wallet.hotkey, self.batches, self.api_url)
 
     except Exception as e:
         logger.info(

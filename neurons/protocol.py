@@ -39,6 +39,7 @@ class ImageGenerationTaskModel(BaseModel):
     steps: int
     task_type: str
 
+
 def denormalize_image_model(
     id: str, image_count: int, **kwargs
 ) -> ImageGenerationTaskModel:
@@ -60,13 +61,16 @@ class IsAlive(bt.Synapse):
 
 class ImageGeneration(bt.Synapse):
     """
-    A simple dummy protocol representation which uses bt.Synapse as its base.
-    This protocol helps in handling dummy request and response communication between
-    the miner and the validator.
+        A simple dummy protocol representation which uses bt.Synapse as its base.
+        This protocol helps in handling dummy request and response communication between
+        the miner and the validator.
 
-    Attributes:
-    - dummy_input: An integer value representing the input request sent by the validator.
-    - dummy_output: An optional integer value which, when filled, represents the response from the miner.
+        Attributes:
+        - dummy_input: An integer value representing the input request sent by the validator.
+        - dummy_output: An optional integer value which, when filled, represents the response from the     print(compute)
+        print(compute.dump())
+        return compute
+    miner.
     """
 
     # Required request input, filled by sending dendrite caller.

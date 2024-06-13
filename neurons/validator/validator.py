@@ -318,19 +318,26 @@ class StableValidator:
                 # NOTE: Will wait for around 30 seconds
                 #       trying to get a task from the user
                 #       before going on and creating a synthetic task
-                task = await get_task(self.api_url)
+                task = await get_task(self)
+
                 if task is not None:
                     if task.prompt != clean_nsfw_from_prompt(task.prompt):
                         try:
-                            await update_task_state(
-                                self.api_url, task.task_id, TaskState.REJECTED
+                            update_task_state(
+                                self.wallet.hotkey,
+                                self.api_url,
+                                task.task_id,
+                                TaskState.REJECTED,
                             )
                         except:
                             bt.logging.info(
-                                f"Failed to post {task.task_id} to the {TaskState.REJECTED.value} endpoint"
+                                f"Failed to post {task.task_id} to the"
+                                + f" {TaskState.REJECTED.value} endpoint"
                             )
                         bt.logging.info(
-                            f"Task {task.task_id} prompt {task.prompt} classified as NSFW. Generating synthetic task instead."
+                            f"Task {task.task_id} prompt {task.prompt}"
+                            + " classified as NSFW. "
+                            + "Generating synthetic task instead."
                         )
                         task = denormalize_image_model(
                             id=str(uuid.uuid4()),
