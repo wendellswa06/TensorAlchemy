@@ -3,8 +3,10 @@ import pathlib
 import sys
 
 import sentry_sdk
+from loguru import logger
 
 from neurons.update_checker import check_for_updates
+
 REPO_URL = "TensorAlchemy/TensorAlchemy"
 
 if __name__ == "__main__":
@@ -13,7 +15,12 @@ if __name__ == "__main__":
     if file_path not in sys.path:
         sys.path.append(file_path)
     current_folder = str(pathlib.Path(__file__).parent.resolve())
-    check_for_updates(current_folder, REPO_URL)
+
+    try:
+        check_for_updates(current_folder, REPO_URL)
+    except Exception:
+        logger.warning("Failed to check remote for updates")
+
     # Import StableValidator after fixing paths
     from neurons.constants import VALIDATOR_SENTRY_DSN
 
