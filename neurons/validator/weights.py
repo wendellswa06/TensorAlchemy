@@ -9,6 +9,7 @@ from loguru import logger
 import bittensor as bt
 
 from neurons.validator.signed_requests import SignedRequests
+from neurons.validator.utils import get_validator_spec_version
 
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -86,5 +87,5 @@ def set_weights(val):
         uids=processed_weight_uids,
         weights=processed_weights,
         wait_for_finalization=False,
-        version_key=validator.__spec_version__,
+        version_key=get_validator_spec_version(),
     )

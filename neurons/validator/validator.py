@@ -38,6 +38,7 @@ from neurons.validator.utils import (
     init_wandb,
     reinit_wandb,
     ttl_get_block,
+    get_validator_version,
 )
 from neurons.validator.weights import set_weights
 from openai import OpenAI
@@ -181,7 +182,10 @@ class StableValidator:
         self.my_subnet_uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
-        logger.info(f"Running validator on uid: {self.my_subnet_uid}")
+        validator_version = get_validator_version()
+        logger.info(
+            f"Running validator (version={validator_version}) on uid: {self.my_subnet_uid}"
+        )
 
         # Init weights
         self.weights = torch.ones_like(self.metagraph.uids, dtype=torch.float32).to(
