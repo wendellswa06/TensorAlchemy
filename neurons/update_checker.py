@@ -43,7 +43,7 @@ def show_warning_message(local_commit, remote_commit):
         create_line("WARNING: Your TensorAlchemy OUTDATED"),
         create_line("Your local TensorAlchemy is not up-to-date with"),
         create_line("the TensorAlchemy repository."),
-        create_line(f"Your hash: {local_commit}"),
+        create_line(f"Your hash  : {local_commit}"),
         create_line(f"Remote hash: {remote_commit}")
     ]
 
