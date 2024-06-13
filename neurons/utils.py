@@ -646,7 +646,7 @@ def retrieve_public_file(client, bucket_name, source_name):
 
 def clean_nsfw_from_prompt(prompt):
     for word in NSFW_WORDS:
-        if word in prompt:
+        if f" {word} " in prompt:
             prompt = prompt.replace(word, "").strip()
             logger.warning(f"Removed NSFW word {word.strip()} from prompt...")
 
