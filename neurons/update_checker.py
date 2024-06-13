@@ -41,10 +41,11 @@ def show_warning_message(local_commit, remote_commit):
     empty_line = create_line("")
     warning_lines = [
         create_line("WARNING: REPOSITORY OUTDATED"),
-        create_line("Your local repository is not up-to-date with"),
-        create_line("the GitHub repository."),
-        create_line(f"Local commit: {local_commit}"),
-        create_line(f"Remote commit: {remote_commit}")
+        create_line("Your local TensorAlchemy is not up-to-date with"),
+        create_line("the TensorAlchemy repository."),
+        create_line(f"Your hash: {local_commit}"),
+
+        create_line(f"Remote hash: {remote_commit}")
     ]
 
     message = "\n".join([new_line, empty_line] + warning_lines + [empty_line, line])
