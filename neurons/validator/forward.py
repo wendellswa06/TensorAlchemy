@@ -201,7 +201,6 @@ def run_step(validator, task, axons, uids):
     )
 
     # Set seed to -1 so miners will use a random seed by default
-
     task_type_for_miner = task_type.lower()
     synapse = ImageGeneration(
         prompt=prompt,

@@ -317,41 +317,12 @@ class StableValidator:
 
                 # NOTE: Will wait for around 30 seconds
                 #       trying to get a task from the user
-                #       before going on and creating a synthetic task
+                # before going on and creating a synthetic task
                 task = await get_task(self)
 
-                if task is not None:
-                    if task.prompt != clean_nsfw_from_prompt(task.prompt):
-                        try:
-                            update_task_state(
-                                self.wallet.hotkey,
-                                self.api_url,
-                                task.task_id,
-                                TaskState.REJECTED,
-                            )
-                        except:
-                            bt.logging.info(
-                                f"Failed to post {task.task_id} to the"
-                                + f" {TaskState.REJECTED.value} endpoint"
-                            )
-                        bt.logging.info(
-                            f"Task {task.task_id} prompt {task.prompt}"
-                            + " classified as NSFW. "
-                            + "Generating synthetic task instead."
-                        )
-                        task = denormalize_image_model(
-                            id=str(uuid.uuid4()),
-                            image_count=1,
-                            task_type="TEXT_TO_IMAGE",
-                            guidance_scale=7.5,
-                            negative_prompt=None,
-                            prompt=generate_random_prompt_gpt(self),
-                            seed=-1,
-                            steps=30,
-                            width=1024,
-                            height=1024,
-                        )
-                else:
+                # No organic task found
+                if task is None:
+                    # NOTE: Generate synthetic request
                     task = denormalize_image_model(
                         id=str(uuid.uuid4()),
                         image_count=1,
@@ -360,10 +331,39 @@ class StableValidator:
                         negative_prompt=None,
                         prompt=generate_random_prompt_gpt(self),
                         seed=-1,
-                        steps=30,
+                        steps=50,
                         width=1024,
                         height=1024,
                     )
+
+                # Task has been found for oragnic request
+                else:
+                    # If the task has some NSFW text in the prompt
+                    # TODO: We should replace this with OpenAI
+                    is_bad_prompt: bool = task.prompt != clean_nsfw_from_prompt(
+                        task.prompt
+                    )
+
+                    if is_bad_prompt:
+                        try:
+                            logger.warning(
+                                #
+                                "Prompt was marked as NSFW and rejected:"
+                                + task.task_id
+                            )
+                            update_task_state(
+                                self.wallet.hotkey,
+                                self.api_url,
+                                task.task_id,
+                                TaskState.REJECTED,
+                            )
+                        except Exception:
+                            logger.info(
+                                f"Failed to post {task.task_id} to the"
+                                + f" {TaskState.REJECTED.value} endpoint"
+                            )
+                        finally:
+                            continue
 
                 if task.prompt is None:
                     logger.warning("The prompt was not generated successfully.")
