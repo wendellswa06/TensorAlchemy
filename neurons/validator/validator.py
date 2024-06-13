@@ -1,23 +1,27 @@
-import os
-import sys
-import copy
-import time
 import asyncio
+import copy
+import os
 import subprocess
+import sys
+import time
 import traceback
-
+import uuid
 from time import sleep
 
 import sentry_sdk
 import torch
 from loguru import logger
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
+from neurons.protocol import denormalize_image_model
 from neurons.utils import (
     BackgroundTimer,
     background_loop,
+    clean_nsfw_from_prompt,
     colored_log,
     get_defaults,
+    update_task_state,
 )
+from neurons.validator.backend.models import TaskState
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
 from neurons.validator.reward import (
@@ -30,9 +34,11 @@ from neurons.validator.utils import (
     generate_random_prompt_gpt,
     get_device_name,
     get_random_uids,
+    get_task,
     init_wandb,
     reinit_wandb,
     ttl_get_block,
+    get_validator_version,
 )
 from neurons.validator.weights import set_weights
 from openai import OpenAI
@@ -176,7 +182,10 @@ class StableValidator:
         self.my_subnet_uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
-        logger.info(f"Running validator on uid: {self.my_subnet_uid}")
+        validator_version = get_validator_version()
+        logger.info(
+            f"Running validator (version={validator_version}) on uid: {self.my_subnet_uid}"
+        )
 
         # Init weights
         self.weights = torch.ones_like(self.metagraph.uids, dtype=torch.float32).to(
@@ -190,74 +199,11 @@ class StableValidator:
         # Init reward function
         self.reward_functions = [ImageRewardModel()]
 
-        # Init manual validator
-        if not self.config.alchemy.disable_manual_validator:
-            try:
-                if not is_valid_current_directory():
-                    raise Exception(
-                        "Unable to load manual validator please `cd` "
-                        + "into the TensorAlchemy folder before running the validator"
-                    )
-
-                logger.info("Setup streamlit credentials")
-
-                if not os.path.exists("streamlit_credentials.txt"):
-                    hashkey = pwgenerator.generate()
-                    password = pwgenerator.generate()
-                    username = self.wallet.hotkey.ss58_address
-                    with open("streamlit_credentials.txt", "w") as f:
-                        f.write(
-                            f"hashkey={hashkey}\nusername={username}\npassword={password}"
-                        )
-                else:
-                    credentials = open("streamlit_credentials.txt", "r").read()
-                    credentials_split = credentials.split("\n")
-                    if (
-                        ("hashkey" not in credentials_split[0])
-                        or ("username" not in credentials_split[0])
-                        or ("password" not in credentials_split[0])
-                    ):
-                        hashkey = pwgenerator.generate()
-                        password = pwgenerator.generate()
-                        username = self.wallet.hotkey.ss58_address
-                        with open("streamlit_credentials.txt", "w") as f:
-                            f.write(
-                                f"hashkey={hashkey}\nusername={username}\npassword={password}"
-                            )
-                # Sleep until the credentials file is written
-                sleep(5)
-                logger.info("Loading Manual Validator")
-                subprocess.Popen(
-                    [
-                        "streamlit",
-                        "run",
-                        os.path.join(
-                            os.getcwd(),
-                            "neurons",
-                            "validator",
-                            "app.py",
-                        ),
-                        (
-                            "--server.port"
-                            if self.config.alchemy.streamlit_port is not None
-                            else ""
-                        ),
-                        (
-                            f"{self.config.alchemy.streamlit_port}"
-                            if self.config.alchemy.streamlit_port is not None
-                            else ""
-                        ),
-                    ]
-                )
-            except Exception as e:
-                logger.error(f"Failed to Load Manual Validator due to error: {e}")
-                self.config.alchemy.disable_manual_validator = True
-
         # Init reward function
         self.reward_weights = torch.tensor(
             [
                 1.0,
-                1 / 3 if not self.config.alchemy.disable_manual_validator else 0.0,
+                0,
             ],
             dtype=torch.float32,
         ).to(self.device)
@@ -266,12 +212,12 @@ class StableValidator:
             dim=-1
         ).unsqueeze(-1)
 
-        self.reward_names = ["image_reward_model", "manual_reward_model"]
+        self.reward_names = ["image_reward_model"]
 
         self.human_voting_scores = torch.zeros((self.metagraph.n)).to(self.device)
         self.human_voting_weight = 0.10 / 32
         self.human_voting_reward_model = HumanValidationRewardModel(
-            self.metagraph, self.api_url
+            self, self.metagraph, self.api_url
         )
 
         # Init masking function
@@ -280,7 +226,6 @@ class StableValidator:
         # Set validator variables
         self.request_frequency = 35
         self.query_timeout = 20
-        self.manual_validator_timeout = 10
         self.async_timeout = 1.2
         self.epoch_length = 300
 
@@ -320,7 +265,7 @@ class StableValidator:
         self.validator_index = self.get_validator_index()
 
         # Start the batch streaming background loop
-        self.batches = []
+        self.batches = {}
 
         # Start the generic background loop
         self.storage_client = None
@@ -364,25 +309,64 @@ class StableValidator:
         self.step = 0
         while True:
             try:
-                # Reduce calls to miner to be approximately 1 per 5 minutes
-                if self.step > 0:
-                    logger.info(
-                        f"Waiting for {self.request_frequency} "
-                        + "seconds before querying miners again..."
-                    )
-                    sleep(self.request_frequency)
-
                 # Get a random number of uids
                 uids = await get_random_uids(self, self.dendrite, k=N_NEURONS)
                 uids = uids.to(self.device)
 
                 axons = [self.metagraph.axons[uid] for uid in uids]
 
-                # Generate prompt + followup_prompt
-                prompt = generate_random_prompt_gpt(self)
+                # NOTE: Will wait for around 30 seconds
+                #       trying to get a task from the user
+                # before going on and creating a synthetic task
+                task = await get_task(self)
 
-                if prompt is None:
-                    logger.warning(f"The prompt was not generated successfully.")
+                # No organic task found
+                if task is None:
+                    # NOTE: Generate synthetic request
+                    task = denormalize_image_model(
+                        id=str(uuid.uuid4()),
+                        image_count=1,
+                        task_type="TEXT_TO_IMAGE",
+                        guidance_scale=7.5,
+                        negative_prompt=None,
+                        prompt=generate_random_prompt_gpt(self),
+                        seed=-1,
+                        steps=50,
+                        width=1024,
+                        height=1024,
+                    )
+
+                # Task has been found for oragnic request
+                else:
+                    # If the task has some NSFW text in the prompt
+                    # TODO: We should replace this with OpenAI
+                    is_bad_prompt: bool = task.prompt != clean_nsfw_from_prompt(
+                        task.prompt
+                    )
+
+                    if is_bad_prompt:
+                        try:
+                            logger.warning(
+                                #
+                                "Prompt was marked as NSFW and rejected:"
+                                + task.task_id
+                            )
+                            update_task_state(
+                                self.wallet.hotkey,
+                                self.api_url,
+                                task.task_id,
+                                TaskState.REJECTED,
+                            )
+                        except Exception:
+                            logger.info(
+                                f"Failed to post {task.task_id} to the"
+                                + f" {TaskState.REJECTED.value} endpoint"
+                            )
+                        finally:
+                            continue
+
+                if task.prompt is None:
+                    logger.warning("The prompt was not generated successfully.")
 
                     # Prevent loop from forming if the prompt
                     # error occurs on the first step
@@ -392,7 +376,7 @@ class StableValidator:
                     continue
 
                 # Text to Image Run
-                run_step(self, prompt, axons, uids, task_type="text_to_image")
+                run_step(self, task, axons, uids)
                 # Re-sync with the network. Updates the metagraph.
                 try:
                     self.sync()

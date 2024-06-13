@@ -2,9 +2,7 @@ import copy
 import time
 from datetime import datetime
 
-import regex as re
 from loguru import logger
-
 from neurons.utils import colored_log, sh
 
 
@@ -12,32 +10,6 @@ from neurons.utils import colored_log, sh
 class Images:
     def __init__(self, images):
         self.images = images
-
-
-NSFW_WORDS = [
-    "hentai",
-    "loli",
-    "lolita",
-    "naked",
-    "undress",
-    "undressed",
-    "nude",
-    "sexy",
-    "sex",
-    "porn",
-    "orgasm",
-    "cum",
-    "cumming",
-    "penis",
-    "cock",
-    "dick",
-    "vagina",
-    "pussy",
-    "anus",
-    "ass",
-    "asshole",
-    "tits",
-]
 
 
 def get_caller_stake(self, synapse):
@@ -149,12 +121,3 @@ def nsfw_image_filter(self, images):
     )
 
     return nsfw
-
-
-def clean_nsfw_from_prompt(prompt):
-    for word in NSFW_WORDS:
-        if re.search(r"\b{}\b".format(word), prompt):
-            prompt = re.sub(r"\b{}\b".format(word), "", prompt).strip()
-            logger.warning(f"Removed NSFW word {word.strip()} from prompt...")
-
-    return prompt

@@ -7,20 +7,69 @@ import time
 import traceback
 from functools import lru_cache, update_wrapper
 from math import floor
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Optional
 
-import neurons.validator as validator
 import numpy as np
 import pandas as pd
 import requests
 import torch
 import torch.nn as nn
-from loguru import logger
-from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO, WANDB_VALIDATOR_PATH
-from neurons.protocol import IsAlive
 
-import bittensor as bt
 import wandb
+import bittensor as bt
+from loguru import logger
+
+from neurons.protocol import IsAlive, denormalize_image_model
+from neurons.validator.signed_requests import SignedRequests
+from neurons.constants import (
+    N_NEURONS_TO_QUERY,
+    VPERMIT_TAO,
+    WANDB_VALIDATOR_PATH,
+)
+
+
+def get_validator_version() -> str:
+    """Returns version of validator (i.e. 1.0.1)"""
+    import neurons.validator
+
+    return neurons.validator.__version__
+
+
+def get_validator_spec_version() -> int:
+    """Returns numeric representation of validator's version (i.e. 10001)"""
+    import neurons.validator
+
+    return neurons.validator.__spec_version__
+
+
+# Get tasks from the client server
+async def get_task(validator, timeout=5):
+    task = None
+    for _i in range(60):
+        await asyncio.sleep(1)
+        try:
+            response = SignedRequests(validator=validator).get(
+                f"{validator.api_url}/tasks", timeout=timeout
+            )
+
+            # No tasks found
+            if response.status_code == 404:
+                continue
+
+        except Exception as error:
+            logger.warning(
+                #
+                f"Failed to get task from {validator.api_url}/tasks: "
+                + str(error),
+            )
+
+            continue
+
+        if response.status_code == 200:
+            task = response.json()
+            return denormalize_image_model(**task)
+
+    return task
 
 
 def _ttl_hash_gen(seconds: int):
@@ -371,14 +420,251 @@ def call_corcel(self, prompt):
     return response
 
 
+def get_random_creature():
+    return random.choice(
+        [
+            "cat",
+            "dog",
+            "elephant",
+            "lion",
+            "butterfly",
+            "eagle",
+            "dolphin",
+            "snake",
+            "dragon",
+            "unicorn",
+            "phoenix",
+            "mermaid",
+            "centaur",
+            "griffin",
+            "werewolf",
+            "fairy",
+            "goblin",
+            "minotaur",
+            "pegasus",
+            "kraken",
+            "octopus",
+            "panda",
+            "giraffe",
+            "kangaroo",
+            "penguin",
+            "parrot",
+            "tiger",
+            "bear",
+            "rabbit",
+            "turtle",
+            "fox",
+            "owl",
+            "human being",
+        ]
+    )
+
+
+def get_random_perspective():
+    return random.choice(
+        [
+            "aerial",
+            "close-up",
+            "panoramic",
+            "microscopic",
+            "bird's-eye",
+            "worm's-eye",
+            "fisheye",
+            "top-down",
+            "side-view",
+            "rear-view",
+            "isometric",
+            "first-person",
+            "third-person",
+            "macro",
+            "wide-angle",
+            "telephoto",
+            "tilted",
+            "skewed",
+            "distorted",
+            "flipped",
+            "mirrored",
+            "kaleidoscopic",
+            "cross-section",
+            "cutaway",
+            "translucent",
+            "x-ray",
+            "thermal",
+            "infrared",
+            "ultraviolet",
+            "low-angle",
+            "high-angle",
+        ]
+    )
+
+
+def get_random_adjective():
+    return random.choice(
+        [
+            "happy",
+            "sad",
+            "excited",
+            "tired",
+            "hungry",
+            "playful",
+            "curious",
+            "brave",
+            "majestic",
+            "enchanted",
+            "mysterious",
+            "radiant",
+            "ethereal",
+            "vibrant",
+            "serene",
+            "whimsical",
+            "luminous",
+            "enigmatic",
+            "shiny",
+            "colorful",
+            "rusty",
+            "old",
+            "new",
+            "large",
+            "small",
+            "tall",
+            "short",
+            "wide",
+            "narrow",
+            "thick",
+            "thin",
+            "smooth",
+        ]
+    )
+
+
+def get_random_object():
+    return random.choice(
+        [
+            "book",
+            "pen",
+            "phone",
+            "camera",
+            "guitar",
+            "bicycle",
+            "car",
+            "cup",
+            "crystal",
+            "tome",
+            "amulet",
+            "scepter",
+            "chalice",
+            "orb",
+            "mirror",
+            "locket",
+            "tapestry",
+            "sculpture",
+            "lamp",
+            "chair",
+            "table",
+            "umbrella",
+            "hammer",
+            "scissors",
+            "knife",
+            "spoon",
+            "fork",
+            "paintbrush",
+            "vase",
+            "clock",
+            "globe",
+            "telescope",
+            "human",
+            "human face",
+        ]
+    )
+
+
+def get_random_background():
+    return random.choice(
+        [
+            # Future prompts
+            "spaceship",
+            "near earth orbit",
+            "futuristic city",
+            "city of 2033",
+            "mars",
+            # Standard prompts
+            "beach",
+            "mountains",
+            "city",
+            "countryside",
+            "park",
+            "library",
+            "cafe",
+            "bedroom",
+            "forest",
+            "castle",
+            "cave",
+            "island",
+            "desert",
+            "underwater",
+            "sky",
+            "garden",
+            "ruins",
+            "stadium",
+            "mall",
+            "factory",
+            "farm",
+            "school",
+            "hospital",
+            "airport",
+            "train station",
+            "bridge",
+            "tunnel",
+            "highway",
+            "river",
+            "lake",
+            "ocean",
+            "space",
+        ]
+    )
+
+
+def generate_story_prompt() -> str:
+    random.seed(int(time.time()))
+    random_creature = get_random_creature()
+    random_adjective = get_random_adjective()
+    random_object = get_random_object()
+    random_background = get_random_background()
+
+    random_perspective = get_random_perspective()
+
+    to_return: str = (
+        "You are an image prompt generator. "
+        + "Your purpose is to generate a single, "
+        + "short story that can be used as a prompt for Dalle-3. "
+        + "Please ensure that the story is creative, "
+        + "visually descriptive, and coherent. "
+        + "The story should be less than 30 words. "
+        + "Avoid using any additional elements or deviating from "
+        + "the specified creature, adjective, object, and background."
+        + "The story **must** incorporate the following elements:\n\n"
+        + f"- Background: {random_background}\n\n"
+        + f"- Creature: {random_creature}\n"
+        + f"- Adjective: {random_adjective}\n"
+    )
+
+    if random.random() > 0.85:
+        to_return += f"- Object: {random_object}\n"
+
+    if random.random() > 0.85:
+        to_return += f"- Perspective: {random_perspective}\n\n"
+
+    return to_return
+
+
 def generate_random_prompt_gpt(
     self,
-    model="gpt-4",
-    prompt="You are an image prompt generator. "
-    + "Your purpose is to generate a single one sentence prompt "
-    + "that can be fed into Dalle-3.",
+    model: str = "gpt-4",
+    prompt: Optional[str] = None,
 ):
     response = None
+    if not prompt:
+        prompt = generate_story_prompt()
 
     # Generate the prompt from corcel if we have an API key
     if self.corcel_api_key:
@@ -415,6 +701,7 @@ def generate_random_prompt_gpt(
     # Remove any double quotes from the output
     if response:
         response = response.replace('"', "")
+        response = response.strip()
 
     return response
 
@@ -462,7 +749,7 @@ def init_wandb(self, reinit=False):
     """Starts a new wandb run."""
     tags = [
         self.wallet.hotkey.ss58_address,
-        str(validator.__version__),
+        get_validator_version(),
         f"netuid_{self.metagraph.netuid}",
     ]
 

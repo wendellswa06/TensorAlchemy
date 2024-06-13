@@ -1,15 +1,20 @@
-import _thread
-import json
 import os
-import shutil
-import subprocess
+import re
 import sys
+import json
 import time
+import shutil
+import asyncio
 import traceback
+import subprocess
+
+import _thread
+
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
+from substrateinterface import Keypair
 
 import requests
 import sentry_sdk
@@ -30,10 +35,17 @@ from neurons.constants import (
     N_NEURONS,
     WANDB_MINER_PATH,
     WANDB_VALIDATOR_PATH,
+    NSFW_WORDLIST_URL,
+    NSFW_WORDLIST_DEFAULT,
 )
 from neurons.exceptions import MinimumValidImagesError
+from neurons.validator.signed_requests import SignedRequests
+from neurons.validator.backend.exceptions import UpdateTaskError
+from neurons.validator.backend.models import TaskState
 from neurons.validator.utils import init_wandb
 from pydantic import BaseModel
+
+import bittensor as bt
 
 
 @dataclass
@@ -58,8 +70,34 @@ COLORS = {
 }
 
 
+def load_nsfw_words(url: str) -> List[str]:
+    try:
+        response = requests.get(url)
+        # Raise an exception if the request was unsuccessful
+        response.raise_for_status()
+
+        # Split the content into lines and strip whitespace
+        words = [line.strip() for line in response.text.splitlines()]
+
+        # Remove empty lines
+        words = [word for word in words if word]
+
+        return words
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error occurred while loading NSFW words from {url}: {str(e)}")
+        return NSFW_WORDLIST_DEFAULT
+
+
+NSFW_WORDS: List[str] = load_nsfw_words(NSFW_WORDLIST_URL)
+
+
 # Utility function for coloring logs
-def colored_log(message: str, color: str = "white", level: str = "INFO") -> None:
+def colored_log(
+    message: str,
+    color: str = "white",
+    level: str = "INFO",
+) -> None:
     logger.opt(colors=True).log(level, f"<bold><{color}>{message}</{color}></bold>")
 
 
@@ -89,6 +127,37 @@ class BackgroundTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
+async def update_task_state(
+    hotkey: Keypair,
+    api_url: str,
+    task_id: str,
+    state: TaskState,
+    timeout=3,
+) -> None:
+    endpoint = api_url
+
+    if state == TaskState.FAILED:
+        endpoint = f"{endpoint}/tasks/{task_id}/fail"
+    elif endpoint == TaskState.REJECTED:
+        endpoint = f"{endpoint}/tasks/{task_id}/reject"
+    else:
+        logger.warning(f"Not updating task state for state {state}")
+        return None
+
+    response = SignedRequests(hotkey=hotkey).post(
+        endpoint,
+        timeout=timeout,
+    )
+
+    if response.status_code != 200:
+        raise UpdateTaskError(
+            f"updating task state failed with status_code "
+            f"{response.status_code}: {response.text}"
+        )
+
+    return None
+
+
 def get_coldkey_for_hotkey(self, hotkey):
     """
     Look up the coldkey of the caller.
@@ -99,8 +168,8 @@ def get_coldkey_for_hotkey(self, hotkey):
     return None
 
 
-def post_batch(api_url: str, batch: dict):
-    response = requests.post(
+def post_batch(hotkey: Keypair, api_url: str, batch: dict):
+    response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/batch",
         data=json.dumps(batch),
         headers={"Content-Type": "application/json"},
@@ -174,6 +243,78 @@ def filter_batch_before_submission(batch: Dict[str, Any]) -> Dict[str, Any]:
     return dict(BatchSubmissionRequest(**to_return))
 
 
+def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
+    logger.info(f"Number of batches in queue: {len(batches)}")
+    max_retries = 3
+    backoff = 5
+    batches_for_deletion = set()
+    loop = asyncio.get_event_loop()
+    for batch_id in batches.keys():
+        batch = batches[batch_id]
+        for attempt in range(0, max_retries):
+            try:
+                filtered_batch = filter_batch_before_submission(batch)
+                response = post_batch(hotkey, api_url, filtered_batch)
+                if response.status_code == 200:
+                    logger.info(
+                        "Successfully posted batch" + f" {filtered_batch['batch_id']}"
+                    )
+                    batches_for_deletion.add(batch_id)
+                    break
+
+                response_data = response.json()
+                if "code" in response_data:
+                    if response_data["code"] == MINIMUM_VALID_IMAGES_ERROR:
+                        batches_for_deletion.add(batch_id)
+                        break
+
+                logger.info(f"{response_data=}")
+                raise Exception(
+                    "Failed to post batch. " + f"Status code: {response.status_code}"
+                )
+            except MinimumValidImagesError as e:
+                batches_for_deletion.add(batch_id)
+                try:
+                    loop.run_until_complete(
+                        update_task_state(
+                            hotkey,
+                            api_url,
+                            batch_id,
+                            TaskState.FAILED,
+                        )
+                    )
+                except:
+                    bt.logging.info(
+                        f"Failed to post {batch_id} to the {TaskState.FAILED.value} endpoint"
+                    )
+
+                break
+            except Exception as e:
+                backoff *= 2  # Double the backoff for the next attempt
+                if attempt != max_retries:
+                    logger.error(
+                        f"Attempt number {attempt+1} failed to"
+                        + f" send batch {batch['batch_id']}. "
+                        + f"Retrying in {backoff} seconds. Error: {e}"
+                    )
+                    time.sleep(backoff)
+                    continue
+
+                logger.error(
+                    f"Attempted to post batch {batch['batch_id']} "
+                    + f"{attempt+1} times unsuccessfully. "
+                    + f"Skipping this batch and moving to the next batch. Error: {e}"
+                )
+                batches_for_deletion.add(batch_id)
+                break
+
+    # Delete any processed branches
+    for batch_id in batches_for_deletion:
+        if batch_id in batches.keys():
+            logger.info(f"Removing successful batch: {batch_id}")
+            del batches[batch_id]
+
+
 def background_loop(self, is_validator):
     """
     Handles terminating the miner after deregistration and
@@ -210,68 +351,8 @@ def background_loop(self, is_validator):
 
     # Send new batches to the Human Validation Bot
     try:
-        if (self.background_steps % 1 == 0) and is_validator and (self.batches != []):
-            logger.info(f"Number of batches in queue: {len(self.batches)}")
-            max_retries = 3
-            backoff = 5
-            batches_for_deletion = []
-            invalid_batches = []
-            for batch in self.batches:
-                for attempt in range(0, max_retries):
-                    try:
-                        filtered_batch = filter_batch_before_submission(batch)
-                        response = post_batch(self.api_url, filtered_batch)
-                        if response.status_code == 200:
-                            logger.info(
-                                "Successfully posted batch"
-                                + f" {filtered_batch['batch_id']}"
-                            )
-                            batches_for_deletion.append(batch)
-                            break
-
-                        response_data = response.json()
-                        if "code" in response_data:
-                            if response_data["code"] == MINIMUM_VALID_IMAGES_ERROR:
-                                invalid_batches.append(batch)
-
-                        logger.info(f"{response_data=}")
-                        raise Exception(
-                            "Failed to post batch. "
-                            + f"Status code: {response.status_code}"
-                        )
-                    except MinimumValidImagesError as e:
-                        invalid_batches.append(batch)
-                        attempt == max_retries
-                    except Exception as e:
-                        backoff *= 2  # Double the backoff for the next attempt
-                        if attempt != max_retries:
-                            logger.error(
-                                f"Attempt number {attempt+1} failed to"
-                                + f" send batch {batch['batch_id']}. "
-                                + f"Retrying in {backoff} seconds. Error: {e}"
-                            )
-                            time.sleep(backoff)
-                            continue
-
-                        logger.error(
-                            f"Attempted to post batch {batch['batch_id']} "
-                            + f"{attempt+1} times unsuccessfully. "
-                            + f"Skipping this batch and moving to the next batch. Error: {e}"
-                        )
-                        batches_for_deletion.append(batch)
-                        break
-
-            # Delete any invalid batches
-            for batch in invalid_batches:
-                logger.info(f"Removing invalid batch: {batch['batch_id']}")
-                if batch in self.batches:
-                    self.batches.remove(batch)
-
-            # Delete any successful batches
-            for batch in batches_for_deletion:
-                logger.info(f"Removing successful batch: {batch['batch_id']}")
-                if batch in self.batches:
-                    self.batches.remove(batch)
+        if (self.background_steps % 1 == 0) and is_validator and (self.batches != {}):
+            upload_batches(self.wallet.hotkey, self.batches, self.api_url)
 
     except Exception as e:
         logger.info(
@@ -376,12 +457,6 @@ def background_loop(self, is_validator):
                     self.storage_client, bucket_name, IA_VALIDATOR_WEIGHT_FILES
                 )
 
-                if (
-                    "manual_reward_model" in validator_weights
-                    and self.config.alchemy.disable_manual_validator
-                ):
-                    validator_weights["manual_reward_model"] = 0.0
-
                 if "human_reward_model" in validator_weights:
                     # NOTE: Scaling factor for the human reward model
                     #
@@ -453,11 +528,6 @@ def background_loop(self, is_validator):
                         "query_timeout", self.query_timeout
                     )
 
-                    self.manual_validator_timeout = validator_settings.get(
-                        "manual_validator_timeout",
-                        self.manual_validator_timeout,
-                    )
-
                     self.async_timeout = validator_settings.get(
                         "async_timeout", self.async_timeout
                     )
@@ -465,9 +535,6 @@ def background_loop(self, is_validator):
                     self.epoch_length = validator_settings.get(
                         "epoch_length", self.epoch_length
                     )
-
-                    if self.config.alchemy.disable_manual_validator:
-                        self.request_frequency += self.manual_validator_timeout
 
                     logger.info(
                         f"Retrieved the latest validator settings: {validator_settings}"
@@ -576,3 +643,12 @@ def retrieve_public_file(client, bucket_name, source_name):
         logger.info(f"An error occurred downloading from Google Cloud: {e}")
 
     return file
+
+
+def clean_nsfw_from_prompt(prompt):
+    for word in NSFW_WORDS:
+        if re.search(r"\b{}\b".format(word), prompt):
+            prompt = re.sub(r"\b{}\b".format(word), "", prompt).strip()
+            logger.warning(f"Removed NSFW word {word.strip()} from prompt...")
+
+    return prompt

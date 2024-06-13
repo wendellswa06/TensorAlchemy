@@ -6,14 +6,16 @@ from io import BytesIO
 import pytest
 import torch
 import torchvision.transforms as T
+
+import bittensor as bt
+from substrateinterface import Keypair
+
 from neurons.constants import DEV_URL, PROD_URL
 from neurons.utils import post_batch
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import post_moving_averages
 from neurons.validator.reward import HumanValidationRewardModel
 from neurons.validator.weights import post_weights
-
-import bittensor as bt
 
 
 class Neuron:
@@ -82,6 +84,20 @@ def get_netuid(network):
         return 26
 
 
+class MockWallet:
+    hotkey: Keypair
+
+    def __init__(self):
+        self.hotkey = Keypair()
+
+
+class MockValidator:
+    wallet: MockWallet
+
+    def __init__(self):
+        self.wallet = MockWallet()
+
+
 def get_url(network):
     api_url = DEV_URL if network == "test" else PROD_URL
     return api_url
@@ -139,8 +155,10 @@ def create_dummy_batches(metagraph):
 
 @pytest.mark.parametrize("network", ["test", "finney"])
 def test_post_moving_averages(network):
+    # TODO: not sure how we should update e2e tests for signed requests;
+    #  one option is to create a test validator and use it
     _, moving_averages, api_url, hotkeys = get_args(network, neuron)
-    response = post_moving_averages(api_url, hotkeys, moving_averages)
+    response = post_moving_averages(Keypair(), api_url, hotkeys, moving_averages)
     assert response == True
 
 
@@ -148,7 +166,7 @@ def test_post_moving_averages(network):
 def test_post_weights(network):
     _, moving_averages, api_url, hotkeys = get_args(network, neuron)
     raw_weights = torch.nn.functional.normalize(moving_averages, p=1, dim=0)
-    response = post_weights(api_url, hotkeys, raw_weights)
+    response = post_weights(Keypair(), api_url, hotkeys, raw_weights)
     assert response.status_code == 200
 
 
@@ -156,7 +174,7 @@ def test_post_weights(network):
 def test_submit_batch(network):
     metagraph, _, api_url, _ = get_args(network, neuron)
     dummy_batch = create_dummy_batches(metagraph)
-    response = post_batch(api_url, dummy_batch[0])
+    response = post_batch(Keypair(), api_url, dummy_batch[0])
     assert response.status_code == 200
 
 
@@ -164,6 +182,6 @@ def test_submit_batch(network):
 def test_get_votes(network):
     metagraph, _, api_url, _ = get_args(network, neuron)
     hv_reward_model = HumanValidationRewardModel(metagraph, api_url)
-    human_voting_scores = hv_reward_model.get_votes(api_url)
+    human_voting_scores = hv_reward_model.get_votes(Keypair(), api_url)
     assert human_voting_scores.status_code == 200
     assert human_voting_scores.json() != {}

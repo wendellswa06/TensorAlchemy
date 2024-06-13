@@ -17,11 +17,37 @@
 # DEALINGS IN THE SOFTWARE.
 
 import typing
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
+from pydantic import BaseModel, Field
 
 import bittensor as bt
+
+
+class ImageGenerationTaskModel(BaseModel):
+    task_id: str
+    prompt: str
+    negative_prompt: Optional[str]
+    prompt_image: Optional[bt.Tensor]
+    images: Optional[typing.List[bt.Tensor]]
+    num_images_per_prompt: int
+    height: int
+    width: int
+    guidance_scale: float
+    seed: int
+    steps: int
+    task_type: str
+
+
+def denormalize_image_model(
+    id: str, image_count: int, **kwargs
+) -> ImageGenerationTaskModel:
+    return ImageGenerationTaskModel(
+        task_id=id,
+        num_images_per_prompt=image_count,
+        **kwargs,
+    )
 
 
 class IsAlive(bt.Synapse):
@@ -35,13 +61,16 @@ class IsAlive(bt.Synapse):
 
 class ImageGeneration(bt.Synapse):
     """
-    A simple dummy protocol representation which uses bt.Synapse as its base.
-    This protocol helps in handling dummy request and response communication between
-    the miner and the validator.
+        A simple dummy protocol representation which uses bt.Synapse as its base.
+        This protocol helps in handling dummy request and response communication between
+        the miner and the validator.
 
-    Attributes:
-    - dummy_input: An integer value representing the input request sent by the validator.
-    - dummy_output: An optional integer value which, when filled, represents the response from the miner.
+        Attributes:
+        - dummy_input: An integer value representing the input request sent by the validator.
+        - dummy_output: An optional integer value which, when filled, represents the response from the     print(compute)
+        print(compute.dump())
+        return compute
+    miner.
     """
 
     # Required request input, filled by sending dendrite caller.
@@ -52,7 +81,7 @@ class ImageGeneration(bt.Synapse):
     num_images_per_prompt: int = pydantic.Field(1, allow_mutation=False)
     height: int = pydantic.Field(1024, allow_mutation=False)
     width: int = pydantic.Field(1024, allow_mutation=False)
-    generation_type: str = pydantic.Field("text_to_image", allow_mutation=False)
+    generation_type: str = pydantic.Field("TEXT_TO_IMAGE", allow_mutation=False)
     guidance_scale: float = pydantic.Field(7.5, allow_mutation=False)
     seed: int = pydantic.Field(1024, allow_mutation=False)
     steps: int = pydantic.Field(50, allow_mutation=False)

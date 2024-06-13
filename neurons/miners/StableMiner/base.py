@@ -15,9 +15,13 @@ import torchvision.transforms as T
 from loguru import logger
 from neurons.constants import VPERMIT_TAO
 from neurons.protocol import ImageGeneration, IsAlive
-from neurons.utils import BackgroundTimer, background_loop, get_defaults
-from utils import (
+from neurons.utils import (
+    BackgroundTimer,
+    background_loop,
     clean_nsfw_from_prompt,
+    get_defaults,
+)
+from utils import (
     colored_log,
     do_logs,
     get_caller_stake,
