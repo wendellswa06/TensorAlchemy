@@ -5,8 +5,6 @@ import sys
 import sentry_sdk
 from loguru import logger
 
-from neurons.update_checker import check_for_updates
-
 REPO_URL = "TensorAlchemy/TensorAlchemy"
 
 if __name__ == "__main__":
@@ -15,6 +13,8 @@ if __name__ == "__main__":
     if file_path not in sys.path:
         sys.path.append(file_path)
     current_folder = str(pathlib.Path(__file__).parent.resolve())
+
+    from neurons.update_checker import check_for_updates
 
     try:
         check_for_updates(current_folder, REPO_URL)
