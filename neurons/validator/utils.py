@@ -9,7 +9,6 @@ from functools import lru_cache, update_wrapper
 from math import floor
 from typing import Any, Callable, List, Optional
 
-import neurons.validator as validator
 import numpy as np
 import pandas as pd
 import requests
@@ -21,6 +20,23 @@ from neurons.protocol import IsAlive, denormalize_image_model
 
 import bittensor as bt
 import wandb
+
+
+def get_validator_version() -> str:
+    """Returns version of validator (i.e. 1.0.1)"""
+    import neurons.validator
+
+    return neurons.validator.__version__
+
+
+def get_validator_spec_version() -> int:
+    """Returns numeric representation of validator's version (i.e. 10001)"""
+    import neurons.validator
+
+    return neurons.validator.__spec_version__
+
+
+# def get_validator
 
 
 # Get tasks from the client server
@@ -713,7 +729,7 @@ def init_wandb(self, reinit=False):
     """Starts a new wandb run."""
     tags = [
         self.wallet.hotkey.ss58_address,
-        str(validator.__version__),
+        get_validator_version(),
         f"netuid_{self.metagraph.netuid}",
     ]
 
