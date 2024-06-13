@@ -1,19 +1,20 @@
-import _thread
-import asyncio
-import json
 import os
-import shutil
-import subprocess
 import sys
+import json
 import time
+import shutil
+import asyncio
 import traceback
+import subprocess
+
+import _thread
+
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
 
 import httpx
-import regex as re
 import requests
 import sentry_sdk
 import torch
@@ -33,6 +34,8 @@ from neurons.constants import (
     N_NEURONS,
     WANDB_MINER_PATH,
     WANDB_VALIDATOR_PATH,
+    NSFW_WORDLIST_URL,
+    NSFW_WORDLIST_DEFAULT,
 )
 from neurons.exceptions import MinimumValidImagesError
 from neurons.validator.backend.exceptions import UpdateTaskError
@@ -64,30 +67,27 @@ COLORS = {
     "w": "\033[1;37;40m",
 }
 
-NSFW_WORDS = [
-    "hentai",
-    "loli",
-    "lolita",
-    "naked",
-    "undress",
-    "undressed",
-    "nude",
-    "sexy",
-    "sex",
-    "porn",
-    "orgasm",
-    "cum",
-    "cumming",
-    "penis",
-    "cock",
-    "dick",
-    "vagina",
-    "pussy",
-    "anus",
-    "ass",
-    "asshole",
-    "tits",
-]
+
+def load_nsfw_words(url: str) -> List[str]:
+    try:
+        response = requests.get(url)
+        # Raise an exception if the request was unsuccessful
+        response.raise_for_status()
+
+        # Split the content into lines and strip whitespace
+        words = [line.strip() for line in response.text.splitlines()]
+
+        # Remove empty lines
+        words = [word for word in words if word]
+
+        return words
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error occurred while loading NSFW words from {url}: {str(e)}")
+        return NSFW_WORDLIST_DEFAULT
+
+
+NSFW_WORDS: List[str] = load_nsfw_words(NSFW_WORDLIST_URL)
 
 
 # Utility function for coloring logs
