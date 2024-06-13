@@ -23,7 +23,6 @@ from diffusers import (
 )
 from loguru import logger
 from neurons.miners.StableMiner.utils import (
-    clean_nsfw_from_prompt,
     colored_log,
     nsfw_image_filter,
     sh,
@@ -31,7 +30,7 @@ from neurons.miners.StableMiner.utils import (
 )
 from neurons.protocol import ImageGeneration
 from neurons.safety import StableDiffusionSafetyChecker
-from neurons.utils import get_defaults
+from neurons.utils import get_defaults, clean_nsfw_from_prompt
 from neurons.validator import config as validator_config
 from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import cosine_distance

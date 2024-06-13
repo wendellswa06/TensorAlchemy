@@ -1,4 +1,5 @@
 import _thread
+import asyncio
 import json
 import os
 import shutil
@@ -11,6 +12,8 @@ from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
 
+import httpx
+import regex as re
 import requests
 import sentry_sdk
 import torch
@@ -32,8 +35,12 @@ from neurons.constants import (
     WANDB_VALIDATOR_PATH,
 )
 from neurons.exceptions import MinimumValidImagesError
+from neurons.validator.backend.exceptions import UpdateTaskError
+from neurons.validator.backend.models import TaskState
 from neurons.validator.utils import init_wandb
 from pydantic import BaseModel
+
+import bittensor as bt
 
 
 @dataclass
@@ -56,6 +63,31 @@ COLORS = {
     "c": "\033[1;36;40m",
     "w": "\033[1;37;40m",
 }
+
+NSFW_WORDS = [
+    "hentai",
+    "loli",
+    "lolita",
+    "naked",
+    "undress",
+    "undressed",
+    "nude",
+    "sexy",
+    "sex",
+    "porn",
+    "orgasm",
+    "cum",
+    "cumming",
+    "penis",
+    "cock",
+    "dick",
+    "vagina",
+    "pussy",
+    "anus",
+    "ass",
+    "asshole",
+    "tits",
+]
 
 
 # Utility function for coloring logs
@@ -87,6 +119,25 @@ class BackgroundTimer(Timer):
         self.function(*self.args, **self.kwargs)
         while not self.finished.wait(self.interval):
             self.function(*self.args, **self.kwargs)
+
+
+async def update_task_state(api_url, task_id: str, state: TaskState, timeout=3) -> None:
+    endpoint = api_url
+
+    if state == TaskState.FAILED:
+        endpoint = f"{endpoint}/tasks/{task_id}/fail"
+    elif endpoint == TaskState.REJECTED:
+        endpoint = f"{endpoint}/tasks/{task_id}/reject"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(endpoint, timeout=timeout)
+        if response.status_code != 200:
+            raise UpdateTaskError(
+                f"updating task state failed with status_code "
+                f"{response.status_code}: {response.text}"
+            )
+
+    return None
 
 
 def get_coldkey_for_hotkey(self, hotkey):
@@ -179,6 +230,7 @@ def upload_batches(batches, api_url):
     max_retries = 3
     backoff = 5
     batches_for_deletion = set()
+    loop = asyncio.get_event_loop()
     for batch_id in batches.keys():
         batch = batches[batch_id]
         for attempt in range(0, max_retries):
@@ -204,6 +256,15 @@ def upload_batches(batches, api_url):
                 )
             except MinimumValidImagesError as e:
                 batches_for_deletion.add(batch_id)
+                try:
+                    loop.run_until_complete(
+                        update_task_state(api_url, batch_id, TaskState.FAILED)
+                    )
+                except:
+                    bt.logging.info(
+                        f"Failed to post {batch_id} to the {TaskState.FAILED.value} endpoint"
+                    )
+
                 break
             except Exception as e:
                 backoff *= 2  # Double the backoff for the next attempt
@@ -559,3 +620,12 @@ def retrieve_public_file(client, bucket_name, source_name):
         logger.info(f"An error occurred downloading from Google Cloud: {e}")
 
     return file
+
+
+def clean_nsfw_from_prompt(prompt):
+    for word in NSFW_WORDS:
+        if re.search(r"\b{}\b".format(word), prompt):
+            prompt = re.sub(r"\b{}\b".format(word), "", prompt).strip()
+            logger.warning(f"Removed NSFW word {word.strip()} from prompt...")
+
+    return prompt
