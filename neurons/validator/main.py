@@ -18,8 +18,10 @@ if __name__ == "__main__":
 
     try:
         check_for_updates(current_folder, REPO_URL)
-    except Exception:
-        logger.warning("Failed to check remote for updates")
+    except Exception as error:
+        logger.warning(
+            "Failed to check remote for updates: " + str(error),
+        )
 
     # Import StableValidator after fixing paths
     from neurons.constants import VALIDATOR_SENTRY_DSN
