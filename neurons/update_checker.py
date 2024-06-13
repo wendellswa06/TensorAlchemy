@@ -45,6 +45,7 @@ def show_warning_message(local_commit, remote_commit):
         create_line("the TensorAlchemy repository."),
         create_line(f"Your hash  : {local_commit}"),
         create_line(f"Remote hash: {remote_commit}")
+
     ]
 
     message = "\n".join([new_line, empty_line] + warning_lines + [empty_line, line])
