@@ -127,7 +127,7 @@ class BackgroundTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
-async def update_task_state(
+def update_task_state(
     hotkey: Keypair,
     api_url: str,
     task_id: str,
@@ -249,6 +249,7 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
     backoff = 5
     batches_for_deletion = set()
     loop = asyncio.get_event_loop()
+
     for batch_id in batches.keys():
         batch = batches[batch_id]
         for attempt in range(0, max_retries):
@@ -352,7 +353,11 @@ def background_loop(self, is_validator):
     # Send new batches to the Human Validation Bot
     try:
         if (self.background_steps % 1 == 0) and is_validator and (self.batches != {}):
-            upload_batches(self.wallet.hotkey, self.batches, self.api_url)
+            upload_batches(
+                self.wallet.hotkey,
+                self.api_url,
+                self.batches,
+            )
 
     except Exception as e:
         logger.info(
