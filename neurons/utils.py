@@ -310,10 +310,13 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
                 break
 
     # Delete any processed branches
-    for batch_id in batches_for_deletion:
-        if batch_id in batches.keys():
-            logger.info(f"Removing successful batch: {batch_id}")
-            del batches[batch_id]
+    new_batches: Dict = {}
+
+    for batch_id, batch in batches:
+        if batch_id not in batches_for_deletion:
+            new_batches[batch_id] = batch
+
+    return new_batches
 
 
 def background_loop(self, is_validator):
@@ -353,7 +356,7 @@ def background_loop(self, is_validator):
     # Send new batches to the Human Validation Bot
     try:
         if (self.background_steps % 1 == 0) and is_validator and (self.batches != {}):
-            upload_batches(
+            self.batches = upload_batches(
                 self.wallet.hotkey,
                 self.api_url,
                 self.batches,

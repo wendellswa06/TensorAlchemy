@@ -366,7 +366,7 @@ def run_step(validator, task, axons, uids):
             }
 
         # Upload the batches to the Human Validation Platform
-        upload_batches(
+        validator.batches = upload_batches(
             validator.wallet.hotkey,
             validator.api_url,
             validator.batches,
