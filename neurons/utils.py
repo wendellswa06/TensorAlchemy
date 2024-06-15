@@ -312,7 +312,7 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
     # Delete any processed branches
     new_batches: Dict = {}
 
-    for batch_id, batch in batches:
+    for batch_id, batch in batches.items():
         if batch_id not in batches_for_deletion:
             new_batches[batch_id] = batch
 
