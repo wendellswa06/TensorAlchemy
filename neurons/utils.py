@@ -1,28 +1,25 @@
+import _thread
+import asyncio
+import json
 import os
 import re
-import sys
-import json
-import time
 import shutil
-import asyncio
-import traceback
 import subprocess
-
-import _thread
-
+import sys
+import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
-
-import openai
-from substrateinterface import Keypair
 
 import requests
 import sentry_sdk
 import torch
 from google.cloud import storage
 from loguru import logger
+from pydantic import BaseModel
+
 from neurons.constants import (
     IA_BUCKET_NAME,
     IA_MINER_BLACKLIST,
@@ -42,13 +39,9 @@ from neurons.constants import (
 )
 from neurons.exceptions import MinimumValidImagesError
 from neurons.validator.backend.client import TensorAlchemyBackendClient
-from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.backend.exceptions import UpdateTaskError
 from neurons.validator.backend.models import TaskState
 from neurons.validator.utils import init_wandb
-from pydantic import BaseModel
-
-import bittensor as bt
 
 
 @dataclass
@@ -138,16 +131,6 @@ def get_coldkey_for_hotkey(self, hotkey):
         index = self.metagraph.hotkeys.index(hotkey)
         return self.metagraph.coldkeys[index]
     return None
-
-
-# def post_batch(hotkey: Keypair, api_url: str, batch: dict):
-#     response = SignedRequests(hotkey=hotkey).post(
-#         f"{api_url}/batch",
-#         data=json.dumps(batch),
-#         headers={"Content-Type": "application/json"},
-#         timeout=30,
-#     )
-#     return response
 
 
 MINIMUM_VALID_IMAGES_ERROR: str = "MINIMUM_VALID_IMAGES_ERROR"

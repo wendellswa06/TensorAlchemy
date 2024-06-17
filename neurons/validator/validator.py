@@ -1,22 +1,22 @@
 import asyncio
 import copy
 import os
-import subprocess
 import sys
 import time
 import traceback
 import uuid
-from time import sleep
 
+import bittensor as bt
 import sentry_sdk
 import torch
+import wandb
 from loguru import logger
+
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
 from neurons.protocol import denormalize_image_model, ImageGenerationTaskModel
 from neurons.utils import (
     BackgroundTimer,
     background_loop,
-    clean_nsfw_from_prompt,
     colored_log,
     get_defaults,
 )
@@ -42,11 +42,6 @@ from neurons.validator.utils import (
     get_validator_version,
 )
 from neurons.validator.weights import set_weights
-from openai import OpenAI
-from passwordgenerator import pwgenerator
-
-import bittensor as bt
-import wandb
 
 
 def is_valid_current_directory() -> bool:

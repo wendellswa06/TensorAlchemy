@@ -1,49 +1,9 @@
-# The MIT License (MIT)
-# Copyright © 2023 Yuma Rao
-# Copyright © 2023 Opentensor Foundation
-from typing import List
-
+import bittensor as bt
 import torch
 from loguru import logger
 
-import bittensor as bt
-
-from neurons.validator.signed_requests import SignedRequests
-
 from neurons.validator.backend.exceptions import PostWeightsError
 from neurons.validator.utils import get_validator_spec_version
-
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
-# Utils for weights setting on chain.
-
-
-def post_weights(hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
-    response = SignedRequests(hotkey=hotkey).post(
-        f"{api_url}/validator/weights",
-        json={
-            "weights": {
-                hotkey: moving_average.item()
-                for hotkey, moving_average in zip(hotkeys, raw_weights)
-            }
-        },
-        headers={"Content-Type": "application/json"},
-        timeout=30,
-    )
-    return response
 
 
 async def set_weights(validator: "StableValidator"):

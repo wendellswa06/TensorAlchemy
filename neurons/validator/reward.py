@@ -1,7 +1,5 @@
 import argparse
-import asyncio
 import copy
-import os
 import random
 import time
 from abc import abstractmethod
@@ -10,12 +8,13 @@ from enum import Enum
 from typing import Dict, List, Any
 
 import ImageReward as RM
+import bittensor as bt
 import numpy as np
 import sentry_sdk
 import torch
 import torch.nn.functional as F
-import torchvision.transforms as transforms
 import torchvision.transforms as T
+import torchvision.transforms as transforms
 from datasets import Dataset
 from diffusers import (
     AutoPipelineForImage2Image,
@@ -23,8 +22,15 @@ from diffusers import (
     DPMSolverMultistepScheduler,
 )
 from loguru import logger
+from sklearn.metrics.pairwise import cosine_similarity
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed, RetryError
 from torch import Tensor
+from transformers import (
+    AutoFeatureExtractor,
+    AutoImageProcessor,
+    AutoModel,
+    CLIPImageProcessor,
+)
 
 from neurons.miners.StableMiner.utils import (
     colored_log,
@@ -37,18 +43,7 @@ from neurons.safety import StableDiffusionSafetyChecker
 from neurons.utils import get_defaults, clean_nsfw_from_prompt
 from neurons.validator import config as validator_config
 from neurons.validator.backend.client import TensorAlchemyBackendClient
-from neurons.validator.backend.exceptions import GetVotesError
-from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import cosine_distance
-from sklearn.metrics.pairwise import cosine_similarity
-from transformers import (
-    AutoFeatureExtractor,
-    AutoImageProcessor,
-    AutoModel,
-    CLIPImageProcessor,
-)
-
-import bittensor as bt
 
 transform = T.Compose([T.PILToTensor()])
 
