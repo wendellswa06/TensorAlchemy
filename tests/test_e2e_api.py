@@ -3,19 +3,16 @@ import copy
 import uuid
 from io import BytesIO
 
+import bittensor as bt
 import pytest
 import torch
 import torchvision.transforms as T
-
-import bittensor as bt
 from substrateinterface import Keypair
 
 from neurons.constants import DEV_URL, PROD_URL
-from neurons.utils import post_batch
+from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.config import add_args, check_config, config
-from neurons.validator.forward import post_moving_averages
 from neurons.validator.reward import HumanValidationRewardModel
-from neurons.validator.weights import post_weights
 
 
 class Neuron:
@@ -103,7 +100,11 @@ def get_url(network):
     return api_url
 
 
-def get_args(network, neuron):
+def get_args(
+    network, neuron
+) -> Tuple[
+    "bt.metagraph.Metagraph", TensorAlchemyBackendClient, torch.Tensor, List[str]
+]:
     neuron.config.netuid = get_netuid(network)
     neuron.config.subtensor.network = network
     subtensor = bt.subtensor(config=neuron.config)
@@ -118,10 +119,11 @@ def get_args(network, neuron):
         neuron.config.device,
         metagraph,
     )
-    api_url = get_url(network)
     hotkeys = copy.deepcopy(metagraph.hotkeys)
 
-    return metagraph, moving_averages, api_url, hotkeys
+    backend_client = TensorAlchemyBackendClient(neuron.config)
+
+    return metagraph, backend_client, moving_averages, hotkeys
 
 
 def create_dummy_batches(metagraph):
@@ -154,34 +156,34 @@ def create_dummy_batches(metagraph):
 
 
 @pytest.mark.parametrize("network", ["test", "finney"])
-def test_post_moving_averages(network):
+async def test_post_moving_averages(network):
     # TODO: not sure how we should update e2e tests for signed requests;
     #  one option is to create a test validator and use it
-    _, moving_averages, api_url, hotkeys = get_args(network, neuron)
-    response = post_moving_averages(Keypair(), api_url, hotkeys, moving_averages)
+    _, backend_client, moving_averages, hotkeys = get_args(network, neuron)
+    response = await backend_client.post_moving_averages(hotkeys, moving_averages)
     assert response == True
 
 
 @pytest.mark.parametrize("network", ["test", "finney"])
-def test_post_weights(network):
-    _, moving_averages, api_url, hotkeys = get_args(network, neuron)
+async def test_post_weights(network):
+    _, backend_client, moving_averages, hotkeys = get_args(network, neuron)
     raw_weights = torch.nn.functional.normalize(moving_averages, p=1, dim=0)
-    response = post_weights(Keypair(), api_url, hotkeys, raw_weights)
+    response = await backend_client.post_weights(hotkeys, raw_weights)
     assert response.status_code == 200
 
 
 @pytest.mark.parametrize("network", ["test", "finney"])
-def test_submit_batch(network):
-    metagraph, _, api_url, _ = get_args(network, neuron)
+async def test_submit_batch(network):
+    metagraph, backend_client, _, _ = get_args(network, neuron)
     dummy_batch = create_dummy_batches(metagraph)
-    response = post_batch(Keypair(), api_url, dummy_batch[0])
+    response = await backend_client.post_batch(backend_client, dummy_batch[0])
     assert response.status_code == 200
 
 
 @pytest.mark.parametrize("network", ["test", "finney"])
 def test_get_votes(network):
-    metagraph, _, api_url, _ = get_args(network, neuron)
-    hv_reward_model = HumanValidationRewardModel(metagraph, api_url)
-    human_voting_scores = hv_reward_model.get_votes(Keypair(), api_url)
+    metagraph, backend_client, _, _ = get_args(network, neuron)
+    hv_reward_model = HumanValidationRewardModel(metagraph, backend_client)
+    human_voting_scores = backend_client.get_votes()
     assert human_voting_scores.status_code == 200
     assert human_voting_scores.json() != {}
