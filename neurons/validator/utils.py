@@ -18,8 +18,11 @@ import torch.nn as nn
 import wandb
 import bittensor as bt
 from loguru import logger
+from tenacity import retry, stop_after_delay, wait_fixed, retry_if_result
 
 from neurons.protocol import IsAlive, denormalize_image_model
+from neurons.validator.backend.client import TensorAlchemyBackendClient
+from neurons.validator.backend.exceptions import GetTaskError
 from neurons.validator.services.openai.service import (
     get_openai_service,
     OpenAIRequestFailed,
@@ -47,33 +50,26 @@ def get_validator_spec_version() -> int:
 
 
 # Get tasks from the client server
-async def get_task(validator, timeout=5):
-    task = None
-    for _i in range(60):
-        await asyncio.sleep(1)
+
+
+async def get_task(backend_client: TensorAlchemyBackendClient, timeout=30, backoff=1):
+
+    @retry(
+        stop=stop_after_delay(timeout),
+        wait=wait_fixed(backoff),
+        # Retry if task is not found (returns None)
+        retry=retry_if_result(lambda r: r is None),
+        # Returns None after timeout (no task is found)
+        retry_error_callback=lambda _: None,
+    )
+    async def _get_task_with_timeout():
         try:
-            response = SignedRequests(validator=validator).get(
-                f"{validator.api_url}/tasks", timeout=timeout
-            )
+            return await backend_client.get_task(timeout=1)
+        except GetTaskError as e:
+            logger.error(f"error getting task: {e}")
+            return None
 
-            # No tasks found
-            if response.status_code == 404:
-                continue
-
-        except Exception as error:
-            logger.warning(
-                #
-                f"Failed to get task from {validator.api_url}/tasks: "
-                + str(error),
-            )
-
-            continue
-
-        if response.status_code == 200:
-            task = response.json()
-            return denormalize_image_model(**task)
-
-    return task
+    return await _get_task_with_timeout()
 
 
 def _ttl_hash_gen(seconds: int):

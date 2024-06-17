@@ -12,8 +12,9 @@ import torch
 import torchvision.transforms as T
 from loguru import logger
 from neurons.constants import MOVING_AVERAGE_ALPHA
-from neurons.protocol import ImageGeneration
+from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 from neurons.utils import colored_log, sh, upload_batches
+from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema
 from neurons.validator.reward import (
     filter_rewards,
@@ -48,20 +49,17 @@ def update_moving_averages(
     return moving_averaged_scores
 
 
-def query_axons(
-    loop: AbstractEventLoop,
+async def query_axons(
     dendrite: bt.dendrite,
     axons: List[AxonInfo],
     synapse: bt.Synapse,
     query_timeout: int,
 ) -> List[ImageGeneration]:
     """Request image generation from axons"""
-    return loop.run_until_complete(
-        dendrite(
-            axons,
-            synapse,
-            timeout=query_timeout,
-        )
+    return await dendrite(
+        axons,
+        synapse,
+        timeout=query_timeout,
     )
 
 
@@ -112,35 +110,6 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def post_moving_averages(
-    hotkey: Keypair,
-    api_url: str,
-    hotkeys: List[str],
-    moving_average_scores: torch.Tensor,
-):
-    try:
-        response = SignedRequests(hotkey=hotkey).post(
-            f"{api_url}/validator/averages",
-            json={
-                "averages": {
-                    hotkey: moving_average.item()
-                    for hotkey, moving_average in zip(hotkeys, moving_average_scores)
-                }
-            },
-            headers={"Content-Type": "application/json"},
-            timeout=30,
-        )
-        if response.status_code != 200:
-            logger.info("Error logging moving averages to the Averages API")
-            return False
-        else:
-            logger.info("Successfully logged moving averages to the Averages API")
-            return True
-    except Exception:
-        logger.info("Error logging moving averages to the Averages API")
-        return False
-
-
 def log_event_to_wandb(wandb, event: dict, prompt: str):
     logger.info(f"Events: {str(event)}")
     logger.log("EVENTS", "events", **event)
@@ -174,7 +143,12 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
         logger.error(f"Unable to log event to wandb due to the following error: {e}")
 
 
-def run_step(validator, task, axons, uids):
+async def run_step(
+    validator,
+    task: ImageGenerationTaskModel,
+    axons: List[AxonInfo],
+    uids: torch.LongTensor,
+):
     # Get Arguments
     prompt = task.prompt
     batch_id = task.task_id
@@ -221,8 +195,8 @@ def run_step(validator, task, axons, uids):
         f"| Width: {synapse.width}"
     )
 
-    responses = query_axons(
-        validator.loop, validator.dendrite, axons, synapse, validator.query_timeout
+    responses = await query_axons(
+        validator.dendrite, axons, synapse, validator.query_timeout
     )
 
     log_query_to_history(validator, uids)
@@ -269,11 +243,11 @@ def run_step(validator, task, axons, uids):
     # Log the results for monitoring purposes.
     log_responses(responses, prompt)
 
-    scattered_rewards, event, rewards = get_automated_rewards(
+    scattered_rewards, event, rewards = await get_automated_rewards(
         validator, responses, uids, task_type
     )
 
-    scattered_rewards_adjusted = get_human_rewards(validator, scattered_rewards)
+    scattered_rewards_adjusted = await get_human_rewards(validator, scattered_rewards)
 
     scattered_rewards_adjusted = filter_rewards(
         validator.isalive_dict, validator.isalive_threshold, scattered_rewards_adjusted
@@ -284,12 +258,12 @@ def run_step(validator, task, axons, uids):
     )
 
     # Save moving averages scores on backend
-    post_moving_averages(
-        validator.wallet.hotkey,
-        validator.api_url,
-        validator.hotkeys,
-        validator.moving_average_scores,
-    )
+    try:
+        await validator.backend_client.post_moving_averages(
+            validator.hotkeys, validator.moving_average_scores
+        )
+    except PostMovingAveragesError as e:
+        logger.error(f"failed to post moving averages: {e}")
 
     try:
         for i, average in enumerate(validator.moving_average_scores):
@@ -366,9 +340,8 @@ def run_step(validator, task, axons, uids):
             }
 
         # Upload the batches to the Human Validation Platform
-        validator.batches = upload_batches(
-            validator.wallet.hotkey,
-            validator.api_url,
+        validator.batches = await upload_batches(
+            validator.backend_client,
             validator.batches,
         )
 

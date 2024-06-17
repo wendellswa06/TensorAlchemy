@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import copy
 import os
 import random
@@ -6,7 +7,7 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import ImageReward as RM
 import numpy as np
@@ -22,6 +23,9 @@ from diffusers import (
     DPMSolverMultistepScheduler,
 )
 from loguru import logger
+from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed, RetryError
+from torch import Tensor
+
 from neurons.miners.StableMiner.utils import (
     colored_log,
     nsfw_image_filter,
@@ -32,6 +36,8 @@ from neurons.protocol import ImageGeneration
 from neurons.safety import StableDiffusionSafetyChecker
 from neurons.utils import get_defaults, clean_nsfw_from_prompt
 from neurons.validator import config as validator_config
+from neurons.validator.backend.client import TensorAlchemyBackendClient
+from neurons.validator.backend.exceptions import GetVotesError
 from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import cosine_distance
 from sklearn.metrics.pairwise import cosine_similarity
@@ -55,7 +61,7 @@ class RewardModelType(Enum):
     nsfw = "nsfw_filter"
 
 
-def apply_reward_functions(
+async def apply_reward_functions(
     reward_weights: list,
     reward_functions: list,
     responses: list,
@@ -64,7 +70,7 @@ def apply_reward_functions(
 ) -> tuple[torch.Tensor, dict]:
     event = {}
     for weight_i, reward_fn_i in zip(reward_weights, reward_functions):
-        reward_i, reward_i_normalized = reward_fn_i.apply(responses, rewards)
+        reward_i, reward_i_normalized = await reward_fn_i.apply(responses, rewards)
         rewards += weight_i * reward_i_normalized.to(device)
         event[reward_fn_i.name] = reward_i.tolist()
         event[reward_fn_i.name + "_normalized"] = reward_i_normalized.tolist()
@@ -72,7 +78,7 @@ def apply_reward_functions(
     return rewards, event
 
 
-def apply_masking_functions(
+async def apply_masking_functions(
     masking_functions: list,
     responses: list,
     rewards: torch.Tensor,
@@ -80,7 +86,7 @@ def apply_masking_functions(
 ) -> tuple[torch.Tensor, dict]:
     event = {}
     for masking_fn_i in masking_functions:
-        mask_i, mask_i_normalized = masking_fn_i.apply(responses, rewards)
+        mask_i, mask_i_normalized = await masking_fn_i.apply(responses, rewards)
         rewards *= mask_i_normalized.to(device)
         event[masking_fn_i.name] = mask_i.tolist()
         event[masking_fn_i.name + "_normalized"] = mask_i_normalized.tolist()
@@ -88,7 +94,7 @@ def apply_masking_functions(
     return rewards, event
 
 
-def get_automated_rewards(self, responses, uids, task_type):
+async def get_automated_rewards(self, responses, uids, task_type):
     event = {"task_type": task_type}
 
     # Initialise rewards tensor
@@ -96,12 +102,12 @@ def get_automated_rewards(self, responses, uids, task_type):
         self.device
     )
 
-    rewards, reward_event = apply_reward_functions(
+    rewards, reward_event = await apply_reward_functions(
         self.reward_weights, self.reward_functions, responses, rewards, self.device
     )
     event.update(reward_event)
 
-    rewards, masking_event = apply_masking_functions(
+    rewards, masking_event = await apply_masking_functions(
         self.masking_functions, responses, rewards, self.device
     )
     event.update(masking_event)
@@ -113,14 +119,14 @@ def get_automated_rewards(self, responses, uids, task_type):
     return scattered_rewards, event, rewards
 
 
-def get_human_voting_scores(
+async def get_human_voting_scores(
     human_voting_reward_model,
     hotkeys: str,
     mock: bool,
     mock_winner: str = None,
     mock_loser: str = None,
 ) -> torch.Tensor:
-    _, human_voting_scores_normalised = human_voting_reward_model.get_rewards(
+    _, human_voting_scores_normalised = await human_voting_reward_model.get_rewards(
         hotkeys, mock, mock_winner, mock_loser
     )
     return human_voting_scores_normalised
@@ -133,14 +139,14 @@ def apply_human_voting_weight(
     return scattered_rewards_adjusted
 
 
-def get_human_rewards(
-    validator,
+async def get_human_rewards(
+    validator: "StableValidator",
     rewards: torch.Tensor,
     mock: bool = False,
     mock_winner: str = None,
     mock_loser: str = None,
 ) -> torch.Tensor:
-    human_voting_scores = get_human_voting_scores(
+    human_voting_scores = await get_human_voting_scores(
         validator.human_voting_reward_model,
         validator.hotkeys,
         mock,
@@ -257,8 +263,7 @@ class DefaultRewardFrameworkConfig:
 class BaseRewardModel:
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     def __str__(self) -> str:
         return str(self.name)
@@ -267,8 +272,7 @@ class BaseRewardModel:
         return str(self.name)
 
     @abstractmethod
-    def get_rewards(self, responses: List, rewards) -> torch.FloatTensor:
-        ...
+    async def get_rewards(self, responses: List, rewards) -> torch.FloatTensor: ...
 
     def __init__(self) -> None:
         self.count = 0
@@ -329,7 +333,7 @@ class BaseRewardModel:
 
         return rewards
 
-    def apply(
+    async def apply(
         self,
         responses: List[bt.Synapse],
         rewards,
@@ -348,7 +352,7 @@ class BaseRewardModel:
             responses[idx] for idx in successful_generations_indices
         ]
         # Reward each completion.
-        successful_rewards = self.get_rewards(successful_generations, rewards)
+        successful_rewards = await self.get_rewards(successful_generations, rewards)
 
         # Softmax rewards across samples.
         successful_rewards_normalized = self.normalize_rewards(successful_rewards)
@@ -409,7 +413,7 @@ class BlacklistFilter(BaseRewardModel):
                 return 0.0
         return 1.0
 
-    def get_rewards(self, responses, rewards) -> torch.FloatTensor:
+    async def get_rewards(self, responses, rewards) -> torch.FloatTensor:
         return torch.tensor(
             [
                 self.reward(response) if reward != 0.0 else 0.0
@@ -464,7 +468,7 @@ class NSFWRewardModel(BaseRewardModel):
 
         return 1.0
 
-    def get_rewards(self, responses, rewards) -> torch.FloatTensor:
+    async def get_rewards(self, responses, rewards) -> torch.FloatTensor:
         return torch.tensor(
             [
                 self.reward(response) if reward != 0.0 else 0.0
@@ -482,86 +486,57 @@ class HumanValidationRewardModel(BaseRewardModel):
     def name(self) -> str:
         return RewardModelType.human.value
 
-    def __init__(self, validator, metagraph, api_url):
+    def __init__(
+        self,
+        metagraph: "bt.metagraph.Metagraph",
+        backend_client: TensorAlchemyBackendClient,
+    ):
         super().__init__()
-        self.validator = validator
         self.device = validator_config.get_default_device()
         self.human_voting_scores = torch.zeros((metagraph.n)).to(self.device)
-        self.api_url = api_url
+        self.backend_client = backend_client
 
-    def get_votes(self, api_url: str, timeout: int = 2):
-        human_voting_scores = SignedRequests(self.validator.wallet.hotkey).get(
-            f"{api_url}/votes", timeout=timeout
-        )
-        return human_voting_scores
-
-    def get_rewards(
+    async def get_rewards(
         self, hotkeys, mock=False, mock_winner=None, mock_loser=None
-    ) -> torch.FloatTensor:
+    ) -> tuple[Tensor, Tensor | Any]:
+
+        logger.info("Extracting human votes...")
+
+        human_voting_scores = None
+        human_voting_scores_dict = {}
+
         max_retries = 3
         backoff = 2
-
-        logger.info("Extracting human votes")
-
-        if not mock:
-            human_voting_scores = None
-            human_voting_scores_dict = {}
-
-            for attempt in range(0, max_retries):
-                try:
-                    human_voting_scores = self.get_votes(self.api_url)
-                    if (human_voting_scores.status_code != 200) and (
-                        attempt == max_retries
-                    ):
-                        logger.warning(
-                            f"Failed to retrieve the human validation votes {attempt+1} times. Skipping until the next step."
-                        )
-
-                        if (human_voting_scores.status_code != 200) and (
-                            attempt == max_retries
-                        ):
-                            logger.warning(
-                                f"Failed to retrieve the human validation votes {attempt+1} times. Skipping until the next step."
-                            )
-                            human_voting_scores = None
-                            break
-
-                        elif (human_voting_scores.status_code != 200) and (
-                            attempt != max_retries
-                        ):
-                            continue
-
-                        else:
-                            human_voting_round_scores = human_voting_scores.json()
-
-                            for inner_dict in human_voting_round_scores.values():
-                                for key, value in inner_dict.items():
-                                    if key in human_voting_scores_dict:
-                                        human_voting_scores_dict[key] += value
-                                    else:
-                                        human_voting_scores_dict[key] = value
-
-                            break
-
-                except Exception as e:
-                    logger.error(
-                        f"Encountered the following error retrieving the manual validator scores: {e}. Retrying in {backoff} seconds."
-                    )
-                    sentry_sdk.capture_exception(e)
-                    time.sleep(backoff)
-                    human_voting_scores = None
-                    break
-
-        else:
-            human_voting_scores_dict = {hotkey: 50 for hotkey in hotkeys}
-            if (mock_winner is not None) and (
-                mock_winner in human_voting_scores_dict.keys()
+        try:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(max_retries), wait=wait_fixed(backoff)
             ):
-                human_voting_scores_dict[mock_winner] = 100
-            if (mock_loser is not None) and (
-                mock_loser in human_voting_scores_dict.keys()
-            ):
-                human_voting_scores_dict[mock_loser] = 1
+                with attempt:
+                    human_voting_scores = await self.backend_client.get_votes()
+        except RetryError as e:
+            logger.error(f"error while getting votes: {e}")
+            # Return empty results
+            return self.human_voting_scores, self.human_voting_scores
+
+        if human_voting_scores:
+            for inner_dict in human_voting_scores.values():
+                for key, value in inner_dict.items():
+                    if key in human_voting_scores_dict:
+                        human_voting_scores_dict[key] += value
+                    else:
+                        human_voting_scores_dict[key] = value
+
+        # TODO: move out mock code
+        # else:
+        #     human_voting_scores_dict = {hotkey: 50 for hotkey in hotkeys}
+        #     if (mock_winner is not None) and (
+        #         mock_winner in human_voting_scores_dict.keys()
+        #     ):
+        #         human_voting_scores_dict[mock_winner] = 100
+        #     if (mock_loser is not None) and (
+        #         mock_loser in human_voting_scores_dict.keys()
+        #     ):
+        #         human_voting_scores_dict[mock_loser] = 1
 
         if human_voting_scores_dict != {}:
             for index, hotkey in enumerate(hotkeys):
@@ -607,7 +582,7 @@ class ImageRewardModel(BaseRewardModel):
             logger.error("ImageReward score is 0. No image in response.")
             return 0.0
 
-    def get_rewards(self, responses, rewards) -> torch.FloatTensor:
+    async def get_rewards(self, responses, rewards) -> torch.FloatTensor:
         return torch.tensor(
             [self.reward(response) for response in responses],
             dtype=torch.float32,
@@ -659,7 +634,7 @@ class DiversityRewardModel(BaseRewardModel):
 
         return pp
 
-    def get_rewards(self, responses, rewards) -> torch.FloatTensor:
+    async def get_rewards(self, responses, rewards) -> torch.FloatTensor:
         extract_fn = self.extract_embeddings(self.model.to(self.device))
 
         images = [
@@ -927,13 +902,15 @@ class ModelDiversityRewardModel(BaseRewardModel):
         self.stats.generation_time += generation_time
         return synapse
 
-    def get_rewards(self, responses, rewards, synapse) -> torch.FloatTensor:
+    async def get_rewards(self, responses, rewards, synapse) -> torch.FloatTensor:
         extract_fn = self.extract_embeddings(self.model.to(self.device))
 
         images = [
-            T.transforms.ToPILImage()(bt.Tensor.deserialize(response.images[0]))
-            if response.images != []
-            else []
+            (
+                T.transforms.ToPILImage()(bt.Tensor.deserialize(response.images[0]))
+                if response.images != []
+                else []
+            )
             for response, reward in zip(responses, rewards)
         ]
 

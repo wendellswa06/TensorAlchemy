@@ -9,6 +9,8 @@ from loguru import logger
 import bittensor as bt
 
 from neurons.validator.signed_requests import SignedRequests
+
+from neurons.validator.backend.exceptions import PostWeightsError
 from neurons.validator.utils import get_validator_spec_version
 
 
@@ -29,9 +31,7 @@ from neurons.validator.utils import get_validator_spec_version
 # Utils for weights setting on chain.
 
 
-def post_weights(
-    hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor
-):
+def post_weights(hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor):
     response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/validator/weights",
         json={
@@ -46,44 +46,36 @@ def post_weights(
     return response
 
 
-def set_weights(val):
+async def set_weights(validator: "StableValidator"):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
-        val.moving_average_scores, p=1, dim=0
+        validator.moving_average_scores, p=1, dim=0
     )
 
     try:
-        response = post_weights(
-            val.wallet.hotkey,
-            val.api_url,
-            val.hotkeys,
-            raw_weights,
-        )
-        if response.status_code != 200:
-            logger.info("Error logging weights to the Weights API")
-        else:
-            logger.info("Successfully logged weights to the Weights API")
-    except Exception:
-        logger.info("Error logging weights to the Weights API")
+        await validator.backend_client.post_weights(validator.hotkeys, raw_weights)
+    except PostWeightsError as e:
+        logger.error("error logging weights to the weights api: {e}")
 
     (
         processed_weight_uids,
         processed_weights,
     ) = bt.utils.weight_utils.process_weights_for_netuid(
-        uids=val.metagraph.uids.to("cpu"),
+        uids=validator.metagraph.uids.to("cpu"),
         weights=raw_weights.to("cpu"),
-        netuid=val.config.netuid,
-        subtensor=val.subtensor,
-        metagraph=val.metagraph,
+        netuid=validator.config.netuid,
+        subtensor=validator.subtensor,
+        metagraph=validator.metagraph,
     )
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
     from neurons.validator import validator
+
     # Set the weights on chain via our subtensor connection.
-    val.subtensor.set_weights(
-        wallet=val.wallet,
-        netuid=val.config.netuid,
+    validator.subtensor.set_weights(
+        wallet=validator.wallet,
+        netuid=validator.config.netuid,
         uids=processed_weight_uids,
         weights=processed_weights,
         wait_for_finalization=False,
