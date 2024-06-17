@@ -145,7 +145,8 @@ class DefaultRewardFrameworkConfig:
 class BaseRewardModel:
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     def __str__(self) -> str:
         return str(self.name)
@@ -154,7 +155,8 @@ class BaseRewardModel:
         return str(self.name)
 
     @abstractmethod
-    async def get_rewards(self, responses: List, rewards) -> torch.FloatTensor: ...
+    async def get_rewards(self, responses: List, rewards) -> torch.FloatTensor:
+        ...
 
     def __init__(self) -> None:
         self.count = 0
@@ -381,7 +383,6 @@ class HumanValidationRewardModel(BaseRewardModel):
     async def get_rewards(
         self, hotkeys, mock=False, mock_winner=None, mock_loser=None
     ) -> tuple[Tensor, Tensor | Any]:
-
         logger.info("Extracting human votes...")
 
         human_voting_scores = None
@@ -656,9 +657,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         )
 
         # Load the image to image model using the same pipeline (efficient)
-        self.i2i_model = AutoPipelineForImage2Image.from_pipe(
-            self.t2i_model
-        ).to(
+        self.i2i_model = AutoPipelineForImage2Image.from_pipe(self.t2i_model).to(
             self.config.miner.device,
         )
         self.i2i_model.set_progress_bar_config(disable=True)
@@ -726,9 +725,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         start_time = time.perf_counter()
 
         # Set up args
-        local_args = copy.deepcopy(
-            self.mapping[f"{synapse.generation_type}"]["args"]
-        )
+        local_args = copy.deepcopy(self.mapping[f"{synapse.generation_type}"]["args"])
         local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
         local_args["width"] = synapse.width
         local_args["height"] = synapse.height
@@ -749,9 +746,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
             logger.error("Values for steps were not provided.")
 
         # Get the model
-        model = self.mapping[f"{synapse.generation_type}"][
-            "model"
-        ]
+        model = self.mapping[f"{synapse.generation_type}"]["model"]
         if synapse.generation_type == "IMAGE_TO_IMAGE":
             local_args["image"] = T.transforms.ToPILImage()(
                 bt.Tensor.deserialize(synapse.prompt_image)
