@@ -1,26 +1,26 @@
 import asyncio
 import copy
 import os
-import subprocess
 import sys
 import time
 import traceback
 import uuid
-from time import sleep
 
+import bittensor as bt
 import sentry_sdk
 import torch
+import wandb
 from loguru import logger
+
 from neurons.constants import DEV_URL, N_NEURONS, PROD_URL
-from neurons.protocol import denormalize_image_model
+from neurons.protocol import denormalize_image_model, ImageGenerationTaskModel
 from neurons.utils import (
     BackgroundTimer,
     background_loop,
-    clean_nsfw_from_prompt,
     colored_log,
     get_defaults,
-    update_task_state,
 )
+from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
 from neurons.validator.config import add_args, check_config, config
 from neurons.validator.forward import run_step
@@ -30,22 +30,17 @@ from neurons.validator.reward import (
     ImageRewardModel,
     NSFWRewardModel,
 )
+from neurons.validator.services.openai.service import get_openai_service
 from neurons.validator.utils import (
     generate_random_prompt_gpt,
     get_device_name,
     get_random_uids,
-    get_task,
     init_wandb,
     reinit_wandb,
     ttl_get_block,
     get_validator_version,
 )
 from neurons.validator.weights import set_weights
-from openai import OpenAI
-from passwordgenerator import pwgenerator
-
-import bittensor as bt
-import wandb
 
 
 def is_valid_current_directory() -> bool:
@@ -107,22 +102,12 @@ class StableValidator:
         # Init device.
         self.device = torch.device(self.config.alchemy.device)
 
-        self.openai_client = None
-
-        openai_api_key = os.environ.get("OPENAI_API_KEY")
         self.corcel_api_key = os.environ.get("CORCEL_API_KEY")
 
-        if not openai_api_key:
-            logger.error("Please set the OPENAI_API_KEY environment variable.")
-        else:
-            self.openai_client = OpenAI(api_key=openai_api_key)
+        # Init external API services
+        self.openai_service = get_openai_service()
 
-        if not self.corcel_api_key and not openai_api_key:
-            raise ValueError(
-                "You must set either the CORCEL_API_KEY or "
-                + "OPENAI_API_KEY environment variables. "
-                + "It is preferable to use both."
-            )
+        self.backend_client = TensorAlchemyBackendClient(self.config)
 
         wandb.login(anonymous="must")
 
@@ -217,7 +202,7 @@ class StableValidator:
         self.human_voting_scores = torch.zeros((self.metagraph.n)).to(self.device)
         self.human_voting_weight = 0.10 / 32
         self.human_voting_reward_model = HumanValidationRewardModel(
-            self, self.metagraph, self.api_url
+            self.metagraph, self.backend_client
         )
 
         # Init masking function
@@ -315,60 +300,13 @@ class StableValidator:
 
                 axons = [self.metagraph.axons[uid] for uid in uids]
 
-                # NOTE: Will wait for around 30 seconds
-                #       trying to get a task from the user
-                # before going on and creating a synthetic task
-                task = await get_task(self)
-
-                # No organic task found
+                task = await self.get_image_generation_task()
                 if task is None:
-                    # NOTE: Generate synthetic request
-                    task = denormalize_image_model(
-                        id=str(uuid.uuid4()),
-                        image_count=1,
-                        task_type="TEXT_TO_IMAGE",
-                        guidance_scale=7.5,
-                        negative_prompt=None,
-                        prompt=generate_random_prompt_gpt(self),
-                        seed=-1,
-                        steps=50,
-                        width=1024,
-                        height=1024,
+                    logger.warning(
+                        "image generation task was not generated successfully."
                     )
 
-                # Task has been found for oragnic request
-                else:
-                    # If the task has some NSFW text in the prompt
-                    # TODO: We should replace this with OpenAI
-                    is_bad_prompt: bool = task.prompt != clean_nsfw_from_prompt(
-                        task.prompt
-                    )
-
-                    if is_bad_prompt:
-                        try:
-                            logger.warning(
-                                #
-                                "Prompt was marked as NSFW and rejected:"
-                                + task.task_id
-                            )
-                            update_task_state(
-                                self.wallet.hotkey,
-                                self.api_url,
-                                task.task_id,
-                                TaskState.REJECTED,
-                            )
-                        except Exception:
-                            logger.info(
-                                f"Failed to post {task.task_id} to the"
-                                + f" {TaskState.REJECTED.value} endpoint"
-                            )
-                        finally:
-                            continue
-
-                if task.prompt is None:
-                    logger.warning("The prompt was not generated successfully.")
-
-                    # Prevent loop from forming if the prompt
+                    # Prevent loop from forming if the task
                     # error occurs on the first step
                     if self.step == 0:
                         self.step += 1
@@ -376,7 +314,7 @@ class StableValidator:
                     continue
 
                 # Text to Image Run
-                run_step(self, task, axons, uids)
+                await run_step(self, task, axons, uids)
                 # Re-sync with the network. Updates the metagraph.
                 try:
                     self.sync()
@@ -415,7 +353,65 @@ class StableValidator:
                 logger.warning("Keyboard interrupt detected. Exiting validator.")
                 sys.exit(1)
 
-    def sync(self):
+    async def get_image_generation_task(
+        self, timeout=60
+    ) -> ImageGenerationTaskModel | None:
+        """
+        Fetch new image generation task from backend or generate new one
+        Returns task or None if task cannot be generated
+        """
+        # NOTE: Will wait for around 60 seconds
+        #       trying to get a task from the user
+        # before going on and creating a synthetic task
+
+        logger.info(
+            f"polling backend for incoming image generation task ({timeout}s) ..."
+        )
+
+        task = await self.backend_client.poll_task(timeout=timeout)
+
+        # No organic task found
+        if task is None:
+            prompt = await generate_random_prompt_gpt(self)
+            if not prompt:
+                logger.error("failed to generate prompt for synthetic task")
+                return None
+            # NOTE: Generate synthetic request
+            return denormalize_image_model(
+                id=str(uuid.uuid4()),
+                image_count=1,
+                task_type="TEXT_TO_IMAGE",
+                guidance_scale=7.5,
+                negative_prompt=None,
+                prompt=prompt,
+                seed=-1,
+                steps=50,
+                width=1024,
+                height=1024,
+            )
+
+        is_bad_prompt = await self.openai_service.check_prompt_for_nsfw(task.prompt)
+
+        if is_bad_prompt:
+            try:
+                logger.warning(
+                    #
+                    "Prompt was marked as NSFW and rejected:"
+                    + task.task_id
+                )
+                await self.backend_client.update_task_state(
+                    task.task_id,
+                    TaskState.REJECTED,
+                )
+            except Exception as e:
+                logger.info(
+                    f"Failed to post {task.task_id} to the"
+                    + f" {TaskState.REJECTED.value} endpoint: {e}"
+                )
+            return None
+        return task
+
+    async def sync(self):
         """
         Wrapper for synchronizing the state of the network for the given miner or validator.
         """
@@ -426,7 +422,7 @@ class StableValidator:
             self.resync_metagraph()
 
         if self.should_set_weights():
-            set_weights(self)
+            asyncio.run(set_weights(self))
             self.prev_block = ttl_get_block(self)
 
     def get_validator_index(self):

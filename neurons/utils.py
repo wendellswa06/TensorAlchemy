@@ -1,26 +1,25 @@
+import _thread
+import asyncio
+import json
 import os
 import re
-import sys
-import json
-import time
 import shutil
-import asyncio
-import traceback
 import subprocess
-
-import _thread
-
+import sys
+import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Timer
 from typing import Any, Dict, List
-from substrateinterface import Keypair
 
 import requests
 import sentry_sdk
 import torch
 from google.cloud import storage
 from loguru import logger
+from pydantic import BaseModel
+
 from neurons.constants import (
     IA_BUCKET_NAME,
     IA_MINER_BLACKLIST,
@@ -39,13 +38,10 @@ from neurons.constants import (
     NSFW_WORDLIST_DEFAULT,
 )
 from neurons.exceptions import MinimumValidImagesError
-from neurons.validator.signed_requests import SignedRequests
+from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.exceptions import UpdateTaskError
 from neurons.validator.backend.models import TaskState
 from neurons.validator.utils import init_wandb
-from pydantic import BaseModel
-
-import bittensor as bt
 
 
 @dataclass
@@ -127,37 +123,6 @@ class BackgroundTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
-def update_task_state(
-    hotkey: Keypair,
-    api_url: str,
-    task_id: str,
-    state: TaskState,
-    timeout=3,
-) -> None:
-    endpoint = api_url
-
-    if state == TaskState.FAILED:
-        endpoint = f"{endpoint}/tasks/{task_id}/fail"
-    elif endpoint == TaskState.REJECTED:
-        endpoint = f"{endpoint}/tasks/{task_id}/reject"
-    else:
-        logger.warning(f"Not updating task state for state {state}")
-        return None
-
-    response = SignedRequests(hotkey=hotkey).post(
-        endpoint,
-        timeout=timeout,
-    )
-
-    if response.status_code != 200:
-        raise UpdateTaskError(
-            f"updating task state failed with status_code "
-            f"{response.status_code}: {response.text}"
-        )
-
-    return None
-
-
 def get_coldkey_for_hotkey(self, hotkey):
     """
     Look up the coldkey of the caller.
@@ -166,16 +131,6 @@ def get_coldkey_for_hotkey(self, hotkey):
         index = self.metagraph.hotkeys.index(hotkey)
         return self.metagraph.coldkeys[index]
     return None
-
-
-def post_batch(hotkey: Keypair, api_url: str, batch: dict):
-    response = SignedRequests(hotkey=hotkey).post(
-        f"{api_url}/batch",
-        data=json.dumps(batch),
-        headers={"Content-Type": "application/json"},
-        timeout=30,
-    )
-    return response
 
 
 MINIMUM_VALID_IMAGES_ERROR: str = "MINIMUM_VALID_IMAGES_ERROR"
@@ -243,19 +198,20 @@ def filter_batch_before_submission(batch: Dict[str, Any]) -> Dict[str, Any]:
     return dict(BatchSubmissionRequest(**to_return))
 
 
-def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
+async def upload_batches(
+    backend_client: TensorAlchemyBackendClient, batches: Dict
+) -> Dict:
     logger.info(f"Number of batches in queue: {len(batches)}")
     max_retries = 3
     backoff = 5
     batches_for_deletion = set()
-    loop = asyncio.get_event_loop()
 
     for batch_id in batches.keys():
         batch = batches[batch_id]
         for attempt in range(0, max_retries):
             try:
                 filtered_batch = filter_batch_before_submission(batch)
-                response = post_batch(hotkey, api_url, filtered_batch)
+                response = await backend_client.post_batch(filtered_batch)
                 if response.status_code == 200:
                     logger.info(
                         "Successfully posted batch" + f" {filtered_batch['batch_id']}"
@@ -276,16 +232,12 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
             except MinimumValidImagesError as e:
                 batches_for_deletion.add(batch_id)
                 try:
-                    loop.run_until_complete(
-                        update_task_state(
-                            hotkey,
-                            api_url,
-                            batch_id,
-                            TaskState.FAILED,
-                        )
+                    await backend_client.update_task_state(
+                        batch_id,
+                        TaskState.FAILED,
                     )
-                except:
-                    bt.logging.info(
+                except UpdateTaskError:
+                    logger.error(
                         f"Failed to post {batch_id} to the {TaskState.FAILED.value} endpoint"
                     )
 
@@ -356,10 +308,8 @@ def background_loop(self, is_validator):
     # Send new batches to the Human Validation Bot
     try:
         if (self.background_steps % 1 == 0) and is_validator and (self.batches != {}):
-            self.batches = upload_batches(
-                self.wallet.hotkey,
-                self.api_url,
-                self.batches,
+            self.batches = asyncio.run(
+                upload_batches(self.backend_client, self.batches)
             )
 
     except Exception as e:
