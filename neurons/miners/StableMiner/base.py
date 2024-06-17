@@ -14,10 +14,9 @@ import torchvision.transforms as transforms
 import torchvision.transforms as T
 from loguru import logger
 from neurons.constants import VPERMIT_TAO
-from neurons.protocol import ImageGeneration, IsAlive
+from neurons.protocol import ImageGeneration, IsAlive, ModelType
 from neurons.utils import (
     BackgroundTimer,
-    ModelType,
     background_loop,
     clean_nsfw_from_prompt,
     get_defaults,
@@ -278,7 +277,6 @@ class BaseMiner(ABC):
         start_time = time.perf_counter()
 
         # Set up args
-        local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
         if synapse.model_type is not None:
             local_args = copy.deepcopy(
                 self.mapping[f"{synapse.generation_type}{synapse.model_type}"]["args"]
@@ -307,7 +305,7 @@ class BaseMiner(ABC):
             local_args["num_inference_steps"] = synapse.steps
         except AttributeError:
             logger.info("Values for steps were not provided.")
-
+        # local_args["num_inference_steps"] = 10
         # Get the model
         if synapse.model_type is not None:
             model = self.mapping[f"{synapse.generation_type}{synapse.model_type}"][
@@ -329,7 +327,7 @@ class BaseMiner(ABC):
         # Generate images & serialize
         for attempt in range(3):
             try:
-                seed = synapse.seed if synapse.seed != -1 else self.config.miner.seed
+                seed = synapse.seed
                 local_args["generator"] = [
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
@@ -421,7 +419,7 @@ class BaseMiner(ABC):
         return priority
 
     def _base_blacklist(
-        self, synapse, vpermit_tao_limit=VPERMIT_TAO, rate_limit=1
+        self, synapse, vpermit_tao_limit=0.001, rate_limit=1
     ) -> typing.Tuple[bool, str]:
         try:
             # Get the name of the synapse

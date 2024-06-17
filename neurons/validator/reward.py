@@ -5,10 +5,9 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import ImageReward as RM
-import bittensor as bt
 import numpy as np
 import sentry_sdk
 import torch
@@ -22,9 +21,6 @@ from diffusers import (
     DPMSolverMultistepScheduler,
 )
 from loguru import logger
-from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed, RetryError
-from torch import Tensor
-
 from neurons.miners.StableMiner.utils import colored_log, nsfw_image_filter, sh, warm_up
 from neurons.protocol import ImageGeneration, ModelType
 from neurons.safety import StableDiffusionSafetyChecker
@@ -34,6 +30,8 @@ from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.utils import cosine_distance
 from pydantic import BaseModel
 from sklearn.metrics.pairwise import cosine_similarity
+from tenacity import AsyncRetrying, RetryError, stop_after_attempt, wait_fixed
+from torch import Tensor
 from transformers import (
     AutoFeatureExtractor,
     AutoImageProcessor,
@@ -646,47 +644,26 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
     def load_models(self):
         # Load the text-to-image model
-        self.t2i_model_custom = AutoPipelineForText2Image.from_pretrained(
-            self.config.miner.custom_model,
-            torch_dtype=torch.float16,
-            use_safetensors=True,
-            variant="fp16",
-        ).to(self.config.miner.device)
-        self.t2i_model_custom.set_progress_bar_config(disable=True)
-        self.t2i_model_custom.scheduler = DPMSolverMultistepScheduler.from_config(
-            self.t2i_model_custom.scheduler.config
-        )
-
-        self.t2i_model_alchemy = AutoPipelineForText2Image.from_pretrained(
+        self.t2i_model = AutoPipelineForText2Image.from_pretrained(
             self.config.miner.alchemy_model,
             torch_dtype=torch.float16,
             use_safetensors=True,
             variant="fp16",
         ).to(self.config.miner.device)
-        self.t2i_model_alchemy.set_progress_bar_config(disable=True)
-        self.t2i_model_alchemy.scheduler = DPMSolverMultistepScheduler.from_config(
-            self.t2i_model_alchemy.scheduler.config
+        self.t2i_model.set_progress_bar_config(disable=True)
+        self.t2i_model.scheduler = DPMSolverMultistepScheduler.from_config(
+            self.t2i_model.scheduler.config
         )
 
         # Load the image to image model using the same pipeline (efficient)
-        self.i2i_model_custom = AutoPipelineForImage2Image.from_pipe(
-            self.t2i_model_custom
+        self.i2i_model = AutoPipelineForImage2Image.from_pipe(
+            self.t2i_model
         ).to(
             self.config.miner.device,
         )
-        self.i2i_model_custom.set_progress_bar_config(disable=True)
-        self.i2i_model_custom.scheduler = DPMSolverMultistepScheduler.from_config(
-            self.i2i_model_custom.scheduler.config
-        )
-
-        self.i2i_model_alchemy = AutoPipelineForImage2Image.from_pipe(
-            self.t2i_model_alchemy
-        ).to(
-            self.config.miner.device,
-        )
-        self.i2i_model_alchemy.set_progress_bar_config(disable=True)
-        self.i2i_model_alchemy.scheduler = DPMSolverMultistepScheduler.from_config(
-            self.i2i_model_alchemy.scheduler.config
+        self.i2i_model.set_progress_bar_config(disable=True)
+        self.i2i_model.scheduler = DPMSolverMultistepScheduler.from_config(
+            self.i2i_model.scheduler.config
         )
 
         self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
@@ -696,21 +673,13 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
         # Set up mapping for the different synapse types
         self.mapping = {
-            f"text_to_image{ModelType.ALCHEMY.value.lower()}": {
+            f"text_to_image": {
                 "args": self.t2i_args,
-                "model": self.t2i_model_alchemy,
+                "model": self.t2i_model,
             },
-            f"text_to_image{ModelType.CUSTOM.value.lower()}": {
-                "args": self.t2i_args,
-                "model": self.t2i_model_custom,
-            },
-            f"image_to_image{ModelType.ALCHEMY.value.lower()}": {
+            f"image_to_image": {
                 "args": self.i2i_args,
-                "model": self.i2i_model_alchemy,
-            },
-            f"image_to_image{ModelType.CUSTOM.value.lower()}": {
-                "args": self.i2i_args,
-                "model": self.i2i_model_custom,
+                "model": self.i2i_model,
             },
         }
 
@@ -757,16 +726,9 @@ class ModelDiversityRewardModel(BaseRewardModel):
         start_time = time.perf_counter()
 
         # Set up args
-        if synapse.model_type is not None:
-            local_args = copy.deepcopy(
-                self.mapping[f"{synapse.generation_type}{synapse.model_type}"]["args"]
-            )
-        else:
-            local_args = copy.deepcopy(
-                self.mapping[f"{synapse.generation_type}{ModelType.ALCHEMY.lower()}"][
-                    "args"
-                ]
-            )
+        local_args = copy.deepcopy(
+            self.mapping[f"{synapse.generation_type}"]["args"]
+        )
         local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
         local_args["width"] = synapse.width
         local_args["height"] = synapse.height
@@ -787,15 +749,9 @@ class ModelDiversityRewardModel(BaseRewardModel):
             logger.error("Values for steps were not provided.")
 
         # Get the model
-        if synapse.model_type is not None:
-            model = self.mapping[f"{synapse.generation_type}{synapse.model_type}"][
-                "model"
-            ]
-        else:
-            model = self.mapping[
-                f"{synapse.generation_type}{ModelType.ALCHEMY.value.lower()}"
-            ]["model"]
-
+        model = self.mapping[f"{synapse.generation_type}"][
+            "model"
+        ]
         if synapse.generation_type == "IMAGE_TO_IMAGE":
             local_args["image"] = T.transforms.ToPILImage()(
                 bt.Tensor.deserialize(synapse.prompt_image)
@@ -803,7 +759,7 @@ class ModelDiversityRewardModel(BaseRewardModel):
         # Generate images & serialize
         for attempt in range(3):
             try:
-                seed = synapse.seed if synapse.seed != -1 else self.config.miner.seed
+                seed = synapse.seed
                 local_args["generator"] = [
                     torch.Generator(device=self.config.miner.device).manual_seed(seed)
                 ]
@@ -867,7 +823,6 @@ class ModelDiversityRewardModel(BaseRewardModel):
                 ]
             }
         )
-
         scores = []
         exact_scores = []
         for i, image in enumerate(images):
@@ -884,11 +839,6 @@ class ModelDiversityRewardModel(BaseRewardModel):
 
     def normalize_rewards(self, rewards: torch.FloatTensor) -> torch.FloatTensor:
         return rewards
-
-
-# class RewardOperation(BaseModel):
-#     reward_model
-#     weight: float
 
 
 def get_reward_function(
