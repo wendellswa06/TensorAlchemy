@@ -5,9 +5,10 @@ from neurons.validator.reward import ModelDiversityRewardModel
 from neurons.validator.utils import get_promptdb_backup
 
 reward_model = ModelDiversityRewardModel()
-prompt_history_db = get_promptdb_backup(netuid = 25, limit = 10)
+prompt_history_db = get_promptdb_backup(netuid=25, limit=10)
 
 pytest.skip(allow_module_level=True)
+
 
 @pytest.mark.parametrize("prompt", prompt_history_db)
 def test_synapse_default(prompt):
@@ -26,9 +27,12 @@ def test_synapse_default(prompt):
     )
 
     responses = [reward_model.generate_image(synapse_benchmark_duplicate)]
-    rewards = reward_model.get_rewards(responses, rewards = torch.zeros(len(responses)), synapse = synapse_benchmark)
-    
+    rewards = reward_model.get_rewards(
+        responses, rewards=torch.zeros(len(responses)), synapse=synapse_benchmark
+    )
+
     assert rewards[0].item() == 1
+
 
 @pytest.mark.parametrize("prompt", prompt_history_db)
 def test_synapse_wrong_seed(prompt):
@@ -47,9 +51,12 @@ def test_synapse_wrong_seed(prompt):
     )
 
     responses = [reward_model.generate_image(synapse_wrong_seed)]
-    rewards = reward_model.get_rewards(responses, rewards = torch.zeros(len(responses)), synapse = synapse_benchmark)
+    rewards = reward_model.get_rewards(
+        responses, rewards=torch.zeros(len(responses)), synapse=synapse_benchmark
+    )
 
     assert rewards[0].item() == 0
+
 
 @pytest.mark.parametrize("prompt", prompt_history_db)
 def test_synapse_low_steps(prompt):
@@ -68,6 +75,8 @@ def test_synapse_low_steps(prompt):
     )
 
     responses = [reward_model.generate_image(synapse_low_steps)]
-    rewards = reward_model.get_rewards(responses, rewards = torch.zeros(len(responses)), synapse = synapse_benchmark)
+    rewards = reward_model.get_rewards(
+        responses, rewards=torch.zeros(len(responses)), synapse=synapse_benchmark
+    )
 
     assert rewards[0].item() == 0
