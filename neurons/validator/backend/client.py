@@ -66,7 +66,8 @@ class TensorAlchemyBackendClient:
                 pass
 
         raise GetTaskError(
-            f"/tasks failed with status_code {response.status_code}: {response.text}"
+            f"/tasks failed with status_code {response.status_code}:"
+            f" {self._error_response_text(response)}"
         )
 
     async def get_votes(self, timeout=3) -> Dict:
@@ -78,7 +79,8 @@ class TensorAlchemyBackendClient:
 
         if response.status_code != 200:
             raise GetVotesError(
-                f"/votes failed with status_code {response.status_code}: {response.text}"
+                f"/votes failed with status_code {response.status_code}: "
+                f"{self._error_response_text(response)}"
             )
         return response.json()
 
@@ -111,7 +113,7 @@ class TensorAlchemyBackendClient:
         if response.status_code != 200:
             raise PostMovingAveragesError(
                 f"failed to post moving averages with status_code "
-                f"{response.status_code}: {response.text}"
+                f"{response.status_code}: {self._error_response_text(response)}"
             )
 
     async def post_batch(self, batch: dict, timeout=10) -> Response:
@@ -146,7 +148,7 @@ class TensorAlchemyBackendClient:
         if response.status_code != 200:
             raise PostWeightsError(
                 f"failed to post moving averages with status_code "
-                f"{response.status_code}: {response.text}"
+                f"{response.status_code}: {self._error_response_text(response)}"
             )
 
     async def update_task_state(
@@ -169,7 +171,7 @@ class TensorAlchemyBackendClient:
         if response.status_code != 200:
             raise UpdateTaskError(
                 f"updating task state failed with status_code "
-                f"{response.status_code}: {response.text}"
+                f"{response.status_code}: {self._error_response_text(response)}"
             )
 
         return None
@@ -198,3 +200,10 @@ class TensorAlchemyBackendClient:
         """Sign message using validator's hotkey"""
         signature = self.hotkey.sign(message.encode())
         return base64.b64encode(signature).decode()
+
+    def _error_response_text(self, response: httpx.Response):
+        if response.status_code == 502:
+            return "Bad Gateway"
+
+        # Limit response text to 1024 symbols to prevent spamming in validator logs
+        return response.text[:1024]
