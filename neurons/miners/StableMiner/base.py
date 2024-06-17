@@ -17,6 +17,7 @@ from neurons.constants import VPERMIT_TAO
 from neurons.protocol import ImageGeneration, IsAlive
 from neurons.utils import (
     BackgroundTimer,
+    ModelType,
     background_loop,
     clean_nsfw_from_prompt,
     get_defaults,
@@ -161,7 +162,13 @@ class BaseMiner(ABC):
         argp.add_argument("--miner.seed", type=int, default=seed)
 
         argp.add_argument(
-            "--miner.model",
+            "--miner.custom_model",
+            type=str,
+            default="stabilityai/stable-diffusion-xl-base-1.0",
+        )
+
+        argp.add_argument(
+            "--miner.alchemy_model",
             type=str,
             default="stabilityai/stable-diffusion-xl-base-1.0",
         )
@@ -272,6 +279,16 @@ class BaseMiner(ABC):
 
         # Set up args
         local_args = copy.deepcopy(self.mapping[synapse.generation_type]["args"])
+        if synapse.model_type is not None:
+            local_args = copy.deepcopy(
+                self.mapping[f"{synapse.generation_type}{synapse.model_type}"]["args"]
+            )
+        else:
+            local_args = copy.deepcopy(
+                self.mapping[
+                    f"{synapse.generation_type}{ModelType.ALCHEMY.value.lower()}"
+                ]["args"]
+            )
         local_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
         local_args["width"] = synapse.width
         local_args["height"] = synapse.height
@@ -292,7 +309,14 @@ class BaseMiner(ABC):
             logger.info("Values for steps were not provided.")
 
         # Get the model
-        model = self.mapping[synapse.generation_type]["model"]
+        if synapse.model_type is not None:
+            model = self.mapping[f"{synapse.generation_type}{synapse.model_type}"][
+                "model"
+            ]
+        else:
+            model = self.mapping[
+                f"{synapse.generation_type}{ModelType.ALCHEMY.value.lower()}"
+            ]["model"]
 
         if synapse.generation_type == "image_to_image":
             local_args["image"] = T.transforms.ToPILImage()(

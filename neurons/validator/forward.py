@@ -24,6 +24,7 @@ from neurons.validator.reward import (
     get_human_rewards,
 )
 from neurons.validator.utils import ttl_get_block
+from substrateinterface import Keypair, KeypairType
 
 transform = T.Compose([T.PILToTensor()])
 
@@ -145,6 +146,7 @@ async def run_step(
     task: ImageGenerationTaskModel,
     axons: List[AxonInfo],
     uids: torch.LongTensor,
+    model_type: str,
 ):
     # Get Arguments
     prompt = task.prompt
@@ -184,6 +186,7 @@ async def run_step(
         num_images_per_prompt=1,
         width=task.width,
         height=task.height,
+        model_type=model_type,
     )
 
     synapse_info = (
@@ -241,7 +244,7 @@ async def run_step(
     log_responses(responses, prompt)
 
     scattered_rewards, event, rewards = await get_automated_rewards(
-        validator, responses, uids, task_type
+        validator, responses, uids, task_type, synapse
     )
 
     scattered_rewards_adjusted = await get_human_rewards(validator, scattered_rewards)
@@ -291,6 +294,7 @@ async def run_step(
                     for response, reward in zip(responses, rewards.tolist())
                 ],
                 "rewards": rewards.tolist(),
+                "model_type": model_type,
             }
         )
         event.update(validator_info)

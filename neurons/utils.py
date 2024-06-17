@@ -32,15 +32,16 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
     MINIMUM_COMPUTES_FOR_SUBMIT,
     N_NEURONS,
+    NSFW_WORDLIST_DEFAULT,
+    NSFW_WORDLIST_URL,
     WANDB_MINER_PATH,
     WANDB_VALIDATOR_PATH,
-    NSFW_WORDLIST_URL,
-    NSFW_WORDLIST_DEFAULT,
 )
 from neurons.exceptions import MinimumValidImagesError
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.exceptions import UpdateTaskError
 from neurons.validator.backend.models import TaskState
+from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import init_wandb
 
 
