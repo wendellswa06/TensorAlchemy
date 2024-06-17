@@ -23,9 +23,11 @@ class OpenAIService:
         retry=retry_if_exception_type(OpenAIRequestFailed),
         reraise=True,
     )
-    async def create_completion_request(self, model: str, prompt: str) -> str:
+    async def create_completion_request(self, model: str, prompt: str) -> str | None:
         """
-        Create a completion of prompt
+        Create a completion of prompt.
+
+        Returns None if there is no completion
         """
         try:
             response = await self.openai_client.chat.completions.create(
@@ -47,7 +49,11 @@ class OpenAIService:
             raise OpenAIRequestFailed(str(e)) from e
 
         logger.info(f"OpenAI response object: {response}")
-        response = response.choices[0].message.content
+        if len(response.choices) > 0:
+            response = response.choices[0].message.content
+        else:
+            return None
+
         if response:
             logger.info(f"Prompt generated with OpenAI: {response}")
         return response
@@ -70,6 +76,8 @@ class OpenAIService:
             raise OpenAIRequestFailed(str(e)) from e
 
         # Check if the moderation flagged the prompt as NSFW
+        if len(response.results) == 0:
+            raise OpenAIRequestFailed("moderation results are empty...")
         moderation_results = response.results[0]
         nsfw_flagged = moderation_results.flagged
         # Uncomment in case of need to debug categories returned

@@ -47,29 +47,6 @@ def get_validator_spec_version() -> int:
     return neurons.validator.__spec_version__
 
 
-# Get tasks from the client server
-
-
-async def get_task(backend_client: TensorAlchemyBackendClient, timeout=30, backoff=1):
-
-    @retry(
-        stop=stop_after_delay(timeout),
-        wait=wait_fixed(backoff),
-        # Retry if task is not found (returns None)
-        retry=retry_if_result(lambda r: r is None),
-        # Returns None after timeout (no task is found)
-        retry_error_callback=lambda _: None,
-    )
-    async def _get_task_with_timeout():
-        try:
-            return await backend_client.get_task(timeout=1)
-        except GetTaskError as e:
-            logger.error(f"error getting task: {e}")
-            return None
-
-    return await _get_task_with_timeout()
-
-
 def _ttl_hash_gen(seconds: int):
     start_time = time.time()
     while True:

@@ -7,6 +7,14 @@ import httpx
 import torch
 from httpx import Response
 from loguru import logger
+from tenacity import (
+    retry,
+    stop_after_delay,
+    wait_fixed,
+    retry_if_result,
+    AsyncRetrying,
+    RetryError,
+)
 
 from neurons.constants import DEV_URL, PROD_URL
 from neurons.protocol import denormalize_image_model, ImageGenerationTaskModel
@@ -44,7 +52,23 @@ class TensorAlchemyBackendClient:
             }
         )
 
-    async def get_task(self, timeout=3) -> ImageGenerationTaskModel | None:
+    # Get tasks from the client server
+    async def poll_task(self, timeout: int = 60, backoff: int = 1):
+        """Performs polling for new task. If no new task found within `timeout`, returns None."""
+        try:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_delay(timeout),
+                wait=wait_fixed(backoff),
+                # Retry if task is not found (returns None)
+                retry=retry_if_result(lambda r: r is None),
+            ):
+                with attempt:
+                    return await self.get_task(timeout=1)
+        except RetryError:
+            logger.info(f"there is no pending task")
+            return None
+
+    async def get_task(self, timeout: int = 3) -> ImageGenerationTaskModel | None:
         """Fetch new task from backend.
 
         Returns task or None if there is no pending task
@@ -70,7 +94,7 @@ class TensorAlchemyBackendClient:
             f" {self._error_response_text(response)}"
         )
 
-    async def get_votes(self, timeout=3) -> Dict:
+    async def get_votes(self, timeout: int = 3) -> Dict:
         """Get human votes from backend"""
         try:
             response = await self.client.get(f"{self.api_url}/votes", timeout=timeout)
@@ -88,7 +112,7 @@ class TensorAlchemyBackendClient:
         self,
         hotkeys: List[str],
         moving_average_scores: torch.Tensor,
-        timeout=10,
+        timeout: int = 10,
     ) -> None:
         """Post moving averages"""
         try:
@@ -116,7 +140,7 @@ class TensorAlchemyBackendClient:
                 f"{response.status_code}: {self._error_response_text(response)}"
             )
 
-    async def post_batch(self, batch: dict, timeout=10) -> Response:
+    async def post_batch(self, batch: dict, timeout: int = 10) -> Response:
         """Post batch of images"""
         response = await self.client.post(
             f"{self.api_url}/batch",
@@ -126,7 +150,7 @@ class TensorAlchemyBackendClient:
         return response
 
     async def post_weights(
-        self, hotkeys: List[str], raw_weights: torch.Tensor, timeout=10
+        self, hotkeys: List[str], raw_weights: torch.Tensor, timeout: int = 10
     ) -> None:
         """Post weights"""
         try:
@@ -152,7 +176,7 @@ class TensorAlchemyBackendClient:
             )
 
     async def update_task_state(
-        self, task_id: str, state: TaskState, timeout=3
+        self, task_id: str, state: TaskState, timeout: int = 3
     ) -> None:
         """Updates image generation task state"""
         try:
@@ -167,7 +191,7 @@ class TensorAlchemyBackendClient:
 
         endpoint = f"{self.api_url}/tasks/{task_id}/{suffix}"
 
-        response = await self.client.get(endpoint, timeout=timeout)
+        response = await self.client.post(endpoint, timeout=timeout)
         if response.status_code != 200:
             raise UpdateTaskError(
                 f"updating task state failed with status_code "
