@@ -1,10 +1,9 @@
 import base64
-import json
 import time
 from typing import Dict, List
 
-import httpx
 import bittensor as bt
+import httpx
 import torch
 from httpx import Response
 from loguru import logger

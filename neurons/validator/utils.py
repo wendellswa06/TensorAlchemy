@@ -9,29 +9,27 @@ from functools import lru_cache, update_wrapper
 from math import floor
 from typing import Any, Callable, List, Optional
 
+import bittensor as bt
 import numpy as np
 import pandas as pd
 import requests
 import torch
 import torch.nn as nn
-
 import wandb
-import bittensor as bt
 from loguru import logger
 from tenacity import retry, stop_after_delay, wait_fixed, retry_if_result
 
-from neurons.protocol import IsAlive, denormalize_image_model
+from neurons.constants import (
+    N_NEURONS_TO_QUERY,
+    VPERMIT_TAO,
+    WANDB_VALIDATOR_PATH,
+)
+from neurons.protocol import IsAlive
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.exceptions import GetTaskError
 from neurons.validator.services.openai.service import (
     get_openai_service,
     OpenAIRequestFailed,
-)
-from neurons.validator.signed_requests import SignedRequests
-from neurons.constants import (
-    N_NEURONS_TO_QUERY,
-    VPERMIT_TAO,
-    WANDB_VALIDATOR_PATH,
 )
 
 

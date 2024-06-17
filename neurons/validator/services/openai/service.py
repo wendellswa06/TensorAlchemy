@@ -1,9 +1,7 @@
-import asyncio
 import os
 
-import openai
 from loguru import logger
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from tenacity import retry, wait_fixed, stop_after_attempt, retry_if_exception_type
 
 

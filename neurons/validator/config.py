@@ -1,10 +1,10 @@
 import argparse
 import os
 
-from loguru import logger
-from neurons.constants import EVENTS_RETENTION_SIZE
-
 import bittensor as bt
+from loguru import logger
+
+from neurons.constants import EVENTS_RETENTION_SIZE
 
 IS_TEST: bool = False
 
