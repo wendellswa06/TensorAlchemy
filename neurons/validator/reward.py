@@ -818,6 +818,9 @@ class ModelDiversityRewardModel(BaseRewardModel):
                 ]
             }
         )
+        validator_image = T.transforms.ToPILImage()(
+            bt.Tensor.deserialize(validator_synapse.images[0])
+        )
         scores = []
         exact_scores = []
         for i, image in enumerate(images):

@@ -6,13 +6,9 @@ from datetime import datetime
 from io import BytesIO
 from typing import List
 
-import bittensor as bt
 import torch
 import torchvision.transforms as T
-import wandb as wandb_lib
-from bittensor import AxonInfo
 from loguru import logger
-
 from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 from neurons.utils import colored_log, sh, upload_batches
@@ -25,6 +21,10 @@ from neurons.validator.reward import (
 )
 from neurons.validator.utils import ttl_get_block
 from substrateinterface import Keypair, KeypairType
+
+import bittensor as bt
+import wandb as wandb_lib
+from bittensor import AxonInfo
 
 transform = T.Compose([T.PILToTensor()])
 

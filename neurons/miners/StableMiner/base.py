@@ -305,7 +305,6 @@ class BaseMiner(ABC):
             local_args["num_inference_steps"] = synapse.steps
         except AttributeError:
             logger.info("Values for steps were not provided.")
-        # local_args["num_inference_steps"] = 10
         # Get the model
         if synapse.model_type is not None:
             model = self.mapping[f"{synapse.generation_type}{synapse.model_type}"][
