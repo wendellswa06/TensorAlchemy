@@ -16,14 +16,14 @@ def test_synapse_default(prompt):
         generation_type="text_to_image",
         prompt=prompt[0],
         seed=-1,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     synapse_benchmark_duplicate = ImageGeneration(
         generation_type="text_to_image",
         prompt=prompt[0],
         seed=-1,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     responses = [reward_model.generate_image(synapse_benchmark_duplicate)]
@@ -40,14 +40,14 @@ def test_synapse_wrong_seed(prompt):
         generation_type="text_to_image",
         prompt=prompt[0],
         seed=-1,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     synapse_wrong_seed = ImageGeneration(
         generation_type="text_to_image",
         prompt=prompt[0],
         seed=3,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     responses = [reward_model.generate_image(synapse_wrong_seed)]
@@ -64,14 +64,14 @@ def test_synapse_low_steps(prompt):
         generation_type="text_to_image",
         prompt=prompt[0],
         seed=-1,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     synapse_low_steps = ImageGeneration(
         generation_type="text_to_image",
         prompt=prompt[0],
         steps=10,
-        model_type=ModelType.alchemy.value.lower(),
+        model_type=ModelType.ALCHEMY.value.lower(),
     )
 
     responses = [reward_model.generate_image(synapse_low_steps)]
