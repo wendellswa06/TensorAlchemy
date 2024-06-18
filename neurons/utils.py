@@ -18,8 +18,6 @@ import sentry_sdk
 import torch
 from google.cloud import storage
 from loguru import logger
-from pydantic import BaseModel
-
 from neurons.constants import (
     IA_BUCKET_NAME,
     IA_MINER_BLACKLIST,
@@ -41,8 +39,8 @@ from neurons.exceptions import MinimumValidImagesError
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.exceptions import UpdateTaskError
 from neurons.validator.backend.models import TaskState
-from neurons.validator.signed_requests import SignedRequests
 from neurons.validator.utils import init_wandb
+from pydantic import BaseModel
 
 
 @dataclass
