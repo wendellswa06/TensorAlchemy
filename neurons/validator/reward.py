@@ -258,7 +258,8 @@ class DefaultRewardFrameworkConfig:
 class BaseRewardModel:
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     def __str__(self) -> str:
         return str(self.name)
@@ -267,7 +268,8 @@ class BaseRewardModel:
         return str(self.name)
 
     @abstractmethod
-    async def get_rewards(self, responses: List, rewards) -> torch.FloatTensor: ...
+    async def get_rewards(self, responses: List, rewards) -> torch.FloatTensor:
+        ...
 
     def __init__(self) -> None:
         self.count = 0
@@ -494,7 +496,6 @@ class HumanValidationRewardModel(BaseRewardModel):
     async def get_rewards(
         self, hotkeys, mock=False, mock_winner=None, mock_loser=None
     ) -> tuple[Tensor, Tensor | Any]:
-
         logger.info("Extracting human votes...")
 
         human_voting_scores = None
