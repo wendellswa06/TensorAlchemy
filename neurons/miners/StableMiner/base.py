@@ -293,10 +293,9 @@ class BaseMiner(ABC):
 
         # Get the model
         model = self.mapping[synapse.generation_type]["model"]
-
         if synapse.generation_type == "image_to_image":
             local_args["image"] = T.transforms.ToPILImage()(
-                bt.Tensor.deserialize(synapse.prompt_image)
+                bt.Tensor.deserialize(synapse.prompt_image[0])
             )
 
         # Output logs
@@ -397,7 +396,7 @@ class BaseMiner(ABC):
         return priority
 
     def _base_blacklist(
-        self, synapse, vpermit_tao_limit=VPERMIT_TAO, rate_limit=1
+        self, synapse, vpermit_tao_limit=0.01, rate_limit=1
     ) -> typing.Tuple[bool, str]:
         try:
             # Get the name of the synapse
