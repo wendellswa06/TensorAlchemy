@@ -250,7 +250,8 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
     batches_for_deletion = set()
     loop = asyncio.get_event_loop()
 
-    for batch_id in batches.keys():
+    keys = list(batches.keys())
+    for batch_id in keys:
         batch = batches[batch_id]
         for attempt in range(0, max_retries):
             try:
@@ -359,7 +360,7 @@ def background_loop(self, is_validator):
             self.batches = upload_batches(
                 self.wallet.hotkey,
                 self.api_url,
-                self.batches,
+                dict(self.batches),
             )
 
     except Exception as e:
