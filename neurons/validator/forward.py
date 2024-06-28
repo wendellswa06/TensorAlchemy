@@ -186,8 +186,11 @@ async def query_axons_and_process_responses(
             responses=[response],
             masked_rewards=masked_rewards,
         )
-        validator.batches_upload_queue.put_nowait(batch_for_upload)
+
         responses.append(response)
+
+        if batch_for_upload:
+            validator.batches_upload_queue.put_nowait(batch_for_upload)
 
     return responses
 
@@ -280,7 +283,7 @@ async def create_batch_for_upload(
     prompt: str,
     responses: List[ImageGenerationResponse],
     masked_rewards: ScoringResults,
-) -> Batch:
+) -> Optional[Batch]:
     uids = get_uids(responses)
 
     should_drop_entries = []
@@ -308,10 +311,18 @@ async def create_batch_for_upload(
             images.append(im_b64.decode())
             should_drop_entries.append(1)
 
-    nsfw_scores: ScoringResult = masked_rewards.get_score(RewardModelType.NSFW)
-    blacklist_scores: ScoringResult = masked_rewards.get_score(
-        RewardModelType.BLACKLIST
+    nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
+        RewardModelType.NSFW,
     )
+    blacklist_scores: Optional[ScoringResult] = masked_rewards.get_score(
+        RewardModelType.BLACKLIST,
+    )
+
+    if not nsfw_scores:
+        return None
+
+    if not blacklist_scores:
+        return None
 
     # Update batches to be sent to the human validation platform
     # if batch_id not in validator.batches.keys():
@@ -324,8 +335,8 @@ async def create_batch_for_upload(
         miner_hotkeys=[metagraph.hotkeys[uid] for uid in uids],
         miner_coldkeys=[metagraph.coldkeys[uid] for uid in uids],
         # Scores
-        nsfw_scores=nsfw_scores[uids],
-        blacklist_scores=blacklist_scores[uids],
+        nsfw_scores=nsfw_scores.scores[uids].tolist(),
+        blacklist_scores=blacklist_scores.scores[uids].tolist(),
     )
 
 

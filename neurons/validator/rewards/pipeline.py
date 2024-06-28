@@ -16,7 +16,6 @@ from neurons.validator.rewards.models import (
 from neurons.validator.rewards.types import (
     ScoringResult,
     ScoringResults,
-    MaskedRewards,
 )
 
 
