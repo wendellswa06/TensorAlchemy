@@ -455,9 +455,12 @@ async def run_step(
         responses,
     )
 
+    print("==================================================")
+    print("COMBINED")
     print(scoring_results.combined_scores)
 
     for score in scoring_results.scores:
+        print("--------------------------------------------------")
         print(score.type, score.scores, score.normalized)
 
     # Apply isalive filtering

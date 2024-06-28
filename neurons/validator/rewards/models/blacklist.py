@@ -15,8 +15,8 @@ class BlacklistFilter(BaseRewardModel):
 
     def __init__(self):
         super().__init__()
-        self.question_blacklist = []
         self.answer_blacklist = []
+        self.question_blacklist = []
 
     def get_reward(self, response: bt.Synapse) -> float:
         # Check the number of returned images in the response

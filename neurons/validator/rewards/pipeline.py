@@ -18,8 +18,11 @@ from neurons.validator.rewards.types import (
     ScoringResults,
 )
 
+ResultCombiner = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+
 
 async def apply_function(
+    initial_seed: torch.Tensor,
     function: PackedRewardModel,
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
@@ -52,20 +55,29 @@ async def apply_function(
     # Build up a new score instead of re-using the one above
     return ScoringResult(
         type=result.type,
-        normalized=result.normalized,
+        # Apply initial seed to normalization too
+        # This leaves us with
+        # [ 1.0, 1.0, 1.0, 1.0 ] if reward
+        # [ 0.0, 0.0, 0.0, 0.0 ] if mask
+        normalized=initial_seed + result.normalized,
         # Apply weighting to final score
-        scores=function.weight * result.normalized,
+        # We also apply initial seed here
+        # This prevents values from dropping to zero
+        # if one reward function fails when doing multiply combine
+        #
+        # human = 0.0 (because no votes)
+        # image = 1.6 (because good image)
+        # So we need to keep the scores of previous
+        # pipeline items around 1.0 to retain actual score
+        scores=initial_seed + function.weight * result.normalized,
     )
 
 
-ResultCombiner = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-
-
 async def apply_functions(
+    initial_seed: torch.Tensor,
     functions: List[PackedRewardModel],
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
-    initial_seed: torch.Tensor,
     combine: ResultCombiner,
 ) -> ScoringResults:
     """
@@ -83,6 +95,7 @@ async def apply_functions(
 
     for function in functions:
         reward: ScoringResult = await apply_function(
+            initial_seed,
             function,
             synapse,
             responses,
@@ -110,12 +123,16 @@ async def apply_reward_functions(
     """
     Apply all relevant reward functions for a given model type.
     """
+    initial_seed: torch.Tensor = torch.ones(
+        get_metagraph().n,
+    ).to(get_device())
+
     return await apply_functions(
+        initial_seed,
         get_reward_functions(model_type),
         synapse,
         responses,
         combine=lambda results, rewards: results * rewards,
-        initial_seed=torch.ones(get_metagraph().n).to(get_device()),
     )
 
 
@@ -127,12 +144,16 @@ async def apply_masking_functions(
     """
     Apply all relevant masking functions for a given model type.
     """
+    initial_seed: torch.Tensor = torch.zeros(
+        get_metagraph().n,
+    ).to(get_device())
+
     return await apply_functions(
+        initial_seed,
         get_masking_functions(model_type),
         synapse,
         responses,
         combine=torch.maximum,
-        initial_seed=torch.zeros(get_metagraph().n).to(get_device()),
     )
 
 
@@ -167,16 +188,24 @@ async def get_scoring_results(
         responses,
     )
 
+    combined_scores: torch.Tensor = rewards.combined_scores
+
+    # Apply mask to rewards
+    # NOTE: If mask is (1) that means we had a trigger
+    #       so we want to reduce score by the effect
+    #       of the mask.
+    #
+    #       A mask value of 1 means "failed a check",
+    #       so we'll set those scores to 1.0.
+    #
+    #       1.0 here means "don't change the weights"
+    combined_scores[masks.combined_scores] = 1.0
+
     return ScoringResults(
+        # Simple list concatenation
         scores=rewards.scores + masks.scores,
-        # Apply mask to rewards
-        # NOTE: If mask is (1) that means we had a trigger
-        #       so we want to reduce score by the effect
-        #       of the mask.
-        #
-        #       A mask value of 1 means "failed a check",
-        #       so we multiply by (1 - mask)
-        combined_scores=rewards.combined_scores * (1.0 - masks.combined_scores),
+        # And the actual result scores
+        combined_scores=combined_scores,
     )
 
 

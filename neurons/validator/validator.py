@@ -69,7 +69,10 @@ async def upload_image(
     backend_client: TensorAlchemyBackendClient,
     batches_upload_queue: Queue,
 ) -> None:
-    print(batches_upload_queue.qsize(), "batches in queue")
+    queue_size: int = batches_upload_queue.qsize()
+    if queue_size > 0:
+        logger.info(f"{queue_size} batches in queue")
+
     batch: Batch = batches_upload_queue.get(block=False)
     logger.info(
         #

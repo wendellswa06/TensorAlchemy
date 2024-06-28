@@ -15,6 +15,9 @@ class BaseRewardModel:
     def name(self) -> RewardModelType:
         ...
 
+    def is_strict_uid_scoring(self) -> float:
+        return True
+
     def __str__(self) -> str:
         return str(self.name)
 
@@ -46,9 +49,7 @@ class BaseRewardModel:
                 index = get_metagraph().hotkeys.index(hotkey)
                 rewards[index] = score
                 logger.info(
-                    f"Assigned score {score}"
-                    + f" to index {index}"
-                    + f" for hotkey {hotkey}"
+                    f"Assigned {score}" + f" to index {index}" + f" for hotkey {hotkey}"
                 )
             except ValueError:
                 logger.error(f"Hotkey {hotkey} not found in metagraph")
@@ -74,8 +75,12 @@ class BaseRewardModel:
             return rewards
 
         y_range: float = rewards.max() - rewards.min() + 1e-8
+        to_return: torch.Tensor = (rewards - rewards.min()) / y_range
 
-        return rewards - rewards.min() / y_range
+        if self.is_strict_uid_scoring():
+            to_return[rewards == 0] = 0
+
+        return to_return
 
     async def apply(
         self,
