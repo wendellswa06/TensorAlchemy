@@ -68,14 +68,17 @@ async def update_moving_averages(
 
     rewards = torch.nan_to_num(
         rewards,
-        nan=0.0,
-        posinf=0.0,
-        neginf=0.0,
+        nan=1.0,
+        posinf=1.0,
+        neginf=1.0,
     ).to(get_device())
 
     moving_average_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
+
+    print("**************************************************")
+    print(f"{moving_average_scores=}")
 
     # Save moving averages scores on backend
     try:
