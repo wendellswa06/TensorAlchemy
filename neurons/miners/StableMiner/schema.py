@@ -1,10 +1,12 @@
 from enum import Enum
-from typing import Any, Dict, Type, Optional
+from typing import Type
 
-from pydantic import ConfigDict, BaseModel
+
+import torch
+from typing import Any, Dict, Optional
 
 from diffusers import DiffusionPipeline
-import torch
+from pydantic import BaseModel
 
 
 class TaskType(str, Enum):
@@ -15,7 +17,7 @@ class TaskType(str, Enum):
 class ModelConfig(BaseModel):
     args: Dict[str, Any]
     model: DiffusionPipeline
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    refiner: Optional[Type]
 
 
 class TaskConfig(BaseModel):
@@ -28,6 +30,7 @@ class TaskConfig(BaseModel):
     safety_checker: Optional[Type] = None
     safety_checker_model_name: Optional[str] = None
     processor: Optional[Type] = None
+    refiner: Optional[DiffusionPipeline]
 
     class Config:
         arbitrary_types_allowed = True

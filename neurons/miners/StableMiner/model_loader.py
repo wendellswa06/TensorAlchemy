@@ -41,3 +41,20 @@ class ModelLoader:
             processor = processor_class()
             return processor
         return None
+
+    def load_refiner(self, task_config: TaskConfig) -> Optional[torch.nn.Module]:
+        if task_config.refiner_class:
+            refiner = task_config.refiner_class.from_pretrained(
+                task_config.refiner_model_name,
+                text_encoder_2=task_config.text_encoder_2,
+                vae=task_config.vae,
+                torch_dtype=task_config.torch_dtype,
+                use_safetensors=True,
+                variant=task_config.variant,
+            ).to(self.config.miner.device)
+            refiner.set_progress_bar_config(disable=True)
+            refiner.scheduler = task_config.scheduler.from_config(
+                refiner.scheduler.config
+            )
+            return refiner
+        return None

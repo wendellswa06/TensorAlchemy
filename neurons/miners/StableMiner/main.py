@@ -10,8 +10,9 @@ from diffusers import (
     AutoPipelineForImage2Image,
     DPMSolverMultistepScheduler,
 )
-from loguru import logger
 from transformers import CLIPImageProcessor
+
+from loguru import logger
 
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."

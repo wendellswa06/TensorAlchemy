@@ -13,8 +13,9 @@ class StableMiner(BaseMiner):
     def __init__(self, task_configs: List[TaskConfig]) -> None:
         self.task_configs = {config.task_type: config for config in task_configs}
         self.model_configs: Dict[ModelType, Dict[TaskType, ModelConfig]] = {}
-        self.safety_checker: Optional[torch.nn.Module] = None  # Initialize as None
-        self.processor: Optional[torch.nn.Module] = None  # Initialize as None
+        self.safety_checkers: Dict[TaskType, Optional[torch.nn.Module]] = {}
+        self.processors: Dict[TaskType, Optional[torch.nn.Module]] = {}
+        self.refiners: Dict[TaskType, Optional[torch.nn.Module]] = {}
 
         super().__init__()
 
@@ -38,22 +39,29 @@ class StableMiner(BaseMiner):
 
     def load_models(self) -> None:
         try:
-            for task_type, config in self.task_configs.items():
+            for task_type, task_config in self.task_configs.items():
                 logger.info(f"Loading models for task: {task_type}...")
 
-                if config.safety_checker and config.safety_checker_model_name:
-                    self.safety_checker = ModelLoader(
+                if task_config.safety_checker and task_config.safety_checker_model_name:
+                    self.safety_checkers[task_config.task_type] = ModelLoader(
                         self.config.miner
                     ).load_safety_checker(
-                        config.safety_checker, config.safety_checker_model_name
+                        task_config.safety_checker,
+                        task_config.safety_checker_model_name,
                     )
                     logger.info(f"Safety checker loaded for task: {task_type}")
 
-                if config.processor:
-                    self.processor = ModelLoader(self.config.miner).load_processor(
-                        config.processor
-                    )
+                if task_config.processor:
+                    self.processors[task_config.task_type] = ModelLoader(
+                        self.config.miner
+                    ).load_processor(task_config.processor)
                     logger.info(f"Processor loaded for task: {task_type}")
+
+                if task_config.refiner and task_config.refiner_model_name:
+                    self.refiners[task_config.task_type] = ModelLoader(
+                        self.config.miner
+                    ).load_refiner(task_config)
+                    logger.info(f"Safety checker loaded for task: {task_type}")
 
                 logger.info(f"Setting up model configurations for task: {task_type}...")
                 self.setup_model_configs()
@@ -103,6 +111,7 @@ class StableMiner(BaseMiner):
                     model=self.load_model(
                         self.config.miner.custom_model, TaskType.TEXT_TO_IMAGE
                     ),
+                    refiner=self.refiners[TaskType.TEXT_TO_IMAGE],
                 ),
                 # TaskType.IMAGE_TO_IMAGE: ModelConfig(
                 #     args=self.i2i_args,
