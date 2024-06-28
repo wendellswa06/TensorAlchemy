@@ -477,6 +477,10 @@ async def run_step(
         scoring_results.combined_scores,
     )
 
+    print("--------------------------------------------------")
+    print("FILTERED")
+    print(scoring_results.combined_scores)
+
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
         validator.moving_average_scores,
