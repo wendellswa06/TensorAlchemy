@@ -6,7 +6,7 @@ import torch
 from loguru import logger
 
 from neurons.validator.config import get_device, get_metagraph
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.types import RewardModelType, ScoringResult
 
 
 class BaseRewardModel:
@@ -81,11 +81,15 @@ class BaseRewardModel:
         self,
         synapse: bt.Synapse,
         responses: List[bt.Synapse],
-    ) -> Tuple[Dict[int, float], Dict[int, float]]:
+    ) -> ScoringResult:
         # Get rewards for the responses
         rewards = await self.get_rewards(synapse, responses)
 
         # Normalize rewards
         normalized_rewards = self.normalize_rewards(rewards)
 
-        return rewards, normalized_rewards
+        return ScoringResult(
+            scores=rewards,
+            type=self.name,
+            normalized=normalized_rewards,
+        )

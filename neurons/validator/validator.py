@@ -65,18 +65,31 @@ def is_valid_current_directory() -> bool:
     return False
 
 
+async def upload_image(
+    backend_client: TensorAlchemyBackendClient,
+    batches_upload_queue: Queue,
+) -> None:
+    batch: Batch = batches_upload_queue.get(block=False)
+    logger.info(
+        #
+        f"uploading ({len(batch.computes)} compute "
+        + f"for batch {batch.batch_id} ..."
+    )
+    await backend_client.post_batch(batch)
+
+
 def upload_images_loop(batches_upload_queue: Queue) -> None:
     # Send new batches to the Human Validation Bot
-
-    backend_client: TensorAlchemyBackendClient = get_backend_client()
-
     try:
-        batch: Batch = batches_upload_queue.get(block=False)
-        logger.info(
-            f"uploading ({len(batch.computes)} compute "
-            f"for batch {batch.batch_id} ..."
+        backend_client: TensorAlchemyBackendClient = get_backend_client()
+        asyncio.run(
+            asyncio.gather(
+                *[
+                    upload_image(backend_client, batches_upload_queue)
+                    for _i in range(32)
+                ]
+            )
         )
-        asyncio.run(backend_client.post_batch(batch))
 
     except queue.Empty:
         return
@@ -270,7 +283,7 @@ class StableValidator:
 
         # Start the batch streaming background loop
         manager = Manager()
-        self.batches_upload_queue: Queue = manager.Queue(maxsize=100)
+        self.batches_upload_queue: Queue = manager.Queue(maxsize=24)
 
         self.upload_images_process = MultiprocessBackgroundTimer(
             0.2,
@@ -343,7 +356,7 @@ class StableValidator:
 
                 try:
                     # Re-sync with the network. Updates the metagraph.
-                    self.sync()
+                    await self.sync()
                 except Exception as e:
                     logger.error(
                         "An unexpected error occurred"
@@ -456,7 +469,7 @@ class StableValidator:
             self.resync_metagraph()
 
         if self.should_set_weights():
-            asyncio.run(set_weights(self))
+            await set_weights(self)
             self.prev_block = ttl_get_block(self)
 
     def get_validator_index(self):

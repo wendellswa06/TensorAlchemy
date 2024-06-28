@@ -1,8 +1,14 @@
-from typing import List, AsyncIterator, Optional, Tuple
 import asyncio
 import base64
 import copy
 import time
+from typing import (
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 from dataclasses import asdict
 from datetime import datetime
@@ -24,7 +30,6 @@ from neurons.utils.log import colored_log, sh
 
 from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
-from neurons.validator.rewards.types import MaskedRewards, AutomatedRewards
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
 from neurons.validator.rewards.types import RewardModelType
@@ -33,10 +38,14 @@ from neurons.validator.config import (
     get_metagraph,
     get_backend_client,
 )
+from neurons.validator.rewards.types import (
+    ScoringResult,
+    ScoringResults,
+)
 from neurons.validator.rewards.pipeline import (
     filter_rewards,
-    get_masked_rewards,
-    get_automated_rewards,
+    get_scoring_results,
+    apply_masking_functions,
 )
 
 transform = T.Compose([T.PILToTensor()])
@@ -161,7 +170,7 @@ async def query_axons_and_process_responses(
         synapse,
         query_timeout,
     ):
-        masked_rewards = await get_masked_rewards(
+        masked_rewards: ScoringResults = await apply_masking_functions(
             validator.model_type,
             synapse,
             responses=[response],
@@ -234,7 +243,6 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
     event = convert_enum_keys_to_strings(event)
 
     logger.info(f"Events: {str(event)}")
-    # logger.log("EVENTS", "events", **event)
 
     # Log the event to wandb.
     wandb_event = copy.deepcopy(event)
@@ -271,13 +279,16 @@ async def create_batch_for_upload(
     batch_id: str,
     prompt: str,
     responses: List[ImageGenerationResponse],
-    masked_rewards: MaskedRewards,
+    masked_rewards: ScoringResults,
 ) -> Batch:
     uids = get_uids(responses)
 
     should_drop_entries = []
     images = []
-    for response, reward in zip(responses, masked_rewards.rewards):
+
+    masking_results_for_uids: torch.Tensor = masked_rewards.combined_scores[uids]
+
+    for response, reward in zip(responses, masking_results_for_uids):
         if response.is_success and reward != 0:
             im_file = BytesIO()
             T.transforms.ToPILImage()(
@@ -297,6 +308,11 @@ async def create_batch_for_upload(
             images.append(im_b64.decode())
             should_drop_entries.append(1)
 
+    nsfw_scores: ScoringResult = masked_rewards.get_score(RewardModelType.NSFW)
+    blacklist_scores: ScoringResult = masked_rewards.get_score(
+        RewardModelType.BLACKLIST
+    )
+
     # Update batches to be sent to the human validation platform
     # if batch_id not in validator.batches.keys():
     return Batch(
@@ -308,9 +324,8 @@ async def create_batch_for_upload(
         miner_hotkeys=[metagraph.hotkeys[uid] for uid in uids],
         miner_coldkeys=[metagraph.coldkeys[uid] for uid in uids],
         # Scores
-        # TODO: Move these to a more abstract dict
-        nsfw_scores=masked_rewards.event[RewardModelType.NSFW]["score"],
-        blacklist_scores=masked_rewards.event[RewardModelType.BLACKLIST]["normalized"],
+        nsfw_scores=nsfw_scores[uids],
+        blacklist_scores=blacklist_scores[uids],
     )
 
 
@@ -423,21 +438,19 @@ async def run_step(
     log_responses(responses, prompt)
 
     # Calculate rewards
-    automated_rewards: AutomatedRewards = await get_automated_rewards(
+    scoring_results: ScoringResults = await get_scoring_results(
         validator.model_type,
         synapse,
         responses,
         task_type,
     )
 
-    # No need for scattering, directly use the rewards
-    rewards_tensor = automated_rewards.rewards
-
     # Apply isalive filtering
     rewards_tensor_adjusted = filter_rewards(
         validator.isalive_dict,
         validator.isalive_threshold,
-        rewards_tensor,
+        # No need for scattering, directly use the rewards
+        scoring_results.combined_scores,
     )
 
     # Update moving averages
@@ -449,8 +462,11 @@ async def run_step(
     )
 
     # Update event and save it to wandb
-    event = automated_rewards.event
-    rewards_list = rewards_tensor[uids].tolist()
+    event: Dict = {}
+    rewards_list = scoring_results.combined_scores[uids].tolist()
+
+    for reward_score in scoring_results.scores:
+        event[reward_score.type] = reward_score.scores[uids]
 
     try:
         # Log the step event.

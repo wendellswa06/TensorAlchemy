@@ -14,8 +14,9 @@ from neurons.validator.rewards.models import (
     get_masking_functions,
 )
 from neurons.validator.rewards.types import (
+    ScoringResult,
+    ScoringResults,
     MaskedRewards,
-    AutomatedRewards,
 )
 
 
@@ -23,8 +24,7 @@ async def apply_function(
     function: PackedRewardModel,
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
-    event: Optional[Dict] = None,
-) -> Tuple[torch.Tensor, dict]:
+) -> ScoringResult:
     """
     Apply a single reward or masking function and log its results.
 
@@ -39,25 +39,24 @@ async def apply_function(
     or masking functions and ensures consistent handling
     and logging across all functions.
     """
-    if event is None:
-        event = {}
-
-    result_i, result_i_normalized = await function.apply(
+    result: ScoringResult = await function.apply(
         synapse,
         responses,
     )
-    result = function.weight * result_i_normalized
-
-    event[function.name] = {}
-    event[function.name]["score"] = result_i.tolist()
-    event[function.name]["normalized"] = result_i_normalized.tolist()
 
     logger.info(
         #
-        f"{function.name} - {summarize_rewards(result_i_normalized)}"
+        function.name
+        + f" - {summarize_rewards(result.scores)}"
     )
 
-    return result, event
+    # Build up a new score instead of re-using the one above
+    return ScoringResult(
+        type=result.type,
+        normalized=result.normalized,
+        # Apply weighting to final score
+        scores=function.weight * result.normalized,
+    )
 
 
 ResultCombiner = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -69,7 +68,7 @@ async def apply_functions(
     responses: List[bt.Synapse],
     initial_seed: torch.Tensor,
     combine: ResultCombiner,
-) -> Tuple[torch.Tensor, Dict]:
+) -> ScoringResults:
     """
     Apply a list of reward or masking functions sequentially.
 
@@ -81,30 +80,36 @@ async def apply_functions(
     The sequential application enables complex reward schemes where
     the final reward is a product of multiple factors.
     """
-    event: Dict = {}
-    results = initial_seed
+    results: ScoringResults = ScoringResults(combined_scores=initial_seed)
 
     for function in functions:
-        rewards, event = await apply_function(
+        reward: ScoringResult = await apply_function(
             function,
             synapse,
             responses,
-            event,
         )
+
+        print(reward.scores, results.combined_scores)
 
         # Use our passed function to combine results
         # this allows us different types of combination
         # depending on if it's a mask or reward
-        results = combine(results, rewards)
+        results.combined_scores = combine(
+            reward.scores,
+            results.combined_scores,
+        )
 
-    return results, event
+        # And add it to the list for later
+        results.add_score(reward)
+
+    return results
 
 
 async def apply_reward_functions(
     model_type: ModelType,
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
-) -> Tuple[torch.Tensor, Dict]:
+) -> ScoringResults:
     """
     Apply all relevant reward functions for a given model type.
     """
@@ -121,7 +126,7 @@ async def apply_masking_functions(
     model_type: ModelType,
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
-) -> Tuple[torch.Tensor, Dict]:
+) -> ScoringResults:
     """
     Apply all relevant masking functions for a given model type.
     """
@@ -134,12 +139,11 @@ async def apply_masking_functions(
     )
 
 
-async def get_automated_rewards(
+async def get_scoring_results(
     model_type: ModelType,
     synapse: bt.Synapse,
     responses: List[bt.Synapse],
-    task_type: str,
-) -> AutomatedRewards:
+) -> ScoringResults:
     """
     Calculate the final automated rewards for a set of responses.
 
@@ -152,62 +156,31 @@ async def get_automated_rewards(
     taking into account both their quality (via reward functions) and
     their appropriateness (via masking functions).
     """
-    event = {"task_type": task_type}
-
     # Apply reward functions (including human voting)
-    rewards, reward_event = await apply_reward_functions(
+    rewards: ScoringResults = await apply_reward_functions(
         model_type,
         synapse,
         responses,
     )
-    event.update(reward_event)
 
     # Apply masking functions
-    mask, masking_event = await apply_masking_functions(
-        model_type,
-        synapse,
-        responses,
-    )
-    event.update(masking_event)
-
-    # Apply mask to rewards
-    # NOTE: If mask is (1) that means we had a trigger
-    #       so we want to reduce score by the effect
-    #       of the mask.
-    #
-    #       A mask value of 1 means "failed a check",
-    #       so we multiply by (1 - mask)
-    rewards *= 1.0 - mask
-
-    return AutomatedRewards(
-        event=event,
-        rewards=rewards,
-    )
-
-
-async def get_masked_rewards(
-    model_type: ModelType,
-    synapse: bt.Synapse,
-    responses: List[bt.Synapse],
-) -> MaskedRewards:
-    """
-    Apply only the masking functions to a set of responses.
-
-    This function is used when we need to quickly filter responses
-    without calculating full rewards.
-
-    It's particularly useful for scenarios where we need to exclude
-    inappropriate content before further processing or when we want to
-    separate the filtering step from the reward calculation step for more
-    fine-grained control over the process.
-    """
-    rewards, event = await apply_masking_functions(
+    masks: ScoringResults = await apply_masking_functions(
         model_type,
         synapse,
         responses,
     )
 
-    return MaskedRewards(rewards=rewards, event=event)
+    return ScoringResults(
+        scores=rewards.scores + masks.scores,
+        # Apply mask to rewards
+        # NOTE: If mask is (1) that means we had a trigger
+        #       so we want to reduce score by the effect
+        #       of the mask.
+        #
+        #       A mask value of 1 means "failed a check",
+        #       so we multiply by (1 - mask)
+        combined_scores=rewards.combined_scores * (1.0 - masks.combined_scores),
+    )
 
 
 def filter_rewards(
