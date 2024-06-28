@@ -20,7 +20,7 @@ def get_default_device() -> torch.device:
 
 
 def check_config(to_check: bt.config):
-    r"""Checks/validates the config namespace object."""
+    """Checks/validates the config namespace object."""
     bt.logging.check_config(to_check)
     # bt.wallet.check_config(config)
     # bt.subtensor.check_config(config)

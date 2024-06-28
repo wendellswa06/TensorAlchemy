@@ -96,9 +96,6 @@ async def update_moving_averages(
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
 
-    print("**************************************************")
-    print(f"{moving_average_scores=}")
-
     return moving_average_scores
 
 
@@ -277,7 +274,6 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
 
     try:
         wandb.log(asdict(wandb_event))
-        logger.info("Logged event to wandb.")
     except Exception as e:
         logger.error(f"Unable to log event to wandb due to the following error: {e}")
 
@@ -297,23 +293,21 @@ async def create_batch_for_upload(
     rewards_for_uids = masked_rewards.combined_scores[uids]
 
     for response, reward in zip(responses, rewards_for_uids):
-        if response.is_success and reward != 0:
-            im_file = BytesIO()
-            T.transforms.ToPILImage()(
-                bt.Tensor.deserialize(response.images[0]),
-            ).save(im_file, format="PNG")
-            # im_bytes: image in binary format.
-            im_bytes = im_file.getvalue()
-            im_b64 = base64.b64encode(im_bytes)
-            images.append(im_b64.decode())
+        im_file = BytesIO()
+        T.transforms.ToPILImage()(
+            bt.Tensor.deserialize(response.images[0]),
+        ).save(im_file, format="PNG")
+
+        # im_bytes: image in binary format.
+        im_bytes = im_file.getvalue()
+        im_b64 = base64.b64encode(im_bytes)
+        images.append(im_b64.decode())
+
+        if response.is_success and reward.item() == 0:
             should_drop_entries.append(0)
         else:
-            # Generated image has zero reward, we are dropping it
-            im_file = BytesIO()
-            # im_bytes: image in binary format.
-            im_bytes = im_file.getvalue()
-            im_b64 = base64.b64encode(im_bytes)
-            images.append(im_b64.decode())
+            # Generated image has non-zero mask,
+            # we will dropp it (nsfw, blacklist)
             should_drop_entries.append(1)
 
     nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
@@ -460,14 +454,6 @@ async def run_step(
         responses,
     )
 
-    print("==================================================")
-    print("COMBINED")
-    print(scoring_results.combined_scores)
-
-    for score in scoring_results.scores:
-        print("--------------------------------------------------")
-        print(score.type, score.scores, score.normalized)
-
     # Apply isalive filtering
     rewards_tensor_adjusted = filter_rewards(
         validator.isalive_dict,
@@ -475,10 +461,6 @@ async def run_step(
         # No need for scattering, directly use the rewards
         scoring_results.combined_scores,
     )
-
-    print("--------------------------------------------------")
-    print("FILTERED")
-    print(scoring_results.combined_scores)
 
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
@@ -527,6 +509,7 @@ async def run_step(
             event,
             prompt,
         )
+        logger.info("Logged event to wandb.")
     except Exception as e:
         logger.error(f"Failed while logging to wandb: {e}")
 

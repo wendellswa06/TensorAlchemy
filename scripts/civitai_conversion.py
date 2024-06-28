@@ -4,6 +4,7 @@ import requests
 import re
 import subprocess
 import shutil
+from loguru import logger
 
 model_name = "https://civitai.com/api/download/models/147497"
 
@@ -33,7 +34,7 @@ if __name__ == "__main__":
     file_name = model_name.rsplit("/", 1)[-1]
     file_path = f"{TEMP_PATH}/{file_name}"
 
-    print(f"Downloading {model_name} to {file_path}.")
+    logger.info(f"Downloading {model_name} to {file_path}.")
     response = requests.get(model_name)
 
     original_name = (
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     # Download the conversion script for the version passed:
     script_url = f"https://raw.githubusercontent.com/huggingface/diffusers/v{version}/scripts/convert_original_stable_diffusion_to_diffusers.py"
     script_path = f"{BASE_PATH}/conversion_{version}.py"
-    print(f"Downloading conversion script {script_url} to {script_path}.")
+    logger.info(f"Downloading conversion script {script_url} to {script_path}.")
     download_response = requests.get(script_url)
 
     assert (
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         f.write(download_response.content)
 
     # Apply patch to fix bug
-    print("Applying patch for 0.21.4.")
+    logger.info("Applying patch for 0.21.4.")
     with open(script_path, "r") as file_in:
         content = file_in.read().replace("config_files=args.config_files,", "")
         with open(script_path, "w") as file_out:
@@ -89,21 +90,21 @@ if __name__ == "__main__":
     command = f"python {script_path} --checkpoint_path {file_path} --dump_path {output_path} --from_safetensors"
 
     if pa.is_sdxl:
-        print("Using StableDiffusionXLPipeline.")
+        logger.info("Using StableDiffusionXLPipeline.")
         command += " --pipeline_class_name StableDiffusionXLPipeline"
 
     # Run
-    print(f"Converting with command: {command}.")
+    logger.info(f"Converting with command: {command}.")
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     process.wait()
 
     # Append .failed to the end of the folder name
     if process.returncode != 0:
-        print("Appended the suffix 'failed' to the output.")
+        logger.info("Appended the suffix 'failed' to the output.")
         shutil.move(output_path, output_path.rstrip("/") + ".failed")
 
     assert (
         process.returncode == 0
     ), f"An error occurred trying to convert the model: Return code: {process.returncode}"
 
-    print("The process has finished successfully.")
+    logger.info("The process has finished successfully.")

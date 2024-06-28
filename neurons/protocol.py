@@ -75,9 +75,7 @@ class ImageGeneration(bt.Synapse):
 
         Attributes:
         - dummy_input: An integer value representing the input request sent by the validator.
-        - dummy_output: An optional integer value which, when filled, represents the response from the     print(compute)
-        print(compute.dump())
-        return compute
+        - dummy_output: An optional integer value which, when filled, represents the response from the
     miner.
     """
 
@@ -92,5 +90,5 @@ class ImageGeneration(bt.Synapse):
     generation_type: str = pydantic.Field("TEXT_TO_IMAGE", allow_mutation=False)
     guidance_scale: float = pydantic.Field(7.5, allow_mutation=False)
     seed: int = pydantic.Field(1024, allow_mutation=False)
-    steps: int = pydantic.Field(50, allow_mutation=False)
+    steps: int = pydantic.Field(20, allow_mutation=False)
     model_type: str = pydantic.Field(ModelType.ALCHEMY, allow_mutation=False)

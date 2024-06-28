@@ -223,10 +223,11 @@ async def get_random_uids(
         pass
 
     logger.info(
-        f"Time to find all {len(final_uids)} uids: {time.perf_counter() - t0:.2f}s in {attempt_counter} attempts | Avg active UIDs per attempt: {sum_avg:.2f}"
+        f"Time to find all {len(final_uids)}"
+        + f" uids: {time.perf_counter() - t0:.2f}s"
+        + f" in {attempt_counter} attempts"
+        + f" | Avg active UIDs per attempt: {sum_avg:.2f}"
     )
-
-    # print({f"UID_{candidate_uid}": "Active" if candidate_uid in final_uids else "Inactive" for i, candidate_uid in enumerate(candidate_uids)})
 
     uids = (
         torch.tensor(final_uids)

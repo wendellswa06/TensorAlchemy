@@ -1,28 +1,31 @@
-import torch
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
+import torch
+from base import BaseMiner, ModelConfig, TaskType
 from diffusers import (
     AutoPipelineForImage2Image,
     AutoPipelineForText2Image,
+    DiffusionPipeline,
     DPMSolverMultistepScheduler,
 )
-
 from loguru import logger
-from base import BaseMiner
-from transformers import CLIPImageProcessor
-from utils import warm_up
-
+from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 from neurons.protocol import ModelType
 from neurons.safety import StableDiffusionSafetyChecker
-from neurons.miners.StableMiner.schema import ModelConfig, TaskType
+from transformers import CLIPImageProcessor
+from utils import warm_up
 
 
 class StableMiner(BaseMiner):
     def __init__(self) -> None:
         self.t2i_model_custom: Optional[AutoPipelineForText2Image] = None
+        self.t2i_refiner_custom: Optional[AutoPipelineForText2Image] = None
         self.t2i_model_alchemy: Optional[AutoPipelineForText2Image] = None
+        self.t2i_refiner_alchemy: Optional[AutoPipelineForText2Image] = None
         self.i2i_model_custom: Optional[AutoPipelineForImage2Image] = None
+        self.i2i_refiner_custom: Optional[AutoPipelineForImage2Image] = None
         self.i2i_model_alchemy: Optional[AutoPipelineForImage2Image] = None
+        self.i2i_refiner_alchemy: Optional[AutoPipelineForImage2Image] = None
         self.safety_checker: Optional[StableDiffusionSafetyChecker] = None
         self.processor: Optional[CLIPImageProcessor] = None
         self.model_configs: Dict[str, Dict[str, ModelConfig]] = {}
@@ -47,15 +50,22 @@ class StableMiner(BaseMiner):
 
     def load_models(self) -> None:
         try:
+            # Custom Model
             # Text-to-image
-            self.t2i_model_custom = self.load_t2i_model(self.config.miner.custom_model)
-
+            (
+                self.t2i_model_custom,
+                self.t2i_refiner_custom,
+            ) = self.load_t2i_model_and_refiner(
+                self.config.miner.custom_model, self.config.miner.custom_refiner
+            )
             # Image-to-image
             # self.i2i_model_custom = self.load_i2i_model(self.t2i_model_custom)
 
             # TODO: Alchemy model
-            # self.t2i_model_alchemy = None
-            # self.i2i_model_alchemy = None
+            # Text-to-image
+            # self.t2i_model_alchemy, self.t2i_refiner_alchemy = None, None
+            # Image-to-image
+            # self.i2i_model_alchemy, self.i2i_refiner_alchemy = None, None
 
             self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
                 "CompVis/stable-diffusion-safety-checker"
@@ -67,7 +77,9 @@ class StableMiner(BaseMiner):
             logger.error(f"Error loading models: {e}")
             raise
 
-    def load_t2i_model(self, model_name: str) -> AutoPipelineForText2Image:
+    def load_t2i_model_and_refiner(
+        self, model_name: str, refiner_model: str
+    ) -> tuple[AutoPipelineForText2Image, DiffusionPipeline]:
         try:
             model = AutoPipelineForText2Image.from_pretrained(
                 model_name,
@@ -81,7 +93,22 @@ class StableMiner(BaseMiner):
                 model.scheduler.config
             )
 
-            return model
+            refiner = DiffusionPipeline.from_pretrained(
+                refiner_model,
+                text_encoder_2=model.text_encoder_2,
+                vae=model.vae,
+                torch_dtype=torch.float16,
+                use_safetensors=True,
+                variant="fp16",
+            ).to(self.config.miner.device)
+
+            refiner.set_progress_bar_config(disable=True)
+            refiner.scheduler = DPMSolverMultistepScheduler.from_config(
+                refiner.scheduler.config
+            )
+
+            return model, refiner
+
         except Exception as e:
             logger.error(f"Error loading text-to-image model: {e}")
             raise
@@ -127,6 +154,7 @@ class StableMiner(BaseMiner):
             #     TaskType.TEXT_TO_IMAGE: ModelConfig(
             #         args=self.t2i_args,
             #         model=self.t2i_model_alchemy,
+            #         refiner=self.t2i_refiner_alchemy,
             #     ),
             #     TaskType.IMAGE_TO_IMAGE: ModelConfig(
             #         args=self.i2i_args,
@@ -137,6 +165,7 @@ class StableMiner(BaseMiner):
                 TaskType.TEXT_TO_IMAGE: ModelConfig(
                     args=self.t2i_args,
                     model=self.t2i_model_custom,
+                    refiner=self.t2i_refiner_custom,
                 ),
                 # TODO: implement i2i
                 # TaskType.IMAGE_TO_IMAGE: ModelConfig(

@@ -1,60 +1,50 @@
 import asyncio
 import copy
 import os
+import queue
 import sys
 import time
 import traceback
 import uuid
-import queue
 from multiprocessing import Manager, Queue
 from typing import Optional
 
-import bittensor as bt
+import numpy as np
 import sentry_sdk
 import torch
-import wandb
-import numpy as np
 from loguru import logger
-
-from neurons.constants import (
-    DEV_URL,
-    N_NEURONS,
-    PROD_URL,
-    VALIDATOR_SENTRY_DSN,
-)
-
+from neurons.constants import DEV_URL, N_NEURONS, PROD_URL, VALIDATOR_SENTRY_DSN
 from neurons.protocol import (
-    denormalize_image_model,
     ImageGenerationTaskModel,
     ModelType,
+    denormalize_image_model,
 )
-from neurons.utils.log import colored_log
+from neurons.utils import BackgroundTimer, MultiprocessBackgroundTimer, background_loop
 from neurons.utils.defaults import get_defaults
-from neurons.utils import (
-    BackgroundTimer,
-    MultiprocessBackgroundTimer,
-    background_loop,
-)
-from neurons.validator.schemas import Batch
-from neurons.validator.config import (
-    get_device,
-    get_config,
-    get_metagraph,
-    get_backend_client,
-)
+from neurons.utils.log import colored_log
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
+from neurons.validator.config import (
+    get_backend_client,
+    get_config,
+    get_device,
+    get_metagraph,
+)
 from neurons.validator.forward import run_step
+from neurons.validator.schemas import Batch
 from neurons.validator.services.openai.service import get_openai_service
-from neurons.validator.utils.wandb import init_wandb, reinit_wandb
-from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
-    ttl_get_block,
     generate_random_prompt_gpt,
     get_device_name,
     get_random_uids,
+    ttl_get_block,
 )
+from neurons.validator.utils.version import get_validator_version
+from neurons.validator.utils.wandb import init_wandb, reinit_wandb
 from neurons.validator.weights import set_weights
+
+import bittensor as bt
+import wandb
 
 
 def is_valid_current_directory() -> bool:
@@ -341,11 +331,17 @@ class StableValidator:
         self.step = 0
         while True:
             try:
-                # Get a random number of uids
-                uids = await get_random_uids(self, self.dendrite, k=N_NEURONS)
-                uids = uids.to(self.device)
+                logger.info("Started new validator run.")
 
-                axons = [self.metagraph.axons[uid] for uid in uids]
+                # Get a random number of uids
+                try:
+                    uids = await get_random_uids(self, self.dendrite, k=N_NEURONS)
+                    uids = uids.to(self.device)
+                    axons = [self.metagraph.axons[uid] for uid in uids]
+
+                except Exception as e:
+                    logger.error("Failed to get random uids from metagraph")
+                    continue
 
                 task: Optional[
                     ImageGenerationTaskModel
@@ -377,10 +373,7 @@ class StableValidator:
                     # Re-sync with the network. Updates the metagraph.
                     await self.sync()
                 except Exception as e:
-                    logger.error(
-                        "An unexpected error occurred"
-                        + f" trying to sync the metagraph: {e}"
-                    )
+                    logger.error(f"Failed to sync the metagraph: {e}")
 
                 # Save Previous Sates
                 self.save_state()
@@ -450,7 +443,7 @@ class StableValidator:
                 negative_prompt=None,
                 prompt=prompt,
                 seed=-1,
-                steps=50,
+                steps=20,
                 width=1024,
                 height=1024,
             )
@@ -588,8 +581,8 @@ class StableValidator:
         return (ttl_get_block(self) % self.prev_block) >= self.epoch_length
 
     def save_state(self):
-        r"""Save hotkeys, neuron model and moving average scores to filesystem."""
-        logger.info("save_state()")
+        """Save hotkeys, neuron model and moving average scores to filesystem."""
+        logger.info("Saving current validator state...")
         try:
             neuron_state_dict = {
                 "neuron_weights": self.moving_average_scores.to("cpu").tolist(),
@@ -601,15 +594,15 @@ class StableValidator:
                 f"Saved model {self.config.alchemy.full_path}/model.torch",
                 color="blue",
             )
+            # empty cache
+            torch.cuda.empty_cache()
+            logger.info("Saved current validator state.")
         except Exception as e:
             logger.error(f"Failed to save model with error: {e}")
 
-        # empty cache
-        torch.cuda.empty_cache()
-
     def load_state(self):
-        r"""Load hotkeys and moving average scores from filesystem."""
-        logger.info("load_state()")
+        """Load hotkeys and moving average scores from filesystem."""
+        logger.info("Loading previously saved validator state...")
         try:
             state_dict = torch.load(f"{self.config.alchemy.full_path}/model.torch")
             neuron_weights = torch.tensor(state_dict["neuron_weights"])
@@ -649,9 +642,8 @@ class StableValidator:
                 if average < 0:
                     self.moving_average_scores[i] = 0
 
-            colored_log(
-                f"Reloaded model {self.config.alchemy.full_path}/model.torch",
-                color="blue",
+            logger.info(
+                f"Loaded model {self.config.alchemy.full_path}/model.torch",
             )
 
         except Exception as e:

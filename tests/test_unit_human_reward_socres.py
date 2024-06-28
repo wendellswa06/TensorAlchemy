@@ -1,9 +1,10 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
+from functools import wraps
 
 import torch
 import bittensor as bt
-from functools import wraps
+from logguru import logger
 
 # Import the actual get_metagraph function
 import neurons.validator.config as validator_config
@@ -17,7 +18,7 @@ def mock_metagraph():
     to_return.n = len(test_hotkeys)
     to_return.hotkeys = test_hotkeys
 
-    print(f"Creating mock metagraph with n = {to_return.n}")
+    logger.info(f"Creating mock metagraph with n = {to_return.n}")
     return to_return
 
 
