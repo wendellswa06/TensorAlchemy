@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import shutil
 import traceback
 import subprocess
@@ -57,8 +58,17 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
 
     def run(self):
         while not self.finished.is_set():
-            self.function(*self.args, **self.kwargs)
-            self.finished.wait(self.interval)
+            try:
+                self.function(*self.args, **self.kwargs)
+                self.finished.wait(self.interval)
+
+            except Exception as e:
+                logger.info(
+                    #
+                    "An error occurred in "
+                    + self.__class__.__name__
+                    + f" {e}"
+                )
 
     def cancel(self):
         self.finished.set()

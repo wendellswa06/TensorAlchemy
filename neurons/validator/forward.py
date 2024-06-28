@@ -190,7 +190,10 @@ async def query_axons_and_process_responses(
         responses.append(response)
 
         if batch_for_upload:
-            validator.batches_upload_queue.put_nowait(batch_for_upload)
+            try:
+                validator.batches_upload_queue.put_nowait(batch_for_upload)
+            except Exception as e:
+                logger.error(f"Could not add compute to upload queue {e}")
 
     return responses
 
@@ -490,6 +493,7 @@ async def run_step(
         # Log the step event.
         event.update(
             {
+                "task_type": task_type,
                 "block": ttl_get_block(validator),
                 "step_length": time.time() - start_time,
                 "prompt": prompt if task_type == "TEXT_TO_IMAGE" else None,

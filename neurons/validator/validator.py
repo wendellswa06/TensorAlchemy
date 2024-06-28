@@ -287,7 +287,7 @@ class StableValidator:
 
         # Start the batch streaming background loop
         manager = Manager()
-        self.batches_upload_queue: Queue = manager.Queue(maxsize=24)
+        self.batches_upload_queue: Queue = manager.Queue(maxsize=2048)
 
         self.upload_images_process = MultiprocessBackgroundTimer(
             0.2,
@@ -388,18 +388,18 @@ class StableValidator:
 
             # If the user interrupts the program, gracefully exit.
             except KeyboardInterrupt:
-                self.axon.stop()
                 logger.success("Keyboard interrupt detected. Exiting validator.")
+
+                self.axon.stop()
+
+                self.upload_images_process.cancel()
+                self.upload_images_process.join()
                 sys.exit(0)
 
             # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
                 logger.error(traceback.format_exc())
                 sentry_sdk.capture_exception(e)
-
-            finally:
-                self.upload_images_process.cancel()
-                self.upload_images_process.join()
 
     async def get_image_generation_task(
         self,
