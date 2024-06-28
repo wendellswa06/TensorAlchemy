@@ -69,6 +69,7 @@ async def upload_image(
     backend_client: TensorAlchemyBackendClient,
     batches_upload_queue: Queue,
 ) -> None:
+    print(batches_upload_queue.qsize(), "batches in queue")
     batch: Batch = batches_upload_queue.get(block=False)
     logger.info(
         #
@@ -409,8 +410,8 @@ class StableValidator:
         #       trying to get a task from the user
         # before going on and creating a synthetic task
         try:
-            task = await self.backend_client.poll_task(timeout=timeout)
-
+            # task = await self.backend_client.poll_task(timeout=timeout)
+            task = None
         # Allow validator to just skip this step if they like
         except KeyboardInterrupt:
             pass

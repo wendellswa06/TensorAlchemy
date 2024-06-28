@@ -453,8 +453,12 @@ async def run_step(
         validator.model_type,
         synapse,
         responses,
-        task_type,
     )
+
+    print(scoring_results.combined_scores)
+
+    for score in scoring_results.scores:
+        print(score.type, score.scores, score.normalized)
 
     # Apply isalive filtering
     rewards_tensor_adjusted = filter_rewards(

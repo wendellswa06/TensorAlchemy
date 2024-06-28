@@ -30,6 +30,11 @@ class HumanValidationRewardModel(BaseRewardModel):
     def name(self) -> RewardModelType:
         return RewardModelType.HUMAN
 
+    def normalize_rewards(self, rewards: torch.Tensor) -> torch.Tensor:
+        rewards: torch.Tensor = super().normalize_rewards(rewards)
+
+        return rewards
+
     async def get_rewards(
         self,
         synapse: bt.Synapse,

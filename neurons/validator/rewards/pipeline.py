@@ -88,14 +88,12 @@ async def apply_functions(
             responses,
         )
 
-        print(reward.scores, results.combined_scores)
-
         # Use our passed function to combine results
         # this allows us different types of combination
         # depending on if it's a mask or reward
         results.combined_scores = combine(
-            reward.scores,
             results.combined_scores,
+            reward.normalized,
         )
 
         # And add it to the list for later
