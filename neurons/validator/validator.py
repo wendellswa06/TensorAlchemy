@@ -33,6 +33,7 @@ from neurons.utils import (
     MultiprocessBackgroundTimer,
     background_loop,
 )
+from neurons.validator.schemas import Batch
 from neurons.validator.config import (
     get_device,
     get_config,
@@ -70,12 +71,12 @@ def upload_images_loop(batches_upload_queue: Queue) -> None:
     backend_client: TensorAlchemyBackendClient = get_backend_client()
 
     try:
-        while batch := batches_upload_queue.get(block=False):
-            logger.info(
-                f"uploading ({len(batch.computes)} compute "
-                f"for batch {batch.batch_id} ..."
-            )
-            asyncio.run(backend_client.post_batch(batch))
+        batch: Batch = batches_upload_queue.get(block=False)
+        logger.info(
+            f"uploading ({len(batch.computes)} compute "
+            f"for batch {batch.batch_id} ..."
+        )
+        asyncio.run(backend_client.post_batch(batch))
 
     except queue.Empty:
         return

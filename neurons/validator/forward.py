@@ -1,4 +1,4 @@
-from typing import List, Tuple, AsyncIterator
+from typing import List, AsyncIterator, Optional, Tuple
 import asyncio
 import base64
 import copy
@@ -7,7 +7,6 @@ import time
 from dataclasses import asdict
 from datetime import datetime
 from io import BytesIO
-from typing import List, AsyncIterator, Optional, Tuple
 
 import bittensor as bt
 import torch
@@ -170,7 +169,7 @@ async def query_axons_and_process_responses(
 
         # Create batch from single response and enqueue uploading
         # Batch will be merged at backend side
-        batch_for_upload = await create_batch_for_upload(
+        batch_for_upload: Batch = await create_batch_for_upload(
             validator_wallet=validator.wallet,
             metagraph=validator.metagraph,
             batch_id=task.task_id,
@@ -273,7 +272,7 @@ async def create_batch_for_upload(
     prompt: str,
     responses: List[ImageGenerationResponse],
     masked_rewards: MaskedRewards,
-):
+) -> Batch:
     uids = get_uids(responses)
 
     should_drop_entries = []
