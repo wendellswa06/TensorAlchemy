@@ -120,7 +120,10 @@ def check_uid_availability(
 
 
 async def get_random_uids(
-    self, dendrite, k: int, exclude: List[int] = None
+    self,
+    dendrite,
+    k: int,
+    exclude: List[int] = None,
 ) -> torch.LongTensor:
     """Returns k available random uids from the metagraph.
     Args:
@@ -154,6 +157,7 @@ async def get_random_uids(
     # candidate_uids = [i for i,_ in sorted(zip(candidate_uids, [self.miner_query_history_count[self.metagraph.axons[uid].hotkey] for uid in candidate_uids]))]
 
     # Random sort candidate_uids
+    random.seed(time.time())
     random.shuffle(candidate_uids)
 
     # Find the first K uids that respond with IsAlive
