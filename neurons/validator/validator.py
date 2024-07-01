@@ -413,8 +413,8 @@ class StableValidator:
         #       trying to get a task from the user
         # before going on and creating a synthetic task
         try:
-            # task = await self.backend_client.poll_task(timeout=timeout)
-            task = None
+            task = await self.backend_client.poll_task(timeout=timeout)
+            # task = None
         # Allow validator to just skip this step if they like
         except KeyboardInterrupt:
             pass
