@@ -1,29 +1,20 @@
 import torch
-from typing import Dict, Any, Optional
-from enum import Enum
-from base import BaseMiner
-from pydantic import BaseModel
+from typing import Dict, Optional
 
 from diffusers import (
     AutoPipelineForImage2Image,
     AutoPipelineForText2Image,
     DPMSolverMultistepScheduler,
 )
-from neurons.protocol import ModelType
-from neurons.safety import StableDiffusionSafetyChecker
+
+from base import BaseMiner
 from transformers import CLIPImageProcessor
 from utils import warm_up
 from utils.log import colored_log
 
-
-class TaskType(str, Enum):
-    TEXT_TO_IMAGE = "TEXT_TO_IMAGE"
-    IMAGE_TO_IMAGE = "IMAGE_TO_IMAGE"
-
-
-class ModelConfig(BaseModel):
-    args: Dict[str, Any]
-    model: AutoPipelineForText2Image
+from neurons.protocol import ModelType
+from neurons.safety import StableDiffusionSafetyChecker
+from neurons.miners.StableMiner.types import ModelConfig
 
 
 class StableMiner(BaseMiner):
