@@ -31,7 +31,7 @@ from utils import (
     sh,
 )
 
-from neurons.miners.StableMiner.types import ModelConfig, TaskType
+from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 
 from wandb_utils import WandbUtils
 
@@ -158,13 +158,20 @@ class BaseMiner(ABC):
             logger.error(f"Failed to start axon: {e}")
             raise
 
-    @abstractmethod
-    def get_t2i_args(self) -> Dict[str, Any]:
+    def add_args(self, argp: argparse.ArgumentParser) -> None:
         pass
 
-    @abstractmethod
-    def get_i2i_args(self) -> Dict[str, Any]:
-        pass
+    def get_t2i_args(self) -> Dict:
+        return {
+            "guidance_scale": 7.5,
+            "num_inference_steps": 50,
+        }
+
+    def get_i2i_args(self) -> Dict:
+        return {
+            "guidance_scale": 5,
+            "strength": 0.6,
+        }
 
     def get_config(self) -> bt.config:
         argp = argparse.ArgumentParser(description="Miner Configs")
@@ -215,10 +222,6 @@ class BaseMiner(ABC):
             os.makedirs(config.full_path, exist_ok=True)
 
         return config
-
-    @abstractmethod
-    def add_args(self, argp: argparse.ArgumentParser) -> None:
-        pass
 
     def loop_until_registered(self) -> None:
         while True:

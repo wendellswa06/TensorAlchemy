@@ -57,6 +57,10 @@ def patch_all_dependencies(func):
         return_value=mock_meta,
     )
     @patch(
+        "neurons.validator.rewards.pipeline.get_metagraph",
+        return_value=mock_meta,
+    )
+    @patch(
         "neurons.validator.rewards.models.human.get_metagraph",
         return_value=mock_meta,
     )
@@ -75,12 +79,18 @@ def patch_all_dependencies(func):
 async def test_apply_human_voting_weight():
     # Import here to ensure patches are applied first
     from neurons.validator.config import get_metagraph
-    from neurons.validator.rewards.pipeline import apply_function
+    from neurons.validator.rewards.pipeline import (
+        apply_function,
+        apply_reward_functions,
+    )
     from neurons.validator.rewards.models import (
         RewardModelType,
         PackedRewardModel,
         EmptyScoreRewardModel,
         HumanValidationRewardModel,
+    )
+    from neurons.validator.rewards.types import (
+        ScoringResults,
     )
 
     # Verify that get_metagraph() is properly mocked
@@ -104,7 +114,10 @@ async def test_apply_human_voting_weight():
         responses.append(response)
 
     # First, apply EmptyScoreRewardModel
-    empty_rewards, _ = await apply_function(
+    empty_rewards = await apply_function(
+        torch.zeros(get_metagraph().n).to(
+            validator_config.get_device(),
+        ),
         PackedRewardModel(
             weight=1.0,
             model=EmptyScoreRewardModel(),
@@ -114,25 +127,33 @@ async def test_apply_human_voting_weight():
     )
 
     # Assert all rewards are 0
-    assert torch.all(empty_rewards == 0)
+    assert torch.all(empty_rewards.scores == 0)
 
     # Now, apply HumanValidationRewardModel
-    human_rewards, event = await apply_function(
-        PackedRewardModel(
-            weight=1.0,
-            model=HumanValidationRewardModel(),
-        ),
+    rewards: ScoringResults = await apply_reward_functions(
+        [
+            PackedRewardModel(
+                weight=1.0,
+                model=HumanValidationRewardModel(),
+            )
+        ],
         generate_synapse(),
         responses,
     )
 
-    human_rewards_normalized = event[RewardModelType.HUMAN]["normalized"]
+    human_rewards: torch.Tensor = rewards.get_score(
+        RewardModelType.HUMAN,
+    ).scores
+
+    human_rewards_normalized: torch.Tensor = rewards.get_score(
+        RewardModelType.HUMAN,
+    ).normalized
 
     # Assert rewards have changed for UIDs with votes
-    assert human_rewards[0].item() > 0
-    assert human_rewards[1].item() > human_rewards[0].item()
-    assert human_rewards[2].item() > human_rewards[1].item()
-    assert human_rewards[3].item() > human_rewards[2].item()
+    assert human_rewards[0] > 1
+    assert human_rewards[1] > human_rewards[0]
+    assert human_rewards[2] > human_rewards[1]
+    assert human_rewards[3] > human_rewards[2]
 
     # Assert rewards have changed for normalized UIDs with votes
     assert human_rewards_normalized[0] > 0
@@ -143,8 +164,11 @@ async def test_apply_human_voting_weight():
     assert len(human_rewards) == 5
 
     # This UID didn't receive any votes
-    assert human_rewards[4].item() == 0
-    assert human_rewards_normalized[4] == 0
+    # Scores should contain seed value by default
+    assert human_rewards[4] == torch.tensor(1)
+
+    # Normalied results should not contain a seed value
+    assert human_rewards_normalized[4] == torch.tensor(0)
 
 
 def generate_synapse() -> bt.Synapse:

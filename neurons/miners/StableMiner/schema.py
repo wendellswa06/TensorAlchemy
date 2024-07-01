@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel
 
-from diffusers import AutoPipelineForText2Image
+from diffusers import DiffusionPipeline
 
 
 class TaskType(str, Enum):
@@ -13,4 +13,7 @@ class TaskType(str, Enum):
 
 class ModelConfig(BaseModel):
     args: Dict[str, Any]
-    model: AutoPipelineForText2Image
+    model: DiffusionPipeline
+
+    class Config:
+        arbitrary_types_allowed = True

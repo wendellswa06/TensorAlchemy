@@ -7,20 +7,18 @@ from diffusers import (
     DPMSolverMultistepScheduler,
 )
 
+from loguru import logger
 from base import BaseMiner
 from transformers import CLIPImageProcessor
 from utils import warm_up
-from utils.log import colored_log
 
 from neurons.protocol import ModelType
 from neurons.safety import StableDiffusionSafetyChecker
-from neurons.miners.StableMiner.types import ModelConfig
+from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 
 
 class StableMiner(BaseMiner):
     def __init__(self) -> None:
-        super().__init__()
-
         self.t2i_model_custom: Optional[AutoPipelineForText2Image] = None
         self.t2i_model_alchemy: Optional[AutoPipelineForText2Image] = None
         self.i2i_model_custom: Optional[AutoPipelineForImage2Image] = None
@@ -28,6 +26,8 @@ class StableMiner(BaseMiner):
         self.safety_checker: Optional[StableDiffusionSafetyChecker] = None
         self.processor: Optional[CLIPImageProcessor] = None
         self.model_configs: Dict[str, Dict[str, ModelConfig]] = {}
+
+        super().__init__()
 
         try:
             # Load the models
@@ -42,7 +42,7 @@ class StableMiner(BaseMiner):
             # Start the miner loop
             self.loop()
         except Exception as e:
-            colored_log(f"Error in StableMiner initialization: {e}", color="red")
+            logger.error(f"Error in StableMiner initialization: {e}")
             raise
 
     def load_models(self) -> None:
@@ -51,11 +51,11 @@ class StableMiner(BaseMiner):
             self.t2i_model_custom = self.load_t2i_model(self.config.miner.custom_model)
 
             # Image-to-image
-            self.i2i_model_custom = self.load_i2i_model(self.t2i_model_custom)
+            # self.i2i_model_custom = self.load_i2i_model(self.t2i_model_custom)
 
             # TODO: Alchemy model
-            self.t2i_model_alchemy = None
-            self.i2i_model_alchemy = None
+            # self.t2i_model_alchemy = None
+            # self.i2i_model_alchemy = None
 
             self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
                 "CompVis/stable-diffusion-safety-checker"
@@ -64,7 +64,7 @@ class StableMiner(BaseMiner):
 
             self.setup_model_configs()
         except Exception as e:
-            colored_log(f"Error loading models: {e}", color="red")
+            logger.error(f"Error loading models: {e}")
             raise
 
     def load_t2i_model(self, model_name: str) -> AutoPipelineForText2Image:
@@ -83,7 +83,7 @@ class StableMiner(BaseMiner):
 
             return model
         except Exception as e:
-            colored_log(f"Error loading text-to-image model: {e}", color="red")
+            logger.error(f"Error loading text-to-image model: {e}")
             raise
 
     def load_i2i_model(
@@ -101,7 +101,7 @@ class StableMiner(BaseMiner):
 
             return model
         except Exception as e:
-            colored_log(f"Error loading image-to-image model: {e}", color="red")
+            logger.error(f"Error loading image-to-image model: {e}")
             raise
 
     def get_model_config(
@@ -121,26 +121,28 @@ class StableMiner(BaseMiner):
 
     def setup_model_configs(self) -> None:
         self.model_configs = {
-            ModelType.ALCHEMY: {
-                # Text-to-image
-                TaskType.TEXT_TO_IMAGE: ModelConfig(
-                    args=self.t2i_args,
-                    model=self.t2i_model_alchemy,
-                ),
-                TaskType.IMAGE_TO_IMAGE: ModelConfig(
-                    args=self.i2i_args,
-                    model=self.i2i_model_alchemy,
-                ),
-            },
+            # TODO: Implement Alchemy Model
+            # ModelType.ALCHEMY: {
+            #     # Text-to-image
+            #     TaskType.TEXT_TO_IMAGE: ModelConfig(
+            #         args=self.t2i_args,
+            #         model=self.t2i_model_alchemy,
+            #     ),
+            #     TaskType.IMAGE_TO_IMAGE: ModelConfig(
+            #         args=self.i2i_args,
+            #         model=self.i2i_model_alchemy,
+            #     ),
+            # },
             ModelType.CUSTOM: {
                 TaskType.TEXT_TO_IMAGE: ModelConfig(
                     args=self.t2i_args,
                     model=self.t2i_model_custom,
                 ),
-                TaskType.IMAGE_TO_IMAGE: ModelConfig(
-                    args=self.i2i_args,
-                    model=self.i2i_model_custom,
-                ),
+                # TODO: implement i2i
+                # TaskType.IMAGE_TO_IMAGE: ModelConfig(
+                #     args=self.i2i_args,
+                #     model=self.i2i_model_custom,
+                # ),
             },
         }
 
@@ -157,12 +159,12 @@ class StableMiner(BaseMiner):
                 )
 
                 # Warm up model
-                colored_log(
+                logger.info(
                     ">>> Warming up model with compile... "
                     "this takes roughly two minutes...",
                     color="yellow",
                 )
                 warm_up(self.t2i_model_alchemy, self.t2i_args)
             except Exception as e:
-                colored_log(f"Error optimizing models: {e}", color="red")
+                logger.error(f"Error optimizing models: {e}")
                 raise

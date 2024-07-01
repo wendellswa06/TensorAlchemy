@@ -48,9 +48,6 @@ class BaseRewardModel:
             try:
                 index = get_metagraph().hotkeys.index(hotkey)
                 rewards[index] = score
-                logger.info(
-                    f"Assigned {score}" + f" to index {index}" + f" for hotkey {hotkey}"
-                )
             except ValueError:
                 logger.error(f"Hotkey {hotkey} not found in metagraph")
 
