@@ -2,6 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # Copyright © 2023 Opentensor Foundation
 from typing import List
+import concurrent.futures
 
 import torch
 from loguru import logger
@@ -30,7 +31,10 @@ from neurons.validator.utils import get_validator_spec_version
 
 
 def post_weights(
-    hotkey, api_url: str, hotkeys: List[str], raw_weights: torch.Tensor
+    hotkey,
+    api_url: str,
+    hotkeys: List[str],
+    raw_weights: torch.Tensor,
 ):
     response = SignedRequests(hotkey=hotkey).post(
         f"{api_url}/validator/weights",
@@ -50,7 +54,9 @@ def set_weights(val):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
-        val.moving_average_scores, p=1, dim=0
+        val.moving_average_scores,
+        p=1,
+        dim=0,
     )
 
     try:
@@ -64,28 +70,44 @@ def set_weights(val):
             logger.info("Error logging weights to the Weights API")
         else:
             logger.info("Successfully logged weights to the Weights API")
-    except Exception:
-        logger.info("Error logging weights to the Weights API")
+    except Exception as e:
+        logger.error(f"Error logging weights to the Weights API {e}")
 
-    (
-        processed_weight_uids,
-        processed_weights,
-    ) = bt.utils.weight_utils.process_weights_for_netuid(
-        uids=val.metagraph.uids.to("cpu"),
-        weights=raw_weights.to("cpu"),
-        netuid=val.config.netuid,
-        subtensor=val.subtensor,
-        metagraph=val.metagraph,
-    )
+    try:
+        (
+            processed_weight_uids,
+            processed_weights,
+        ) = bt.utils.weight_utils.process_weights_for_netuid(
+            uids=val.metagraph.uids.to("cpu"),
+            weights=raw_weights.to("cpu"),
+            netuid=val.config.netuid,
+            subtensor=val.subtensor,
+            metagraph=val.metagraph,
+        )
+    except Exception as e:
+        logger.error(f"Could not process weights for netuid {e}")
+
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
     from neurons.validator import validator
+
     # Set the weights on chain via our subtensor connection.
-    val.subtensor.set_weights(
-        wallet=val.wallet,
-        netuid=val.config.netuid,
-        uids=processed_weight_uids,
-        weights=processed_weights,
-        wait_for_finalization=False,
-        version_key=get_validator_spec_version(),
-    )
+
+    # Define a function to set weights that will be executed by the executor
+    def set_weights_task():
+        try:
+            val.subtensor.set_weights(
+                wallet=val.wallet,
+                netuid=val.config.netuid,
+                uids=processed_weight_uids,
+                weights=processed_weights,
+                wait_for_finalization=True,
+                version_key=get_validator_spec_version(),
+            )
+            logger.info("Weights set successfully!")
+        except Exception as e:
+            logger.error(f"Failed to set weights {e}")
+
+    # Use an executor to run the weight-setting task
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        _future = executor.submit(set_weights_task)
