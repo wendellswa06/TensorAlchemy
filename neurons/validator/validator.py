@@ -12,6 +12,7 @@ import bittensor as bt
 import sentry_sdk
 import torch
 import wandb
+import numpy as np
 from loguru import logger
 
 from neurons.constants import (
@@ -209,10 +210,19 @@ class StableValidator:
         self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
         logger.info("Loaded metagraph")
 
-        self.scores = torch.zeros_like(self.metagraph.stake, dtype=torch.float32)
+        # Convert metagraph.stake to a PyTorch tensor if it's a NumPy array
+        if isinstance(self.metagraph.stake, np.ndarray):
+            self.metagraph.stake = torch.from_numpy(self.metagraph.stake).float()
+
+        self.scores = torch.zeros_like(
+            self.metagraph.stake,
+            dtype=torch.float32,
+        )
 
         # Init Weights.
-        self.moving_average_scores = torch.zeros((self.metagraph.n)).to(self.device)
+        self.moving_average_scores = torch.zeros(
+            (self.metagraph.n),
+        ).to(self.device)
 
         # Each validator gets a unique identity (UID)
         # in the network for differentiation.
@@ -221,7 +231,8 @@ class StableValidator:
         )
         validator_version = get_validator_version()
         logger.info(
-            f"Running validator (version={validator_version}) on uid: {self.my_subnet_uid}"
+            f"Running validator (version={validator_version})"
+            + f" on uid: {self.my_subnet_uid}"
         )
 
         # Init weights
