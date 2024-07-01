@@ -31,7 +31,7 @@ from utils import (
     sh,
 )
 
-from neurons.miners.StableMiner.base import ModelConfig, TaskType
+from neurons.miners.StableMiner.types import ModelConfig, TaskType
 
 from wandb_utils import WandbUtils
 
