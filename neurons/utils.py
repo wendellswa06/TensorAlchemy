@@ -286,15 +286,16 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
                         )
                     )
                 except:
-                    bt.logging.info(
-                        f"Failed to post {batch_id} to the {TaskState.FAILED.value} endpoint"
+                    logger.info(
+                        f"Failed to post {batch_id} to the"
+                        + f" {TaskState.FAILED.value} endpoint"
                     )
 
                 break
             except Exception as e:
                 backoff *= 2  # Double the backoff for the next attempt
                 if attempt != max_retries:
-                    logger.error(
+                    logger.info(
                         f"Attempt number {attempt+1} failed to"
                         + f" send batch {batch['batch_id']}. "
                         + f"Retrying in {backoff} seconds. Error: {e}"
@@ -302,7 +303,7 @@ def upload_batches(hotkey: Keypair, api_url: str, batches: Dict):
                     time.sleep(backoff)
                     continue
 
-                logger.error(
+                logger.info(
                     f"Attempted to post batch {batch['batch_id']} "
                     + f"{attempt+1} times unsuccessfully. "
                     + f"Skipping this batch and moving to the next batch. Error: {e}"
