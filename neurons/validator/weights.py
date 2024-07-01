@@ -1,4 +1,6 @@
 import bittensor as bt
+import concurrent.futures
+
 import torch
 from loguru import logger
 
@@ -18,6 +20,7 @@ async def set_weights(validator: "StableValidator"):
             validator.hotkeys,
             raw_weights,
         )
+
     except PostWeightsError as e:
         logger.error(f"error logging weights to the weights api: {e}")
 
@@ -34,12 +37,25 @@ async def set_weights(validator: "StableValidator"):
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
 
+    from neurons.validator import validator
+
     # Set the weights on chain via our subtensor connection.
-    validator.subtensor.set_weights(
-        wallet=validator.wallet,
-        netuid=validator.config.netuid,
-        uids=processed_weight_uids,
-        weights=processed_weights,
-        wait_for_finalization=False,
-        version_key=get_validator_spec_version(),
-    )
+
+    # Define a function to set weights that will be executed by the executor
+    def set_weights_task():
+        try:
+            val.subtensor.set_weights(
+                wallet=val.wallet,
+                netuid=val.config.netuid,
+                uids=processed_weight_uids,
+                weights=processed_weights,
+                wait_for_finalization=True,
+                version_key=get_validator_spec_version(),
+            )
+            logger.info("Weights set successfully!")
+        except Exception as e:
+            logger.error(f"Failed to set weights {e}")
+
+    # Use an executor to run the weight-setting task
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        _future = executor.submit(set_weights_task)

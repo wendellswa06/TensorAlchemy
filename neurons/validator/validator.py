@@ -237,7 +237,7 @@ class StableValidator:
         self.request_frequency = 35
         self.query_timeout = 20
         self.async_timeout = 1.2
-        self.epoch_length = 300
+        self.epoch_length = 100
 
         # Init sync with the network. Updates the metagraph.
         self.sync()
