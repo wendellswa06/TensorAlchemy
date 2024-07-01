@@ -59,7 +59,7 @@ async def apply_function(
         # This leaves us with
         # [ 1.0, 1.0, 1.0, 1.0 ] if reward
         # [ 0.0, 0.0, 0.0, 0.0 ] if mask
-        normalized=initial_seed + result.normalized,
+        normalized=result.normalized,
         # Apply weighting to final score
         # We also apply initial seed here
         # This prevents values from dropping to zero
@@ -106,7 +106,7 @@ async def apply_functions(
         # depending on if it's a mask or reward
         results.combined_scores = combine(
             results.combined_scores,
-            reward.normalized,
+            reward.scores,
         )
 
         # And add it to the list for later
@@ -191,7 +191,7 @@ async def get_scoring_results(
     combined_scores: torch.Tensor = rewards.combined_scores
 
     # Reset to be zero-centric
-    combined_scores -= 1
+    combined_scores -= 1.0
 
     # Apply mask to rewards
     # NOTE: If mask is (1) that means we had a trigger
@@ -202,8 +202,7 @@ async def get_scoring_results(
     #       so we'll set those scores to 0.0.
     #
     #       0.0 here means "don't change the weights"
-    masked_values: torch.Tensor = masks.combined_scores != 0
-    combined_scores[masked_values] = 0.0
+    combined_scores[masks.combined_scores != 0] = 0.0
 
     return ScoringResults(
         # Simple list concatenation
