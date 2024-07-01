@@ -188,18 +188,22 @@ async def get_scoring_results(
         responses,
     )
 
+    combined_scores: torch.Tensor = rewards.combined_scores
+
+    # Reset to be zero-centric
+    combined_scores -= 1
+
     # Apply mask to rewards
     # NOTE: If mask is (1) that means we had a trigger
     #       so we want to reduce score by the effect
     #       of the mask.
     #
     #       A mask value of 1 means "failed a check",
-    #       so we'll set those scores to 1.0.
+    #       so we'll set those scores to 0.0.
     #
-    #       1.0 here means "don't change the weights"
+    #       0.0 here means "don't change the weights"
     masked_values: torch.Tensor = masks.combined_scores != 0
-    combined_scores: torch.Tensor = rewards.combined_scores
-    combined_scores[masked_values] = 1.0
+    combined_scores[masked_values] = 0.0
 
     return ScoringResults(
         # Simple list concatenation
