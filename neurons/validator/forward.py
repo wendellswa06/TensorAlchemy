@@ -77,9 +77,6 @@ async def update_moving_averages(
         1 - alpha
     ) * previous_ma_scores.to(get_device())
 
-    print("**************************************************")
-    print(f"{moving_average_scores=}")
-
     # Save moving averages scores on backend
     try:
         await get_backend_client().post_moving_averages(
@@ -98,6 +95,9 @@ async def update_moving_averages(
 
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
+
+    print("**************************************************")
+    print(f"{moving_average_scores=}")
 
     return moving_average_scores
 
