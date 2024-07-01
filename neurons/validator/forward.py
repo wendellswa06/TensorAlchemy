@@ -179,6 +179,8 @@ async def query_axons_and_process_responses(
             responses=[response],
         )
 
+        print(masked_rewards[uid])
+
         # Create batch from single response and enqueue uploading
         # Batch will be merged at backend side
         batch_for_upload: Batch = await create_batch_for_upload(
@@ -187,7 +189,7 @@ async def query_axons_and_process_responses(
             batch_id=task.task_id,
             prompt=task.prompt,
             responses=[response],
-            masked_rewards=masked_rewards,
+            masked_rewards=masked_rewards[uid],
         )
 
         responses.append(response)
