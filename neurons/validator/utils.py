@@ -2,7 +2,9 @@
 import asyncio
 import copy
 import os
+import pathlib
 import random
+import subprocess
 import time
 import traceback
 from functools import lru_cache, update_wrapper
@@ -852,3 +854,49 @@ def get_device_name(device: torch.device):
     except Exception as e:
         logger.error(f"failed to get device name: {e}")
         return "n/a"
+
+
+def check_dependencies() -> bool:
+    try:
+        # Get the list of currently installed packages
+        installed_packages = (
+            subprocess.check_output(["pip", "freeze"]).decode("utf-8").splitlines()
+        )
+
+        project_root = pathlib.Path(__file__).parent.parent.parent.resolve()
+        requirements_path = project_root / "requirements.txt"
+        # Read the requirements.txt file
+        with open(requirements_path, "r") as file:
+            required_packages = file.read().splitlines()
+
+        # Create sets for comparison
+        installed_set = set(installed_packages)
+        required_set = set(required_packages)
+
+        # Check for missing or incorrect packages
+        if required_set.issubset(installed_set):
+            return True
+        else:
+            missing_packages = required_set - installed_set
+            error_msg = f"""
+**********************************************************************
+
+You are missing following dependencies (specified in requirements.txt):
+
+{missing_packages}
+    
+please check dependencies are correctly installed:
+
+1. python3.10 -m TensorAlchemy ~/.venv
+2. source ~/.venv/TensorAlchemy/bin/activate
+3. pip install -r requirements.txt
+4. python ~/TensorAlchemy/neurons/validator/main.py ...args
+
+**********************************************************************
+            """
+            logger.error(error_msg)
+            return False
+
+    except Exception as e:
+        logger.error(f"An error occurred while checking requirements.txt: {e}")
+        return False

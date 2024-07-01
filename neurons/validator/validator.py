@@ -39,6 +39,7 @@ from neurons.validator.utils import (
     reinit_wandb,
     ttl_get_block,
     get_validator_version,
+    check_dependencies,
 )
 from neurons.validator.weights import set_weights
 from openai import OpenAI
@@ -96,6 +97,11 @@ class StableValidator:
         # Init config
         self.config = StableValidator.config()
         self.check_config(self.config)
+
+        if not check_dependencies():
+            raise RuntimeError(
+                "please check dependencies are correctly installed (requirements.txt)"
+            )
 
         bt.logging(
             config=self.config,
