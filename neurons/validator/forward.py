@@ -290,14 +290,10 @@ async def create_batch_for_upload(
     responses: List[ImageGenerationResponse],
     masked_rewards: ScoringResults,
 ) -> Optional[Batch]:
-    uids = get_uids(responses)
-
     should_drop_entries = []
     images = []
 
-    masking_results_for_uids: torch.Tensor = masked_rewards.combined_scores[uids]
-
-    for response, reward in zip(responses, masking_results_for_uids):
+    for response, reward in zip(responses, masked_rewards):
         if response.is_success and reward != 0:
             im_file = BytesIO()
             T.transforms.ToPILImage()(
