@@ -7,6 +7,7 @@ import traceback
 import uuid
 import queue
 from multiprocessing import Manager, Queue
+from typing import Optional
 
 import bittensor as bt
 import sentry_sdk
@@ -346,7 +347,10 @@ class StableValidator:
 
                 axons = [self.metagraph.axons[uid] for uid in uids]
 
-                task = await self.get_image_generation_task()
+                task: Optional[
+                    ImageGenerationTaskModel
+                ] = await self.get_image_generation_task()
+
                 if task is None:
                     logger.warning(
                         "image generation task was not generated successfully."
@@ -423,9 +427,9 @@ class StableValidator:
         # NOTE: Will wait for around 60 seconds
         #       trying to get a task from the user
         # before going on and creating a synthetic task
+        task: Optional[ImageGenerationTaskModel] = None
         try:
             task = await self.backend_client.poll_task(timeout=timeout)
-            # task = None
         # Allow validator to just skip this step if they like
         except KeyboardInterrupt:
             pass

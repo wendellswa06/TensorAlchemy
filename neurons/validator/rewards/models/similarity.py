@@ -26,16 +26,13 @@ from transformers import (
 )
 
 from neurons.validator.config import get_device
-from neurons.miners.StableMiner.utils import (
-    colored_log,
-    nsfw_image_filter,
-    sh,
-    warm_up,
-)
-from neurons.protocol import ImageGeneration
-from neurons.safety import StableDiffusionSafetyChecker
+from neurons.utils.log import colored_log, sh
 from neurons.utils.defaults import get_defaults
 from neurons.utils.nsfw import clean_nsfw_from_prompt
+
+from neurons.miners.StableMiner.utils import warm_up
+from neurons.protocol import ImageGeneration
+from neurons.safety import StableDiffusionSafetyChecker
 from neurons.validator.rewards.models.base import BaseRewardModel
 from neurons.validator.rewards.types import RewardModelType
 

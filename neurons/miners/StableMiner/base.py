@@ -4,15 +4,11 @@ import sys
 import time
 import traceback
 from abc import ABC
-from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import bittensor as bt
 import torch
 import torchvision.transforms as transforms
-import torchvision.transforms as T
-from diffusers import AutoPipelineForText2Image
-from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
 from neurons.utils.defaults import get_defaults, Stats
@@ -22,9 +18,10 @@ from neurons.utils import (
 )
 from neurons.constants import VPERMIT_TAO
 from neurons.utils.nsfw import clean_nsfw_from_prompt
+from neurons.utils.log import colored_log
+
+from utils.log import do_logs
 from utils import (
-    colored_log,
-    do_logs,
     get_caller_stake,
     get_coldkey_for_hotkey,
     sh,
