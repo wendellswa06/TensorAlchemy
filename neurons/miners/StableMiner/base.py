@@ -1,18 +1,18 @@
-import os
-import sys
-import argparse
 import asyncio
 import copy
-import random
+import sys
 import time
 import traceback
-from abc import ABC, abstractmethod
+from abc import ABC
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import bittensor as bt
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms as T
+from diffusers import AutoPipelineForText2Image
+from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
 from neurons.utils.defaults import get_defaults, Stats
@@ -27,10 +27,10 @@ from utils import (
     do_logs,
     get_caller_stake,
     get_coldkey_for_hotkey,
-    nsfw_image_filter,
     sh,
 )
 
+from neurons.miners.StableMiner.config import get_config
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 
 from wandb_utils import WandbUtils
@@ -38,9 +38,7 @@ from wandb_utils import WandbUtils
 
 class BaseMiner(ABC):
     def __init__(self) -> None:
-        # Parse the config
-        self.config: bt.config = self.get_config()
-
+        self.config = get_config()
         self.wandb: Optional[WandbUtils] = None
 
         if self.config.logging.debug:
@@ -48,8 +46,8 @@ class BaseMiner(ABC):
             logger.info("Enabling debug mode...")
 
         # Output the config
-        colored_log("Outputting miner config:", color="green")
-        colored_log(f"{self.config}", color="green")
+        logger.info("Outputting miner config:")
+        logger.info(get_config())
 
         # Build args
         self.t2i_args: Dict[str, Any] = self.get_t2i_args()
@@ -158,13 +156,12 @@ class BaseMiner(ABC):
             logger.error(f"Failed to start axon: {e}")
             raise
 
-    def add_args(self, argp: argparse.ArgumentParser) -> None:
-        pass
-
     def get_t2i_args(self) -> Dict:
         return {
             "guidance_scale": 7.5,
-            "num_inference_steps": 50,
+            "num_inference_steps": 20,
+            "denoising_end": 0.8,
+            "output_type": "latent",
         }
 
     def get_i2i_args(self) -> Dict:
@@ -172,56 +169,6 @@ class BaseMiner(ABC):
             "guidance_scale": 5,
             "strength": 0.6,
         }
-
-    def get_config(self) -> bt.config:
-        argp = argparse.ArgumentParser(description="Miner Configs")
-
-        # Add any args from the parent class
-        self.add_args(argp)
-
-        argp.add_argument("--netuid", type=int, default=1)
-        argp.add_argument("--wandb.project", type=str, default="")
-        argp.add_argument("--wandb.entity", type=str, default="")
-        argp.add_argument("--wandb.api_key", type=str, default="")
-        argp.add_argument("--miner.device", type=str, default="cuda:0")
-        argp.add_argument("--miner.optimize", action="store_true")
-
-        seed = random.randint(0, 100_000_000_000)
-        argp.add_argument("--miner.seed", type=int, default=seed)
-
-        argp.add_argument(
-            "--miner.custom_model",
-            type=str,
-            default="stabilityai/stable-diffusion-xl-base-1.0",
-        )
-
-        argp.add_argument(
-            "--miner.alchemy_model",
-            type=str,
-            default="stabilityai/stable-diffusion-xl-base-1.0",
-        )
-
-        bt.subtensor.add_args(argp)
-        bt.logging.add_args(argp)
-        bt.wallet.add_args(argp)
-        bt.axon.add_args(argp)
-
-        config = bt.config(argp)
-
-        config.full_path = os.path.expanduser(
-            "{}/{}/{}/netuid{}/{}".format(
-                config.logging.logging_dir,
-                config.wallet.name,
-                config.wallet.hotkey,
-                config.netuid,
-                "miner",
-            )
-        )
-        # Ensure the directory for logging exists
-        if not os.path.exists(config.full_path):
-            os.makedirs(config.full_path, exist_ok=True)
-
-        return config
 
     def loop_until_registered(self) -> None:
         while True:
@@ -243,6 +190,21 @@ class BaseMiner(ABC):
             except Exception as e:
                 logger.error(f"Error in loop_until_registered: {e}")
                 time.sleep(120)
+
+    def nsfw_image_filter(self, images: List[bt.Tensor]) -> bool:
+        clip_input = self.processor(
+            [self.transform(image) for image in images],
+            return_tensors="pt",
+        ).to(self.config.miner.device)
+
+        images, nsfw = self.safety_checker.forward(
+            images=images,
+            clip_input=clip_input.pixel_values.to(
+                self.config.miner.device,
+            ),
+        )
+
+        return nsfw
 
     def get_miner_info(self) -> Dict[str, Union[int, float]]:
         try:
@@ -286,6 +248,13 @@ class BaseMiner(ABC):
         logger.info("IsAlive")
         synapse.completion = "True"
         return synapse
+
+    def get_model_config(
+        self,
+        model_type: ModelType,
+        task_type: TaskType,
+    ) -> ModelConfig:
+        raise NotImplementedError("Please extend self.get_model_config")
 
     async def generate_image(self, synapse: ImageGeneration) -> ImageGeneration:
         """
@@ -349,12 +318,16 @@ class BaseMiner(ABC):
             try:
                 seed: int = synapse.seed
                 local_args["generator"] = [
-                    torch.Generator(device=self.config.miner.device).manual_seed(seed)
+                    torch.Generator(
+                        device=self.config.miner.device,
+                    ).manual_seed(seed)
                 ]
                 images = model(**local_args).images
 
                 synapse.images = [
-                    bt.Tensor.serialize(self.transform(image)) for image in images
+                    #
+                    bt.Tensor.serialize(self.transform(image))
+                    for image in images
                 ]
                 colored_log(
                     f"{sh('Generating')} -> Successful image generation after"
@@ -381,8 +354,8 @@ class BaseMiner(ABC):
 
         # Log NSFW images
         try:
-            if any(nsfw_image_filter(self, images)):
-                logger.info(f"An image was flagged as NSFW: discarding image.")
+            if any(self.nsfw_image_filter(images)):
+                logger.info("An image was flagged as NSFW: discarding image.")
                 self.stats.nsfw_count += 1
                 synapse.images = []
         except Exception as e:

@@ -197,6 +197,7 @@ def background_loop(self, is_validator):
                         + f" | Date for rectification: {hotkey_warning}",
                         color="red",
                     )
+
                 coldkey = get_coldkey_for_hotkey(self, self.wallet.hotkey.ss58_address)
                 if coldkey in self.coldkey_warninglist.keys():
                     coldkey_address: str = self.coldkey_warninglist[coldkey][0]
