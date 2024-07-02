@@ -166,7 +166,7 @@ class TensorAlchemyBackendClient:
         """Post batch of images"""
         async with self._client() as client:
             response = await client.post(
-                f"{self.api_url}/batch",
+                f"{self.api_url}/batches",
                 json=batch.json(),
                 timeout=timeout,
             )
