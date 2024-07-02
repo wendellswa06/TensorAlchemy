@@ -274,7 +274,6 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
 
     try:
         wandb.log(asdict(wandb_event))
-        logger.info("Logged event to wandb.")
     except Exception as e:
         logger.error(f"Unable to log event to wandb due to the following error: {e}")
 
@@ -509,6 +508,7 @@ async def run_step(
             event,
             prompt,
         )
+        logger.info("Logged event to wandb.")
     except Exception as e:
         logger.error(f"Failed while logging to wandb: {e}")
 
