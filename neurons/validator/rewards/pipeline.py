@@ -55,10 +55,8 @@ async def apply_function(
     # Build up a new score instead of re-using the one above
     return ScoringResult(
         type=result.type,
-        # Apply initial seed to normalization too
-        # This leaves us with
-        # [ 1.0, 1.0, 1.0, 1.0 ] if reward
-        # [ 0.0, 0.0, 0.0, 0.0 ] if mask
+        # Normalization of scores
+        # [ 0.0, 0.2, 0.4, 1.0 ]
         normalized=result.normalized,
         # Apply weighting to final score
         # We also apply initial seed here
@@ -69,6 +67,9 @@ async def apply_function(
         # image = 1.6 (because good image)
         # So we need to keep the scores of previous
         # pipeline items around 1.0 to retain actual score
+        #
+        # reward model -> [1.0, 1.2, 1.4, 2.0]
+        # mask model -> [0.0, 0.2, 0.4, 1.0]
         scores=initial_seed + function.weight * result.normalized,
     )
 
