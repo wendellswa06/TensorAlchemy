@@ -75,9 +75,7 @@ class ImageGeneration(bt.Synapse):
 
         Attributes:
         - dummy_input: An integer value representing the input request sent by the validator.
-        - dummy_output: An optional integer value which, when filled, represents the response from the     print(compute)
-        print(compute.dump())
-        return compute
+        - dummy_output: An optional integer value which, when filled, represents the response from the
     miner.
     """
 

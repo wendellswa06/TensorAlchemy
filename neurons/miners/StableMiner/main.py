@@ -1,6 +1,7 @@
 import pathlib
 import sys
 import warnings
+from loguru import logger
 
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."
@@ -23,9 +24,9 @@ if __name__ == "__main__":
         # Start the miner
         StableMiner()
     except ImportError as e:
-        print(f"Error importing StableMiner: {e}")
-        print("Please ensure all required packages are installed.")
+        logger.error(f"Error importing StableMiner: {e}")
+        logger.error("Please ensure all required packages are installed.")
         sys.exit(1)
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.error(f"An unexpected error occurred: {e}")
         sys.exit(1)

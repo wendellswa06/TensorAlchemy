@@ -23,9 +23,9 @@ def get_remote_commit_hash(repo_url, branch):
     response = requests.get(api_url, timeout=10)
     if response.status_code == 200:
         return response.json()["sha"]
-    else:
-        print("Failed to fetch remote commit hash")
-        return None
+
+    logger.error("Failed to fetch remote commit hash")
+    return None
 
 
 def show_warning_message(local_commit, remote_commit):

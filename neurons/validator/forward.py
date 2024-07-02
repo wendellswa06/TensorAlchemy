@@ -96,9 +96,6 @@ async def update_moving_averages(
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
 
-    print("**************************************************")
-    print(f"{moving_average_scores=}")
-
     return moving_average_scores
 
 
@@ -457,14 +454,6 @@ async def run_step(
         responses,
     )
 
-    print("==================================================")
-    print("COMBINED")
-    print(scoring_results.combined_scores)
-
-    for score in scoring_results.scores:
-        print("--------------------------------------------------")
-        print(score.type, score.scores, score.normalized)
-
     # Apply isalive filtering
     rewards_tensor_adjusted = filter_rewards(
         validator.isalive_dict,
@@ -472,10 +461,6 @@ async def run_step(
         # No need for scattering, directly use the rewards
         scoring_results.combined_scores,
     )
-
-    print("--------------------------------------------------")
-    print("FILTERED")
-    print(scoring_results.combined_scores)
 
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
