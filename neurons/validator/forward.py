@@ -303,10 +303,11 @@ async def create_batch_for_upload(
         im_b64 = base64.b64encode(im_bytes)
         images.append(im_b64.decode())
 
-        if response.is_success and reward != 0:
+        if response.is_success and reward.item() == 0:
             should_drop_entries.append(0)
         else:
-            # Generated image has zero reward, we are dropping it
+            # Generated image has non-zero mask,
+            # we will dropp it (nsfw, blacklist)
             should_drop_entries.append(1)
 
     nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
