@@ -187,7 +187,7 @@ async def query_axons_and_process_responses(
             batch_id=task.task_id,
             prompt=task.prompt,
             responses=[response],
-            masked_rewards=masked_rewards.combined_scores[[uid]],
+            masked_rewards=masked_rewards,
         )
 
         responses.append(response)
@@ -293,7 +293,10 @@ async def create_batch_for_upload(
     should_drop_entries = []
     images = []
 
-    for response, reward in zip(responses, masked_rewards):
+    uids = get_uids(responses)
+    rewards_for_uids = masked_rewards.combined_scores[uids]
+
+    for response, reward in zip(responses, rewards_for_uids):
         if response.is_success and reward != 0:
             im_file = BytesIO()
             T.transforms.ToPILImage()(
