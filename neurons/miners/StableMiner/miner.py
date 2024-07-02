@@ -1,20 +1,18 @@
-import torch
 from typing import Dict, Optional
 
+import torch
+from base import BaseMiner
 from diffusers import (
     AutoPipelineForImage2Image,
     AutoPipelineForText2Image,
     DPMSolverMultistepScheduler,
 )
-
 from loguru import logger
-from base import BaseMiner
-from transformers import CLIPImageProcessor
-from utils import warm_up
-
+from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 from neurons.protocol import ModelType
 from neurons.safety import StableDiffusionSafetyChecker
-from neurons.miners.StableMiner.schema import ModelConfig, TaskType
+from transformers import CLIPImageProcessor
+from utils import warm_up
 
 
 class StableMiner(BaseMiner):

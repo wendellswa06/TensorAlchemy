@@ -1,6 +1,7 @@
 import pathlib
 import sys
 import warnings
+
 from loguru import logger
 
 # Suppress the eth_utils network warnings
@@ -17,7 +18,6 @@ if __name__ == "__main__":
         )
         if file_path not in sys.path:
             sys.path.append(file_path)
-
         # Import StableMiner after fixing path
         from miner import StableMiner
 

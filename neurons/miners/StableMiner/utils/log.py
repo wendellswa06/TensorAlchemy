@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from neurons.utils.log import colored_log, sh
+from utils import get_caller_stake, get_coldkey_for_hotkey
 
 
 def do_logs(self, synapse, local_args):
@@ -46,12 +47,12 @@ def do_logs(self, synapse, local_args):
     )
 
     # Output stake
-    requester_stake = get_caller_stake(self, synapse)
+    requester_stake = get_caller_stake(synapse)
     if requester_stake is None:
         requester_stake = -1
 
     # Retrieve the coldkey of the caller
-    caller_coldkey = get_coldkey_for_hotkey(self, hotkey)
+    caller_coldkey = get_coldkey_for_hotkey(hotkey)
 
     temp_string = f"Stake {int(requester_stake):,}"
 

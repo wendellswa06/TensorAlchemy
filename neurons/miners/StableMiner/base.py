@@ -6,31 +6,22 @@ import traceback
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import bittensor as bt
 import torch
 import torchvision.transforms as transforms
 from loguru import logger
-from neurons.protocol import ImageGeneration, IsAlive, ModelType
-from neurons.utils.defaults import get_defaults, Stats
-from neurons.utils import (
-    BackgroundTimer,
-    background_loop,
-)
 from neurons.constants import VPERMIT_TAO
-from neurons.utils.nsfw import clean_nsfw_from_prompt
-from neurons.utils.log import colored_log
-
-from utils.log import do_logs
-from utils import (
-    get_caller_stake,
-    get_coldkey_for_hotkey,
-    sh,
-)
-
-from neurons.miners.StableMiner.config import get_config
+from neurons.miners.config import get_config
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
-
+from neurons.protocol import ImageGeneration, IsAlive, ModelType
+from neurons.utils import BackgroundTimer, background_loop
+from neurons.utils.defaults import Stats, get_defaults
+from neurons.utils.log import colored_log
+from neurons.utils.nsfw import clean_nsfw_from_prompt
+from utils import get_caller_stake, get_coldkey_for_hotkey
+from utils.log import do_logs, sh
 from wandb_utils import WandbUtils
+
+import bittensor as bt
 
 
 class BaseMiner(ABC):
@@ -190,17 +181,15 @@ class BaseMiner(ABC):
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> bool:
         clip_input = self.processor(
-            [self.transform(image) for image in images],
+            [image for image in images],
             return_tensors="pt",
         ).to(self.config.miner.device)
-
         images, nsfw = self.safety_checker.forward(
             images=images,
             clip_input=clip_input.pixel_values.to(
                 self.config.miner.device,
             ),
         )
-
         return nsfw
 
     def get_miner_info(self) -> Dict[str, Union[int, float]]:
@@ -300,7 +289,7 @@ class BaseMiner(ABC):
 
         if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
             try:
-                local_args["image"] = T.transforms.ToPILImage()(
+                local_args["image"] = transforms.transforms.ToPILImage()(
                     bt.Tensor.deserialize(synapse.prompt_image)
                 )
             except Exception as e:
@@ -320,10 +309,9 @@ class BaseMiner(ABC):
                     ).manual_seed(seed)
                 ]
                 images = model(**local_args).images
-
                 synapse.images = [
                     #
-                    bt.Tensor.serialize(self.transform(image))
+                    bt.Tensor.serialize(image)
                     for image in images
                 ]
                 colored_log(
@@ -390,7 +378,7 @@ class BaseMiner(ABC):
 
         try:
             # Retrieve the coldkey of the caller
-            caller_coldkey: str = get_coldkey_for_hotkey(self, caller_hotkey)
+            caller_coldkey: str = get_coldkey_for_hotkey(caller_hotkey)
 
             priority: float = 0.0
 
@@ -431,10 +419,10 @@ class BaseMiner(ABC):
             caller_hotkey: str = synapse.axon.hotkey
 
             # Retrieve the coldkey of the caller
-            caller_coldkey: str = get_coldkey_for_hotkey(self, caller_hotkey)
+            caller_coldkey: str = get_coldkey_for_hotkey(caller_hotkey)
 
             # Retrieve the stake of the caller
-            caller_stake: Optional[float] = get_caller_stake(self, synapse)
+            caller_stake: Optional[float] = get_caller_stake(synapse)
 
             # Count the request frequencies
             exceeded_rate_limit: bool = False
