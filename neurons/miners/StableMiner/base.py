@@ -148,8 +148,6 @@ class BaseMiner(ABC):
         return {
             "guidance_scale": 7.5,
             "num_inference_steps": 20,
-            "denoising_end": 0.8,
-            "output_type": "latent",
         }
 
     def get_i2i_args(self) -> Dict:
@@ -181,7 +179,7 @@ class BaseMiner(ABC):
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> bool:
         clip_input = self.processor(
-            [image for image in images],
+            [self.transform(image) for image in images],
             return_tensors="pt",
         ).to(self.config.miner.device)
         images, nsfw = self.safety_checker.forward(
@@ -311,7 +309,7 @@ class BaseMiner(ABC):
                 images = model(**local_args).images
                 synapse.images = [
                     #
-                    bt.Tensor.serialize(image)
+                    bt.Tensor.serialize(self.transform(image))
                     for image in images
                 ]
                 colored_log(
