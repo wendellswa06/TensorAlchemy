@@ -1,26 +1,26 @@
 from typing import List, Optional
 
 import torch
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 from neurons.validator.rewards.models.types import RewardModelType
 
 
 class ScoringResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     type: RewardModelType
     scores: torch.Tensor
     normalized: torch.Tensor
 
-    class Config:
-        arbitrary_types_allowed = True
-
 
 class ScoringResults(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     combined_scores: torch.Tensor
     scores: List[ScoringResult] = Field(default=[])
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def get_score(self, to_find: RewardModelType) -> Optional[ScoringResult]:
         for item in self.scores:

@@ -1,7 +1,6 @@
 from typing import Dict, List, Tuple
 
 import torch
-from pydantic import BaseModel
 
 from neurons.protocol import ModelType
 

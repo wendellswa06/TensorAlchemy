@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from enum import Enum
 from typing import Dict, Tuple
+from pydantic import ConfigDict, BaseModel
 
 import torch
 
@@ -22,11 +23,8 @@ class RewardModelType(str, Enum):
 
 class PackedRewardModel(BaseModel):
     weight: float
-
     model: BaseRewardModel
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def name(self) -> RewardModelType:
