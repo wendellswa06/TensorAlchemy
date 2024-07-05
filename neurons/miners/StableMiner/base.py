@@ -414,7 +414,7 @@ class BaseMiner(ABC):
             synapse_type: str = type(synapse).__name__
 
             # Caller hotkey
-            caller_hotkey: str = synapse.axon.hotkey
+            caller_hotkey: str = synapse.dendrite.hotkey
 
             # Retrieve the coldkey of the caller
             caller_coldkey: str = get_coldkey_for_hotkey(caller_hotkey)

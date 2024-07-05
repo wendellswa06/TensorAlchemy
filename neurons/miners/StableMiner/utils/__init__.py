@@ -15,8 +15,8 @@ def get_caller_stake(synapse: bt.Synapse) -> Optional[float]:
     """
     metagraph: bt.metagraph = get_metagraph()
 
-    if synapse.axon.hotkey in metagraph.hotkeys:
-        index = metagraph.hotkeys.index(synapse.axon.hotkey)
+    if synapse.dendrite.hotkey in metagraph.hotkeys:
+        index = metagraph.hotkeys.index(synapse.dendrite.hotkey)
         return metagraph.S[index].item()
 
     return None
