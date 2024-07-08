@@ -1,35 +1,7 @@
-import copy
-import time
 from datetime import datetime
 
-from loguru import logger
-from neurons.utils import colored_log, sh
-
-
-# Wrapper for the raw images
-class Images:
-    def __init__(self, images):
-        self.images = images
-
-
-def get_caller_stake(self, synapse):
-    """
-    Look up the stake of the requesting validator.
-    """
-    if synapse.dendrite.hotkey in self.metagraph.hotkeys:
-        index = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
-        return self.metagraph.S[index].item()
-    return None
-
-
-def get_coldkey_for_hotkey(self, hotkey):
-    """
-    Look up the coldkey of the caller.
-    """
-    if hotkey in self.metagraph.hotkeys:
-        index = self.metagraph.hotkeys.index(hotkey)
-        return self.metagraph.coldkeys[index]
-    return None
+from neurons.utils.log import colored_log, sh
+from utils import get_caller_stake, get_coldkey_for_hotkey
 
 
 def do_logs(self, synapse, local_args):
@@ -37,7 +9,7 @@ def do_logs(self, synapse, local_args):
     Output logs for each request that comes through.
     """
     time_elapsed = datetime.now() - self.stats.start_time
-    hotkey = synapse.dendrite.hotkey
+    hotkey = synapse.axon.hotkey
 
     colored_log(
         str(sh("Info"))
@@ -75,12 +47,12 @@ def do_logs(self, synapse, local_args):
     )
 
     # Output stake
-    requester_stake = get_caller_stake(self, synapse)
+    requester_stake = get_caller_stake(synapse)
     if requester_stake is None:
         requester_stake = -1
 
     # Retrieve the coldkey of the caller
-    caller_coldkey = get_coldkey_for_hotkey(self, hotkey)
+    caller_coldkey = get_coldkey_for_hotkey(hotkey)
 
     temp_string = f"Stake {int(requester_stake):,}"
 
@@ -95,29 +67,3 @@ def do_logs(self, synapse, local_args):
         str(sh("Caller")) + f" -> {temp_string}" + f" | Hotkey {hotkey}.",
         color="yellow",
     )
-
-
-def warm_up(model, local_args):
-    """
-    Warm the model up if using optimization.
-    """
-    start = time.perf_counter()
-    c_args = copy.deepcopy(local_args)
-    c_args["prompt"] = "An alchemist brewing a vibrant glowing potion."
-    model(**c_args).images
-    logger.info(f"Warm up is complete after {time.perf_counter() - start}")
-
-
-def nsfw_image_filter(self, images):
-    clip_input = self.processor(
-        [self.transform(image) for image in images], return_tensors="pt"
-    ).to(self.config.miner.device)
-
-    images, nsfw = self.safety_checker.forward(
-        images=images,
-        clip_input=clip_input.pixel_values.to(
-            self.config.miner.device,
-        ),
-    )
-
-    return nsfw
