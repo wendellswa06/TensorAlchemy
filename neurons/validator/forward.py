@@ -60,10 +60,8 @@ async def update_moving_averages(
 ) -> torch.FloatTensor:
     if not hotkey_blacklist:
         hotkey_blacklist = []
-
     if not coldkey_blacklist:
         coldkey_blacklist = []
-
     metagraph: bt.metagraph = get_metagraph()
 
     rewards = torch.nan_to_num(
@@ -73,6 +71,28 @@ async def update_moving_averages(
         neginf=0.0,
     ).to(get_device())
 
+    # Number of miners has increased (a new miner has joined)
+    if rewards.size(0) > previous_ma_scores.size(0):
+        logger.info("New miners detected. Adjusting moving averages.")
+        new_miners_count = rewards.size(0) - previous_ma_scores.size(0)
+        new_miner_scores = torch.zeros(new_miners_count, device=get_device())
+        previous_ma_scores = torch.cat([previous_ma_scores, new_miner_scores])
+
+    # Number of miners has reduced (less miners online now)
+    elif rewards.size(0) < previous_ma_scores.size(0):
+        logger.warning("Fewer miners than expected. Truncating moving averages.")
+        previous_ma_scores = previous_ma_scores[: rewards.size(0)]
+
+    # We merge the new rewards into the moving average using ALPHA
+    # Alpha is the rate of integration of a new component into the MA tensor.
+    #
+    # Example:
+    #  - Alpha    = 0.01
+    #  - MA_SCORE = 1.00
+    #  - Rewards  = 0.50
+    #
+    # So the result is:
+    # (0.01 * 0.5) + (1.0 - 0.01) * 1.00 = 0.995
     moving_average_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
