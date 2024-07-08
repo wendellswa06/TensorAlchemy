@@ -4,7 +4,7 @@ from functools import wraps
 
 import torch
 import bittensor as bt
-from logguru import logger
+from loguru import logger
 
 # Import the actual get_metagraph function
 import neurons.validator.config as validator_config
