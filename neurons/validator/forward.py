@@ -314,13 +314,15 @@ async def create_batch_for_upload(
 
     for response, reward in zip(responses, rewards_for_uids):
         im_file = BytesIO()
-        T.transforms.ToPILImage()(
-            bt.Tensor.deserialize(response.images[0]),
-        ).save(im_file, format="PNG")
+        if response.images:
+            T.transforms.ToPILImage()(
+                bt.Tensor.deserialize(response.images[0]),
+            ).save(im_file, format="PNG")
 
-        # im_bytes: image in binary format.
-        im_bytes = im_file.getvalue()
-        im_b64 = base64.b64encode(im_bytes)
+            # im_bytes: image in binary format.
+            im_bytes = im_file.getvalue()
+            im_b64 = base64.b64encode(im_bytes)
+
         images.append(im_b64.decode())
 
         if response.is_success and reward.item() == 0:
