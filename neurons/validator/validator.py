@@ -251,6 +251,9 @@ class StableValidator:
         self.async_timeout = 1.2
         self.epoch_length = 100
 
+        # Init sync with the network. Updates the metagraph.
+        asyncio.run(self.sync())
+
         # Serve axon to enable external connections.
         self.serve_axon()
 
