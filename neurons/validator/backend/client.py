@@ -79,6 +79,7 @@ class TensorAlchemyBackendClient:
             except GetTaskError as e:
                 logger.error(f"poll task error: {e}")
                 return None
+
             return return_value
 
         logger.info(
@@ -97,6 +98,8 @@ class TensorAlchemyBackendClient:
                 response = await client.get(f"{self.api_url}/tasks", timeout=timeout)
         except httpx.ReadTimeout as ex:
             raise GetTaskError(f"/tasks read timeout ({timeout}s)") from ex
+        except Exception as ex:
+            raise GetTaskError("/tasks unknown error") from ex
 
         if response.status_code == 200:
             task = response.json()
