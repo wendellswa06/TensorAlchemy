@@ -13,27 +13,12 @@ from neurons.validator.rewards.models.human import HumanValidationRewardModel
 from neurons.validator.rewards.models.image_reward import ImageRewardModel
 from neurons.validator.rewards.models.nsfw import NSFWRewardModel
 
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
+from neurons.validator.rewards.models.types import (
+    ModelStorage,
+    PackedRewardModel,
+)
 
-
-class PackedRewardModel(BaseModel):
-    weight: float
-    model: BaseRewardModel
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    @property
-    def name(self) -> RewardModelType:
-        return self.model.name
-
-    def apply(
-        self, *args, **kwargs
-    ) -> Tuple[torch.FloatTensor, torch.FloatTensor,]:
-        return self.model.apply(*args, **kwargs)
-
-
-ModelStorage = Dict[RewardModelType, PackedRewardModel]
 
 # Init Reward Models
 REWARD_MODELS: ModelStorage = None

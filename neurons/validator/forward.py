@@ -32,7 +32,7 @@ from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 from neurons.validator.config import (
     get_device,
     get_metagraph,
@@ -479,12 +479,16 @@ async def run_step(
     )
 
     # Apply isalive filtering
-    rewards_tensor_adjusted = filter_rewards(
-        validator.isalive_dict,
-        validator.isalive_threshold,
-        # No need for scattering, directly use the rewards
-        scoring_results.combined_scores,
-    )
+    rewards_tensor_adjusted = scoring_results.combined_scores
+
+    # TODO: Check and see if miners are getting dropped scores
+    #       because the is-alive filter is too strict or broken
+    # rewards_tensor_adjusted = filter_rewards(
+    #     validator.isalive_dict,
+    #     validator.isalive_threshold,
+    #     # No need for scattering, directly use the rewards
+    #     scoring_results.combined_scores,
+    # )
 
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(

@@ -101,16 +101,23 @@ class TensorAlchemyBackendClient:
         except Exception as ex:
             raise GetTaskError("/tasks unknown error") from ex
 
+        json: Dict = {}
+        try:
+            task: Dict = response.json()
+        except Exception:
+            pass
+
         if response.status_code == 200:
-            task = response.json()
             logger.info(f"[get_task] task={task}")
             return denormalize_image_model(**task)
+
+        if response.status_code == 403:
+            if task.get("code") == "STAKE_BELOW_THRESHOLD":
+                return None
+
         if response.status_code == 404:
-            try:
-                if response.json().get("code") == "NO_TASKS_FOUND":
-                    return None
-            except Exception:
-                pass
+            if task.get("code") == "NO_TASKS_FOUND":
+                return None
 
         raise GetTaskError(
             f"/tasks failed with status_code {response.status_code}:"

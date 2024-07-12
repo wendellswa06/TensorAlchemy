@@ -5,7 +5,7 @@ from loguru import logger
 
 from neurons.validator.config import get_device
 from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 
 
 class BlacklistFilter(BaseRewardModel):
