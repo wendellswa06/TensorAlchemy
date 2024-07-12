@@ -2,7 +2,6 @@ from datetime import datetime
 
 from neurons.utils.log import colored_log, sh
 from neurons.miners.StableMiner.utils import get_caller_stake, get_coldkey_for_hotkey
-from utils import get_caller_stake, get_coldkey_for_hotkey
 
 
 def do_logs(self, synapse, local_args):

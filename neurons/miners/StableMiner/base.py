@@ -22,9 +22,9 @@ from neurons.utils.image import (
 )
 from neurons.utils.log import colored_log, sh
 from neurons.utils.nsfw import clean_nsfw_from_prompt
-from utils import get_caller_stake, get_coldkey_for_hotkey
-from utils.log import do_logs
-from wandb_utils import WandbUtils
+from neurons.miners.StableMiner.utils import get_caller_stake, get_coldkey_for_hotkey
+from neurons.miners.StableMiner.utils.log import do_logs
+from neurons.miners.StableMiner.wandb_utils import WandbUtils
 
 import bittensor as bt
 

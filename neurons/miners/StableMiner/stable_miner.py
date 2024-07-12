@@ -1,12 +1,13 @@
 from typing import Dict, List
 import torch
-from base import BaseMiner
+
 from loguru import logger
 
+from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType, TaskConfig
 from neurons.protocol import ModelType
-from utils import warm_up
+from neurons.miners.StableMiner.utils import warm_up
 
 
 class StableMiner(BaseMiner):
