@@ -6,7 +6,7 @@ import bittensor as bt
 import torch
 
 from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 from neurons.validator.config import get_backend_client, get_device, get_metagraph
 
 

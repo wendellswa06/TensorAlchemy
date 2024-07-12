@@ -1,21 +1,9 @@
-from enum import Enum
 from typing import List, Optional
 
 import torch
 from pydantic import BaseModel, Field
 
-
-class RewardModelType(str, Enum):
-    # Masking models
-    # TODO: Maybe move these out
-    NSFW = "NSFW"
-    BLACKLIST = "BLACKLIST"
-
-    # Reward models
-    EMPTY = "EMPTY"
-    HUMAN = "HUMAN"
-    IMAGE = "IMAGE"
-    SIMILARITY = "SIMILARITY"
+from neurons.validator.rewards.models.types import RewardModelType
 
 
 class ScoringResult(BaseModel):

@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List
 
 import torch
 import bittensor as bt
@@ -8,8 +8,8 @@ from neurons.protocol import ModelType
 from neurons.utils.log import summarize_rewards
 from neurons.validator.config import get_device, get_metagraph
 
+from neurons.validator.rewards.models.types import PackedRewardModel
 from neurons.validator.rewards.models import (
-    PackedRewardModel,
     get_reward_functions,
     get_masking_functions,
 )

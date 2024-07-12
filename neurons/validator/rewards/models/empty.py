@@ -1,6 +1,6 @@
 import bittensor as bt
 from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 
 
 class EmptyScoreRewardModel(BaseRewardModel):

@@ -4,7 +4,7 @@ from transformers import CLIPImageProcessor
 from neurons.safety import StableDiffusionSafetyChecker
 from neurons.validator.config import get_device
 from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 
 
 class NSFWRewardModel(BaseRewardModel):

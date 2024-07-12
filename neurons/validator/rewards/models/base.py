@@ -1,18 +1,22 @@
 from abc import abstractmethod
-from typing import Callable, List, Tuple, Dict
+from typing import Callable, List, TYPE_CHECKING
 
-import bittensor as bt
 import torch
+import bittensor as bt
 from loguru import logger
 
+
 from neurons.validator.config import get_device, get_metagraph
-from neurons.validator.rewards.types import RewardModelType, ScoringResult
+
+if TYPE_CHECKING:
+    from neurons.validator.rewards.types import ScoringResult
+    from neurons.validator.rewards.models.types import RewardModelType
 
 
 class BaseRewardModel:
     @property
     @abstractmethod
-    def name(self) -> RewardModelType:
+    def name(self) -> "RewardModelType":
         ...
 
     def is_strict_uid_scoring(self) -> float:
@@ -83,12 +87,14 @@ class BaseRewardModel:
         self,
         synapse: bt.Synapse,
         responses: List[bt.Synapse],
-    ) -> ScoringResult:
+    ) -> "ScoringResult":
         # Get rewards for the responses
         rewards = await self.get_rewards(synapse, responses)
 
         # Normalize rewards
         normalized_rewards = self.normalize_rewards(rewards)
+
+        from neurons.validator.rewards.types import ScoringResult
 
         return ScoringResult(
             scores=rewards,

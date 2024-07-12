@@ -34,7 +34,7 @@ from neurons.miners.StableMiner.utils import warm_up
 from neurons.protocol import ImageGeneration
 from neurons.safety import StableDiffusionSafetyChecker
 from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.types import RewardModelType
+from neurons.validator.rewards.models.types import RewardModelType
 
 
 class SimilarityRewardModel(BaseRewardModel):

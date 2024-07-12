@@ -84,9 +84,9 @@ async def test_apply_human_voting_weight():
         apply_function,
         apply_reward_functions,
     )
+    from neurons.validator.rewards.models.types import PackedRewardModel
     from neurons.validator.rewards.models import (
         RewardModelType,
-        PackedRewardModel,
         EmptyScoreRewardModel,
         HumanValidationRewardModel,
     )

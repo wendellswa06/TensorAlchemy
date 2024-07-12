@@ -34,7 +34,7 @@ from neurons.constants import (
 from neurons.utils.log import colored_log
 
 from neurons.validator.utils.wandb import init_wandb
-from neurons.validator.rewards.types import (
+from neurons.validator.rewards.models.types import (
     RewardModelType,
 )
 
