@@ -42,12 +42,12 @@ class ModelLoader:
             return processor
         return None
 
-    def load_refiner(self, task_config: TaskConfig) -> Optional[torch.nn.Module]:
+    def load_refiner(self, model, task_config: TaskConfig) -> Optional[torch.nn.Module]:
         if task_config.refiner_class:
             refiner = task_config.refiner_class.from_pretrained(
                 task_config.refiner_model_name,
-                text_encoder_2=task_config.text_encoder_2,
-                vae=task_config.vae,
+                text_encoder_2=model.text_encoder_2,
+                vae=model.vae,
                 torch_dtype=task_config.torch_dtype,
                 use_safetensors=True,
                 variant=task_config.variant,

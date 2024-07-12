@@ -30,7 +30,8 @@ class TaskConfig(BaseModel):
     safety_checker: Optional[Type] = None
     safety_checker_model_name: Optional[str] = None
     processor: Optional[Type] = None
-    refiner: Optional[DiffusionPipeline]
+    refiner_class: Optional[Type]
+    refiner_model_name: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
