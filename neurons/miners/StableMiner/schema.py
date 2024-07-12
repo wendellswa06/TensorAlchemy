@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from diffusers import DiffusionPipeline
 from pydantic import BaseModel
+from pydantic.config import ConfigDict
 
 
 class TaskType(str, Enum):
@@ -17,6 +18,7 @@ class TaskType(str, Enum):
 class ModelConfig(BaseModel):
     args: Dict[str, Any]
     model: DiffusionPipeline
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     refiner: Optional[Type]
 
 
