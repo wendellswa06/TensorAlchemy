@@ -15,9 +15,9 @@ from transformers import CLIPImageProcessor
 
 
 class TestStableMiner(unittest.TestCase):
-    @patch("neurons.miners.StableMiner.miner.ModelLoader.load")
-    @patch("neurons.miners.StableMiner.miner.ModelLoader.load_safety_checker")
-    @patch("neurons.miners.StableMiner.miner.ModelLoader.load_processor")
+    @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load")
+    @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load_safety_checker")
+    @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load_processor")
     def test_initialization(
         self, mock_load_processor, mock_load_safety_checker, mock_load_model
     ):
@@ -57,11 +57,11 @@ class TestStableMiner(unittest.TestCase):
         self.assertEqual(mock_load_safety_checker.call_count, 2)
         self.assertEqual(mock_load_processor.call_count, 2)
 
-        self.assertIsNotNone(miner.safety_checker)
-        self.assertIsNotNone(miner.processor)
+        self.assertIsNotNone(miner.safety_checkers)
+        self.assertIsNotNone(miner.processors)
         self.assertIsNotNone(miner.model_configs)
 
-    @patch("neurons.miners.StableMiner.miner.ModelLoader.load")
+    @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load")
     def test_load_model(self, mock_load_model):
         mock_model = MagicMock()
         mock_load_model.return_value = mock_model
