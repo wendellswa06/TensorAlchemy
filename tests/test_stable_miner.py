@@ -10,6 +10,7 @@ import torch
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
+from neurons.protocol import ModelType
 from neurons.safety import StableDiffusionSafetyChecker
 from transformers import CLIPImageProcessor
 
@@ -30,6 +31,7 @@ class TestStableMiner(unittest.TestCase):
 
         task_configs = [
             TaskConfig(
+                model_type=ModelType.CUSTOM,
                 task_type=TaskType.TEXT_TO_IMAGE,
                 pipeline=AutoPipelineForText2Image,
                 torch_dtype=torch.float16,
@@ -40,6 +42,7 @@ class TestStableMiner(unittest.TestCase):
                 processor=CLIPImageProcessor,
             ),
             TaskConfig(
+                model_type=ModelType.CUSTOM,
                 task_type=TaskType.IMAGE_TO_IMAGE,
                 pipeline=AutoPipelineForImage2Image,
                 torch_dtype=torch.float16,
@@ -67,6 +70,7 @@ class TestStableMiner(unittest.TestCase):
         mock_load_model.return_value = mock_model
 
         task_config = TaskConfig(
+            model_type=ModelType.CUSTOM,
             task_type=TaskType.TEXT_TO_IMAGE,
             pipeline=AutoPipelineForText2Image,
             torch_dtype=torch.float16,

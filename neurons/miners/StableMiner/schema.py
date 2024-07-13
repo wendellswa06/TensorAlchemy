@@ -9,6 +9,8 @@ from diffusers import DiffusionPipeline
 from pydantic import BaseModel
 from pydantic.config import ConfigDict
 
+from neurons.protocol import ModelType
+
 
 class TaskType(str, Enum):
     TEXT_TO_IMAGE = "TEXT_TO_IMAGE"
@@ -23,6 +25,7 @@ class ModelConfig(BaseModel):
 
 
 class TaskConfig(BaseModel):
+    model_type: ModelType
     task_type: TaskType
     pipeline: Type
     torch_dtype: torch.dtype
