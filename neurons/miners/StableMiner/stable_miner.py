@@ -56,7 +56,7 @@ class StableMiner(BaseMiner):
             logger.info(f"Loading safety checker for task: {task_config.task_type}")
             self.safety_checkers[task_config.model_type][
                 task_config.task_type
-            ] = ModelLoader(self.config.miner).load_safety_checker(
+            ] = ModelLoader(self.config).load_safety_checker(
                 task_config.safety_checker, task_config.safety_checker_model_name
             )
             logger.info(f"Safety checker loaded for task: {task_config.task_type}")
@@ -64,14 +64,14 @@ class StableMiner(BaseMiner):
         if task_config.processor:
             logger.info(f"Loading processor for task: {task_config.task_type}")
             self.processors[task_config.model_type][task_config.task_type] = (
-                ModelLoader(self.config.miner).load_processor(task_config.processor)
+                ModelLoader(self.config).load_processor(task_config.processor)
             )
             logger.info(f"Processor loaded for task: {task_config.task_type}")
 
         if task_config.refiner_class and task_config.refiner_model_name:
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.refiners[task_config.model_type][task_config.task_type] = ModelLoader(
-                self.config.miner
+                self.config
             ).load_refiner(
                 self.models[task_config.model_type][task_config.task_type], task_config
             )
@@ -109,7 +109,7 @@ class StableMiner(BaseMiner):
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
             config = next(tc for tc in self.task_configs if tc.task_type == task_type)
-            model_loader = ModelLoader(self.config.miner)
+            model_loader = ModelLoader(self.config)
             model = model_loader.load(model_name, config)
             logger.info(f"Model {model_name} loaded successfully.")
             return model
