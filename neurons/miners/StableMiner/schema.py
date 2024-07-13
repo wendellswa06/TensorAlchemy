@@ -32,7 +32,7 @@ class TaskConfig(BaseModel):
     safety_checker: Optional[Type] = None
     safety_checker_model_name: Optional[str] = None
     processor: Optional[Type] = None
-    refiner_class: Optional[Type]
+    refiner_class: Optional[Type] = None
     refiner_model_name: Optional[str] = None
 
     class Config:
