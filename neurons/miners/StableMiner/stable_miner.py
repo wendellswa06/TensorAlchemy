@@ -1,8 +1,6 @@
-from typing import Dict, List
 import torch
-
+from typing import Dict, List
 from loguru import logger
-
 from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType, TaskConfig
@@ -12,6 +10,7 @@ from neurons.miners.StableMiner.utils import warm_up
 
 class StableMiner(BaseMiner):
     def __init__(self, task_configs: List[TaskConfig]) -> None:
+        logger.info("Starting StableMiner initialization")
         self.task_configs = task_configs
         self.model_configs = self.initialize_nested_dict()
         self.safety_checkers = self.initialize_nested_dict()
@@ -21,15 +20,11 @@ class StableMiner(BaseMiner):
 
         super().__init__()
 
-        try:
-            logger.info("Initializing StableMiner...")
-            self.initialize_all_models()
-            self.optimize_models()
-            self.start_axon()
-            self.loop()
-        except Exception as e:
-            logger.error(f"Error in StableMiner initialization: {e}")
-            raise
+        logger.info("Initializing StableMiner...")
+        self.initialize_all_models()
+        self.optimize_models()
+        self.start_axon()
+        self.loop()
 
     def initialize_nested_dict(
         self,
@@ -38,26 +33,27 @@ class StableMiner(BaseMiner):
         for task_config in self.task_configs:
             if task_config.model_type not in nested_dict:
                 nested_dict[task_config.model_type] = {}
+            if task_config.task_type not in nested_dict[task_config.model_type]:
+                nested_dict[task_config.model_type][task_config.task_type] = None
         return nested_dict
 
     def initialize_all_models(self) -> None:
-        try:
-            for task_config in self.task_configs:
-                logger.info(f"Initializing models for task: {task_config.task_type}...")
-                self.initialize_model_for_task(task_config)
-                self.setup_model_configs()
-        except Exception as e:
-            logger.error(f"Error initializing models: {e}")
-            raise
+        for task_config in self.task_configs:
+            logger.info(f"Initializing models for task: {task_config.task_type}...")
+            self.initialize_model_for_task(task_config)
+        self.setup_model_configs()
 
     def initialize_model_for_task(self, task_config: TaskConfig) -> None:
+        logger.info(f"Ensuring nested dict entries for task: {task_config.task_type}")
         self.ensure_nested_dict_entries(task_config)
 
+        logger.info(f"Loading model for task: {task_config.task_type}")
         self.models[task_config.model_type][task_config.task_type] = self.load_model(
             self.config.miner.custom_model, task_config.task_type
         )
 
         if task_config.safety_checker and task_config.safety_checker_model_name:
+            logger.info(f"Loading safety checker for task: {task_config.task_type}")
             self.safety_checkers[task_config.model_type][
                 task_config.task_type
             ] = ModelLoader(self.config.miner).load_safety_checker(
@@ -66,12 +62,14 @@ class StableMiner(BaseMiner):
             logger.info(f"Safety checker loaded for task: {task_config.task_type}")
 
         if task_config.processor:
-            self.processors[task_config.model_type][
-                task_config.task_type
-            ] = ModelLoader(self.config.miner).load_processor(task_config.processor)
+            logger.info(f"Loading processor for task: {task_config.task_type}")
+            self.processors[task_config.model_type][task_config.task_type] = (
+                ModelLoader(self.config.miner).load_processor(task_config.processor)
+            )
             logger.info(f"Processor loaded for task: {task_config.task_type}")
 
-        if task_config.refiner and task_config.refiner_model_name:
+        if task_config.refiner_class and task_config.refiner_model_name:
+            logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.refiners[task_config.model_type][task_config.task_type] = ModelLoader(
                 self.config.miner
             ).load_refiner(
@@ -92,7 +90,7 @@ class StableMiner(BaseMiner):
             self.safety_checkers[model_type][task_type] = None
         if task_config.processor and task_type not in self.processors[model_type]:
             self.processors[model_type][task_type] = None
-        if task_config.refiner and task_type not in self.refiners[model_type]:
+        if task_config.refiner_class and task_type not in self.refiners[model_type]:
             self.refiners[model_type][task_type] = None
 
     def get_model_config(
@@ -155,15 +153,13 @@ class StableMiner(BaseMiner):
             for model_type, tasks in self.model_configs.items():
                 for task_type, config in tasks.items():
                     if config.model:
+                        logger.info(f"Compiling model for task: {task_type}")
                         config.model.unet = torch.compile(
                             config.model.unet,
                             mode="reduce-overhead",
                             fullgraph=True,
                         )
-                        logger.info(
-                            f">>> Warming up {model_type} {task_type} model with compile... "
-                            "this takes roughly two minutes..."
-                        )
+                        logger.info(f"Warming up model for task: {task_type}")
                         warm_up(config.model, config.args)
             logger.info("Models optimized successfully.")
         except Exception as e:
