@@ -21,7 +21,7 @@ class ModelConfig(BaseModel):
     args: Dict[str, Any]
     model: DiffusionPipeline
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    refiner: Optional[torch.nn.Module] = None
+    refiner: Optional[Any] = None
 
 
 class TaskConfig(BaseModel):
