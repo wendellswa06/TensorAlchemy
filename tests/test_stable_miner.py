@@ -1,5 +1,7 @@
 import os
 import unittest
+os.environ["USE_TORCH"] = "1"
+
 from unittest.mock import patch, MagicMock
 from diffusers import (
     AutoPipelineForText2Image,
@@ -17,10 +19,6 @@ from transformers import CLIPImageProcessor
 
 
 class TestStableMiner(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        os.environ["USE_TORCH"] = "1"
-
     @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load")
     @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load_safety_checker")
     @patch("neurons.miners.StableMiner.stable_miner.ModelLoader.load_processor")
