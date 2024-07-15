@@ -123,7 +123,7 @@ class ImageGeneration(bt.Synapse):
         -1,
     )
     steps: int = Field(
-        50,
+        20,
     )
     model_type: str = Field(
         ModelType.CUSTOM,
