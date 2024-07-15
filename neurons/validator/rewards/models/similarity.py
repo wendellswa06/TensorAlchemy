@@ -25,6 +25,7 @@ from transformers import (
     CLIPImageProcessor,
 )
 
+from neurons.utils.image import image_tensor_to_base64
 from neurons.validator.config import get_device
 from neurons.utils.log import colored_log, sh
 from neurons.utils.defaults import get_defaults
@@ -332,7 +333,7 @@ class ModelSimilarityRewardModel(BaseRewardModel):
                 images = model(**local_args).images
 
                 synapse.images = [
-                    bt.Tensor.serialize(self.transform(image)) for image in images
+                    image_tensor_to_base64(self.transform(image)) for image in images
                 ]
                 colored_log(
                     f"{sh('Generating')} -> Succesful image generation after {attempt+1} attempt(s).",
@@ -381,9 +382,11 @@ class ModelSimilarityRewardModel(BaseRewardModel):
         extract_fn = self.extract_embeddings(self.model.to(get_device()))
 
         images = [
-            T.ToPILImage()(bt.Tensor.deserialize(response.images[0]))
-            if response.images
-            else None
+            (
+                T.ToPILImage()(bt.Tensor.deserialize(response.images[0]))
+                if response.images
+                else None
+            )
             for response in responses
         ]
 
