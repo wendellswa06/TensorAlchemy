@@ -106,7 +106,6 @@ class StableMiner(BaseMiner):
             if config.task_type == task_type:
                 return config
 
-        # If no matching config is found, raise an exception
         raise ValueError(f"No configuration found for task type: {task_type}")
 
     def load_model(self, model_name: str, task_type: TaskType) -> torch.nn.Module:
