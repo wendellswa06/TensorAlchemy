@@ -5,6 +5,7 @@ import bittensor as bt
 from loguru import logger
 
 from neurons.protocol import ImageGeneration, ModelType
+from neurons.utils.image import image_tensor_to_base64
 from neurons.validator.rewards.types import ScoringResults
 from neurons.validator.rewards.models import RewardModelType
 from neurons.validator.rewards.pipeline import (
@@ -51,7 +52,7 @@ def generate_synapse(hotkey: str, image_content: torch.Tensor) -> bt.Synapse:
         generation_type="TEXT_TO_IMAGE",
         seed=-1,
         model_type=ModelType.ALCHEMY.value,
-        images=[bt.Tensor.serialize(image_content)],
+        images=[image_tensor_to_base64(image_content)],
     )
     synapse.axon = bt.TerminalInfo(hotkey=hotkey)
     return synapse
@@ -228,6 +229,10 @@ class MockBackendClient:
     return_value=mock_client,
 )
 @patch(
+    "neurons.validator.forward.get_metagraph",
+    return_value=mock_meta,
+)
+@patch(
     "neurons.validator.rewards.models.base.get_metagraph",
     return_value=mock_meta,
 )
@@ -295,6 +300,10 @@ async def test_full_pipeline_integration_multiple_runs(*mocks):
 @patch(
     "neurons.validator.config.get_backend_client",
     return_value=mock_client,
+)
+@patch(
+    "neurons.validator.forward.get_metagraph",
+    return_value=mock_meta,
 )
 @patch(
     "neurons.validator.rewards.models.base.get_metagraph",

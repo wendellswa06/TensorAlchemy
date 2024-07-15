@@ -10,3 +10,6 @@ sys.path.insert(0, project_root)
 from neurons import constants
 
 constants.IS_TEST = True
+
+# Use the older torch style for now
+os.environ["USE_TORCH"] = "1"
