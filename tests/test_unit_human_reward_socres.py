@@ -8,6 +8,7 @@ from loguru import logger
 
 # Import the actual get_metagraph function
 import neurons.validator.config as validator_config
+from neurons.utils.image import image_tensor_to_base64
 
 
 def mock_metagraph():
@@ -180,7 +181,7 @@ def generate_synapse() -> bt.Synapse:
         seed=-1,
         model_type=ModelType.ALCHEMY.value,
         images=[
-            bt.Tensor.serialize(
+            image_tensor_to_base64(
                 torch.full(
                     [3, 1024, 1024],
                     254,
