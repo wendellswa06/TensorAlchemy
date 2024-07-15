@@ -266,23 +266,7 @@ class BaseMiner(ABC):
             logger.error(f"Error getting model config: {e}")
             return synapse
 
-        model_args: Dict[str, Any] = copy.deepcopy(model_config.args)
-
-        try:
-            model_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
-            model_args["width"] = synapse.width
-            model_args["height"] = synapse.height
-            model_args["num_images_per_prompt"] = synapse.num_images_per_prompt
-            model_args["guidance_scale"] = synapse.guidance_scale
-
-            if synapse.negative_prompt:
-                model_args["negative_prompt"] = [synapse.negative_prompt]
-
-            model_args["num_inference_steps"] = getattr(
-                synapse, "steps", model_args.get("num_inference_steps", 50)
-            )
-        except AttributeError as e:
-            logger.error(f"Error setting up local args: {e}")
+        model_args: Dict[str, Any] = self.setup_model_args(synapse, model_config)
 
         # Get the model
         model = model_config.model
@@ -406,6 +390,27 @@ class BaseMiner(ABC):
         synapse.images = [image_to_base64(image) for image in images]
 
         return synapse
+
+    def setup_model_args(
+        self, synapse: ImageGeneration, model_config: ModelConfig
+    ) -> Dict[str, Any]:
+        model_args: Dict[str, Any] = copy.deepcopy(model_config.args)
+        try:
+            model_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+            model_args["width"] = synapse.width
+            model_args["height"] = synapse.height
+            model_args["num_images_per_prompt"] = synapse.num_images_per_prompt
+            model_args["guidance_scale"] = synapse.guidance_scale
+            if synapse.negative_prompt:
+                model_args["negative_prompt"] = [synapse.negative_prompt]
+
+            model_args["num_inference_steps"] = getattr(
+                synapse, "steps", model_args.get("num_inference_steps", 50)
+            )
+        except AttributeError as e:
+            logger.error(f"Error setting up local args: {e}")
+
+        return model_args
 
     def _base_priority(self, synapse: Union[IsAlive, ImageGeneration]) -> float:
         # If hotkey or coldkey is whitelisted
