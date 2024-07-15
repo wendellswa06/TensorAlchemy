@@ -6,6 +6,7 @@ import traceback
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import bittensor
 import torch
 import torchvision.transforms as transforms
 from diffusers.callbacks import SDXLCFGCutoffCallback
@@ -30,17 +31,13 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    def __init__(self) -> None:
-        self.config = get_config()
+    def __init__(self, bt_config: bittensor.config) -> None:
+        self.bt_config = bt_config
         self.wandb: Optional[WandbUtils] = None
 
-        if self.config.logging.debug:
+        if self.bt_config.logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")
-
-        # Output the config
-        logger.info("Outputting miner config:")
-        logger.info(get_config())
 
         # Build args
         self.t2i_args = self.get_t2i_args()
@@ -64,15 +61,15 @@ class BaseMiner(ABC):
 
         # Establish subtensor connection
         logger.info("Establishing subtensor connection")
-        self.subtensor: bt.subtensor = bt.subtensor(config=self.config)
+        self.subtensor: bt.subtensor = bt.subtensor(config=self.bt_config)
 
         # Create the metagraph
         self.metagraph: bt.metagraph = self.subtensor.metagraph(
-            netuid=self.config.netuid
+            netuid=self.bt_config.netuid
         )
 
         # Configure the wallet
-        self.wallet: bt.wallet = bt.wallet(config=self.config)
+        self.wallet: bt.wallet = bt.wallet(config=self.bt_config)
 
         # Wait until the miner is registered
         self.loop_until_registered()
@@ -89,15 +86,15 @@ class BaseMiner(ABC):
         # and entity have been provided
         if all(
             [
-                self.config.wandb.project,
-                self.config.wandb.entity,
-                self.config.wandb.api_key,
+                self.bt_config.wandb.project,
+                self.bt_config.wandb.entity,
+                self.bt_config.wandb.api_key,
             ]
         ):
             self.wandb = WandbUtils(
                 self,
                 self.metagraph,
-                self.config,
+                self.bt_config,
                 self.wallet,
                 self.event,
             )
@@ -118,7 +115,7 @@ class BaseMiner(ABC):
     def start_axon(self) -> None:
         # Serve the axon
         colored_log(
-            f"Serving axon on port {self.config.axon.port}.",
+            f"Serving axon on port {self.bt_config.axon.port}.",
             color="green",
         )
         try:
@@ -126,9 +123,9 @@ class BaseMiner(ABC):
                 bt.axon(
                     wallet=self.wallet,
                     ip=bt.utils.networking.get_external_ip(),
-                    external_ip=self.config.axon.get("external_ip")
+                    external_ip=self.bt_config.axon.get("external_ip")
                     or bt.utils.networking.get_external_ip(),
-                    config=self.config,
+                    config=self.bt_config,
                 )
                 .attach(
                     forward_fn=self.is_alive,
@@ -144,7 +141,7 @@ class BaseMiner(ABC):
             )
             colored_log(f"Axon created: {self.axon}", color="green")
 
-            self.subtensor.serve_axon(axon=self.axon, netuid=self.config.netuid)
+            self.subtensor.serve_axon(axon=self.axon, netuid=self.bt_config.netuid)
         except Exception as e:
             logger.error(f"Failed to start axon: {e}")
             raise
@@ -167,13 +164,13 @@ class BaseMiner(ABC):
                 self.miner_index: Optional[int] = self.get_miner_index()
                 if self.miner_index is not None:
                     logger.info(
-                        f"Miner {self.config.wallet.hotkey} is registered with uid "
+                        f"Miner {self.bt_config.wallet.hotkey} is registered with uid "
                         f"{self.metagraph.uids[self.miner_index]}"
                     )
                     break
 
                 logger.warning(
-                    f"Miner {self.config.wallet.hotkey} is not registered. "
+                    f"Miner {self.bt_config.wallet.hotkey} is not registered. "
                     "Sleeping for 120 seconds..."
                 )
                 time.sleep(120)
@@ -186,11 +183,11 @@ class BaseMiner(ABC):
         clip_input = self.processor(
             [self.transform(image) for image in images],
             return_tensors="pt",
-        ).to(self.config.miner.device)
+        ).to(self.bt_config.miner.device)
         images, nsfw = self.safety_checker.forward(
             images=images,
             clip_input=clip_input.pixel_values.to(
-                self.config.miner.device,
+                self.bt_config.miner.device,
             ),
         )
         return nsfw
@@ -315,7 +312,9 @@ class BaseMiner(ABC):
             try:
                 seed: int = synapse.seed
                 model_args["generator"] = [
-                    torch.Generator(device=self.config.miner.device).manual_seed(seed)
+                    torch.Generator(device=self.bt_config.miner.device).manual_seed(
+                        seed
+                    )
                 ]
 
                 # Set CFG Cutoff
