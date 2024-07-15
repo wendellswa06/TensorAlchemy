@@ -1,7 +1,10 @@
 import torch
 from typing import List, Optional
+
 from loguru import logger
-from neurons.miners.StableMiner.base import BaseMiner
+
+from neurons.protocol import ModelType
+
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import (
     TaskType,
@@ -9,13 +12,13 @@ from neurons.miners.StableMiner.schema import (
     MinerConfig,
     TaskModelConfig,
 )
-from neurons.protocol import ModelType
+
+from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.utils import warm_up
 
 
 class StableMiner(BaseMiner):
     def __init__(self, task_configs: List[TaskConfig]) -> None:
-
         logger.info("Starting StableMiner initialization")
 
         self.task_configs = task_configs
@@ -129,9 +132,9 @@ class StableMiner(BaseMiner):
             if model_type not in self.miner_config.model_configs:
                 self.miner_config.model_configs[model_type] = {}
 
-            self.miner_config.model_configs[model_type][task_type].args = (
-                self.get_args_for_task(task_type)
-            )
+            self.miner_config.model_configs[model_type][
+                task_type
+            ].args = self.get_args_for_task(task_type)
 
         logger.info("Model configurations set up successfully.")
 
