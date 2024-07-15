@@ -101,10 +101,18 @@ class StableMiner(BaseMiner):
 
         return self.miner_config.model_configs[model_type][task_type]
 
+    def get_config_for_task_type(self, task_type: TaskType):
+        for config in self.task_configs:
+            if config.task_type == task_type:
+                return config
+
+        # If no matching config is found, raise an exception
+        raise ValueError(f"No configuration found for task type: {task_type}")
+
     def load_model(self, model_name: str, task_type: TaskType) -> torch.nn.Module:
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
-            config = next(tc for tc in self.task_configs if tc.task_type == task_type)
+            config = self.get_config_for_task_type(task_type)
             model_loader = ModelLoader(self.config)
             model = model_loader.load(model_name, config)
             logger.info(f"Model {model_name} loaded successfully.")
