@@ -40,3 +40,21 @@ class TaskConfig(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+class TaskModelConfig(BaseModel):
+    model: Optional[Any] = None
+    refiner: Optional[Any] = None
+    safety_checker: Optional[Any] = None
+    processor: Optional[Any] = None
+    args: Optional[dict] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class MinerConfig(BaseModel):
+    model_configs: Dict[ModelType, Dict[TaskType, TaskModelConfig]] = {}
+
+    class Config:
+        arbitrary_types_allowed = True

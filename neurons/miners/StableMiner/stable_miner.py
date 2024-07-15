@@ -1,22 +1,28 @@
 import torch
-from typing import Dict, List
+from typing import List, Optional
 from loguru import logger
 from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.model_loader import ModelLoader
-from neurons.miners.StableMiner.schema import ModelConfig, TaskType, TaskConfig
+from neurons.miners.StableMiner.schema import (
+    TaskType,
+    TaskConfig,
+    MinerConfig,
+    TaskModelConfig,
+)
 from neurons.protocol import ModelType
 from neurons.miners.StableMiner.utils import warm_up
 
 
 class StableMiner(BaseMiner):
     def __init__(self, task_configs: List[TaskConfig]) -> None:
+
         logger.info("Starting StableMiner initialization")
+
         self.task_configs = task_configs
-        self.model_configs = self.initialize_nested_dict()
-        self.safety_checkers = self.initialize_nested_dict()
-        self.processors = self.initialize_nested_dict()
-        self.refiners = self.initialize_nested_dict()
-        self.models = self.initialize_nested_dict()
+        self.miner_config = MinerConfig()
+        # TODO: Fix safety checker and processor to allow different values for each task config
+        self.safety_checker: Optional[torch.nn.Module] = None
+        self.processor: Optional[torch.nn.Module] = None
 
         super().__init__()
 
@@ -26,17 +32,6 @@ class StableMiner(BaseMiner):
         self.start_axon()
         self.loop()
 
-    def initialize_nested_dict(
-        self,
-    ) -> Dict[ModelType, Dict[TaskType, torch.nn.Module]]:
-        nested_dict = {}
-        for task_config in self.task_configs:
-            if task_config.model_type not in nested_dict:
-                nested_dict[task_config.model_type] = {}
-            if task_config.task_type not in nested_dict[task_config.model_type]:
-                nested_dict[task_config.model_type][task_config.task_type] = None
-        return nested_dict
-
     def initialize_all_models(self) -> None:
         for task_config in self.task_configs:
             logger.info(f"Initializing models for task: {task_config.task_type}...")
@@ -44,66 +39,67 @@ class StableMiner(BaseMiner):
         self.setup_model_configs()
 
     def initialize_model_for_task(self, task_config: TaskConfig) -> None:
-        logger.info(f"Ensuring nested dict entries for task: {task_config.task_type}")
-        self.ensure_nested_dict_entries(task_config)
-
         logger.info(f"Loading model for task: {task_config.task_type}")
-        self.models[task_config.model_type][task_config.task_type] = self.load_model(
-            self.config.miner.custom_model, task_config.task_type
-        )
+        model = self.load_model(self.config.miner.custom_model, task_config.task_type)
 
-        if task_config.safety_checker and task_config.safety_checker_model_name:
-            logger.info(f"Loading safety checker for task: {task_config.task_type}")
-            self.safety_checkers[task_config.model_type][
+        if task_config.model_type not in self.miner_config.model_configs:
+            self.miner_config.model_configs[task_config.model_type] = {}
+
+        self.miner_config.model_configs[task_config.model_type][
+            task_config.task_type
+        ] = TaskModelConfig(model=model)
+
+        if (
+            task_config.safety_checker
+            and task_config.safety_checker_model_name
+            and not self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ] = ModelLoader(self.config).load_safety_checker(
+            ].safety_checker
+        ):
+            self.miner_config.model_configs[task_config.model_type][
+                task_config.task_type
+            ].safety_checker = ModelLoader(self.config.miner).load_safety_checker(
                 task_config.safety_checker, task_config.safety_checker_model_name
             )
-            logger.info(f"Safety checker loaded for task: {task_config.task_type}")
+            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
+            self.safety_checker = self.miner_config.model_configs[
+                task_config.model_type
+            ][task_config.task_type].safety_checker
 
-        if task_config.processor:
-            logger.info(f"Loading processor for task: {task_config.task_type}")
-            self.processors[task_config.model_type][task_config.task_type] = (
-                ModelLoader(self.config).load_processor(task_config.processor)
+        if (
+            task_config.processor
+            and not self.miner_config.model_configs[task_config.model_type][
+                task_config.task_type
+            ].processor
+        ):
+            self.miner_config.model_configs[task_config.model_type][
+                task_config.task_type
+            ].processor = ModelLoader(self.config.miner).load_processor(
+                task_config.processor
             )
-            logger.info(f"Processor loaded for task: {task_config.task_type}")
+            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
+            self.processor = self.miner_config.model_configs[task_config.model_type][
+                task_config.task_type
+            ].processor
 
         if task_config.refiner_class and task_config.refiner_model_name:
             logger.info(f"Loading refiner for task: {task_config.task_type}")
-            self.refiners[task_config.model_type][task_config.task_type] = ModelLoader(
-                self.config
-            ).load_refiner(
-                self.models[task_config.model_type][task_config.task_type], task_config
-            )
+            self.miner_config.model_configs[task_config.model_type][
+                task_config.task_type
+            ].refiner = ModelLoader(self.config).load_refiner(model, task_config)
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
-
-    def ensure_nested_dict_entries(self, task_config: TaskConfig) -> None:
-        model_type = task_config.model_type
-        task_type = task_config.task_type
-
-        if task_type not in self.models[model_type]:
-            self.models[model_type][task_type] = None
-        if (
-            task_config.safety_checker
-            and task_type not in self.safety_checkers[model_type]
-        ):
-            self.safety_checkers[model_type][task_type] = None
-        if task_config.processor and task_type not in self.processors[model_type]:
-            self.processors[model_type][task_type] = None
-        if task_config.refiner_class and task_type not in self.refiners[model_type]:
-            self.refiners[model_type][task_type] = None
 
     def get_model_config(
         self, model_type: ModelType, task_type: TaskType
-    ) -> ModelConfig:
-        if model_type not in self.model_configs:
+    ) -> TaskModelConfig:
+        if model_type not in self.miner_config.model_configs:
             raise ValueError(f"{model_type} was not found in model_configs!")
-        if task_type not in self.model_configs[model_type]:
+        if task_type not in self.miner_config.model_configs[model_type]:
             raise ValueError(
                 f"{task_type} was not found in model_configs {model_type}!"
             )
 
-        return self.model_configs[model_type][task_type]
+        return self.miner_config.model_configs[model_type][task_type]
 
     def load_model(self, model_name: str, task_type: TaskType) -> torch.nn.Module:
         try:
@@ -124,13 +120,11 @@ class StableMiner(BaseMiner):
             model_type = task_config.model_type
             task_type = task_config.task_type
 
-            if model_type not in self.model_configs:
-                self.model_configs[model_type] = {}
+            if model_type not in self.miner_config.model_configs:
+                self.miner_config.model_configs[model_type] = {}
 
-            self.model_configs[model_type][task_type] = ModelConfig(
-                args=self.get_args_for_task(task_type),
-                model=self.models[model_type][task_type],
-                refiner=self.refiners[model_type].get(task_type, None),
+            self.miner_config.model_configs[model_type][task_type].args = (
+                self.get_args_for_task(task_type)
             )
 
         logger.info("Model configurations set up successfully.")
@@ -150,7 +144,7 @@ class StableMiner(BaseMiner):
             return
 
         try:
-            for model_type, tasks in self.model_configs.items():
+            for model_type, tasks in self.miner_config.model_configs.items():
                 for task_type, config in tasks.items():
                     if config.model:
                         logger.info(f"Compiling model for task: {task_type}")

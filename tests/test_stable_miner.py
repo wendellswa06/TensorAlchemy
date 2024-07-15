@@ -8,7 +8,7 @@ from diffusers import (
 )
 import torch
 from neurons.miners.StableMiner.model_loader import ModelLoader
-from neurons.miners.StableMiner.schema import TaskType, TaskConfig
+from neurons.miners.StableMiner.schema import TaskType, TaskConfig, MinerConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.protocol import ModelType
 from neurons.safety import StableDiffusionSafetyChecker
@@ -49,41 +49,45 @@ class MockConfig:
     wandb = Wandb()
     miner = Miner()
     axon = Axon()
+    model_configs = MinerConfig(model_configs={})
 
 
 class TestStableMiner(unittest.TestCase):
     def setUp(self):
-        patchers = [
-            patch(
+        self.patches = {
+            "mock_load_model": patch(
                 "neurons.miners.StableMiner.stable_miner.ModelLoader.load",
                 return_value=self.create_mock_model(),
             ),
-            patch(
+            "mock_load_safety_checker": patch(
                 "neurons.miners.StableMiner.stable_miner.ModelLoader.load_safety_checker",
                 return_value=MagicMock(),
             ),
-            patch(
+            "mock_load_processor": patch(
                 "neurons.miners.StableMiner.stable_miner.ModelLoader.load_processor",
                 return_value=MagicMock(),
             ),
-            patch(
+            "mock_get_config": patch(
                 "neurons.miners.StableMiner.base.get_config", return_value=MockConfig()
             ),
-            patch("bittensor.subtensor", autospec=True),
-            patch("bittensor.wallet", autospec=True),
-            patch("torch.compile", autospec=True),
-            patch(
+            "mock_subtensor": patch("bittensor.subtensor", autospec=True),
+            "mock_wallet": patch("bittensor.wallet", autospec=True),
+            "mock_compile": patch("torch.compile", autospec=True),
+            "mock_start_axon": patch(
                 "neurons.miners.StableMiner.stable_miner.StableMiner.start_axon",
                 return_value=None,
             ),
-            patch(
+            "mock_loop_until_registered": patch(
                 "neurons.miners.StableMiner.stable_miner.StableMiner.loop_until_registered",
                 return_value=None,
             ),
-            patch("neurons.miners.StableMiner.base.BaseMiner.loop", return_value=None),
-        ]
-        self.mocks = [p.start() for p in patchers]
-        self.addCleanup(lambda: [p.stop() for p in patchers])
+            "mock_base_loop": patch(
+                "neurons.miners.StableMiner.base.BaseMiner.loop",
+                return_value=None,
+            ),
+        }
+        self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
+        self.addCleanup(lambda: [patcher.stop() for patcher in self.patches.values()])
 
     def create_mock_model(self):
         mock_model = MagicMock(spec=DiffusionPipeline)
@@ -91,18 +95,9 @@ class TestStableMiner(unittest.TestCase):
         return mock_model
 
     def test_initialization(self):
-        (
-            mock_load_model,
-            mock_load_safety_checker,
-            mock_load_processor,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-        ) = self.mocks
+        mock_load_model = self.mocks["mock_load_model"]
+        mock_load_safety_checker = self.mocks["mock_load_safety_checker"]
+        mock_load_processor = self.mocks["mock_load_processor"]
 
         task_configs = [
             TaskConfig(
@@ -138,12 +133,30 @@ class TestStableMiner(unittest.TestCase):
         self.assertEqual(mock_load_safety_checker.call_count, 2)
         self.assertEqual(mock_load_processor.call_count, 2)
 
-        self.assertIsNotNone(miner.safety_checkers)
-        self.assertIsNotNone(miner.processors)
-        self.assertIsNotNone(miner.model_configs)
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.TEXT_TO_IMAGE
+            ].safety_checker
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.TEXT_TO_IMAGE
+            ].processor
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.IMAGE_TO_IMAGE
+            ].safety_checker
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.IMAGE_TO_IMAGE
+            ].processor
+        )
+        self.assertIsNotNone(miner.miner_config.model_configs)
 
     def test_load_model(self):
-        mock_load_model, _, _, _, _, _, _, _, _, _ = self.mocks
+        mock_load_model = self.mocks["mock_load_model"]
 
         task_config = TaskConfig(
             model_type=ModelType.CUSTOM,
