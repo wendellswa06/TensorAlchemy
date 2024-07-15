@@ -229,6 +229,10 @@ class MockBackendClient:
     return_value=mock_client,
 )
 @patch(
+    "neurons.validator.forward.get_metagraph",
+    return_value=mock_meta,
+)
+@patch(
     "neurons.validator.rewards.models.base.get_metagraph",
     return_value=mock_meta,
 )
