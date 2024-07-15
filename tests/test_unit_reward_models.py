@@ -95,7 +95,7 @@ async def test_incorrect_image_size(mock_meta, blacklist_filter):
 
     responses = [
         create_mock_synapse([correct_size_image], 1024, 1024, "hotkey_0"),
-        create_mock_synapse([incorrect_size_image], 100, 1024, "hotkey_1"),
+        create_mock_synapse([incorrect_size_image], 1024, 1024, "hotkey_1"),
     ]
 
     rewards = await blacklist_filter.get_rewards(responses[0], responses)
