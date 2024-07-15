@@ -105,20 +105,19 @@ class StableMiner(BaseMiner):
         for config in self.task_configs:
             if config.task_type == task_type:
                 return config
-
-        raise ValueError(f"No configuration found for task type: {task_type}")
+        logger.info(f" No config found for task type {task_type}..")
+        return None
 
     def load_model(self, model_name: str, task_type: TaskType) -> torch.nn.Module:
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
-            config = self.get_config_for_task_type(task_type)
+            task_config = self.get_config_for_task_type(task_type)
             model_loader = ModelLoader(self.config)
-            model = model_loader.load(model_name, config)
+            model = model_loader.load(model_name, task_config)
             logger.info(f"Model {model_name} loaded successfully.")
             return model
         except Exception as e:
-            logger.error(f"Error loading {task_type.value} model: {e}")
-            raise
+            logger.error(f"Error loading {task_type.value} model: {e}, skipping...")
 
     def setup_model_configs(self) -> None:
         logger.info("Setting up model configurations...")
