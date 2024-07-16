@@ -454,6 +454,17 @@ async def run_step(
         responses,
     )
 
+    for uid in range(1, 255):
+        try:
+            score = validator.moving_average_scores[uid]
+            if score > 0:
+                logger.info(
+                    f"miner_uid={uid}, miner_score={score}",
+                    extra={"miner_uid": uid, "miner_score": score},
+                )
+        except IndexError:
+            continue
+
     # Apply isalive filtering
     rewards_tensor_adjusted = scoring_results.combined_scores
 
