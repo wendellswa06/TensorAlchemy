@@ -268,10 +268,6 @@ class BaseMiner(ABC):
 
         model_args: Dict[str, Any] = self.setup_model_args(synapse, model_config)
 
-        # Get the model
-        model = model_config.model
-        refiner = model_config.refiner
-
         if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
             try:
                 model_args["image"] = transforms.transforms.ToPILImage()(
@@ -306,28 +302,7 @@ class BaseMiner(ABC):
                     cutoff_step_ratio=0.4
                 )
 
-                if refiner is not None:
-                    # Init refiner args
-                    refiner_args = {}
-                    refiner_args["denoising_start"] = model_args["denoising_end"]
-                    refiner_args["prompt"] = model_args["prompt"]
-
-                    model_args["num_inference_steps"] = int(
-                        model_args["num_inference_steps"] * 0.8
-                    )
-                    refiner_args["num_inference_steps"] = int(
-                        model_args["num_inference_steps"] * 0.2
-                    )
-
-                    images = model(**model_args).images
-
-                    refiner_args["image"] = images
-                    images = refiner(**refiner_args).images
-
-                else:
-                    model_args.pop("denoising_end")
-                    model_args.pop("output_type")
-                    images = model(**model_args).images
+                images = self.generate_with_refiner(model_args, model_config)
 
                 synapse.images = [
                     bt.Tensor.serialize(self.transform(image)) for image in images
@@ -390,6 +365,35 @@ class BaseMiner(ABC):
         synapse.images = [image_to_base64(image) for image in images]
 
         return synapse
+
+    def generate_with_refiner(
+        self, model_args: Dict[str, Any], model_config: ModelConfig
+    ) -> List:
+        model = model_config.model
+        refiner = model_config.refiner
+
+        if refiner is not None:
+            # Init refiner args
+            refiner_args = self.setup_refiner_args(model_args)
+            images = model(**model_args).images
+
+            refiner_args["image"] = images
+            images = refiner(**refiner_args).images
+
+        else:
+            model_args.pop("denoising_end")
+            model_args.pop("output_type")
+            images = model(**model_args).images
+        return images
+
+    def setup_refiner_args(self, model_args: Dict[str, Any]) -> Dict[str, Any]:
+        refiner_args = {
+            "denoising_start": model_args["denoising_end"],
+            "prompt": model_args["prompt"],
+            "num_inference_steps": int(model_args["num_inference_steps"] * 0.2),
+        }
+        model_args["num_inference_steps"] = int(model_args["num_inference_steps"] * 0.8)
+        return refiner_args
 
     def setup_model_args(
         self, synapse: ImageGeneration, model_config: ModelConfig
