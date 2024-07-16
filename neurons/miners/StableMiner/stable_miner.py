@@ -1,3 +1,4 @@
+import bittensor
 import torch
 from typing import List, Optional
 
@@ -18,7 +19,9 @@ from neurons.miners.StableMiner.utils import warm_up
 
 
 class StableMiner(BaseMiner):
-    def __init__(self, task_configs: List[TaskConfig]) -> None:
+    def __init__(
+        self, bt_config: bittensor.config, task_configs: List[TaskConfig]
+    ) -> None:
         logger.info("Starting StableMiner initialization")
 
         self.task_configs = task_configs
@@ -27,7 +30,7 @@ class StableMiner(BaseMiner):
         self.safety_checker: Optional[torch.nn.Module] = None
         self.processor: Optional[torch.nn.Module] = None
 
-        super().__init__()
+        super().__init__(bt_config)
 
         logger.info("Initializing StableMiner...")
         self.initialize_all_models()
@@ -43,7 +46,9 @@ class StableMiner(BaseMiner):
 
     def initialize_model_for_task(self, task_config: TaskConfig) -> None:
         logger.info(f"Loading model for task: {task_config.task_type}")
-        model = self.load_model(self.config.miner.custom_model, task_config.task_type)
+        model = self.load_model(
+            self.bt_config.miner.custom_model, task_config.task_type
+        )
 
         if task_config.model_type not in self.miner_config.model_configs:
             self.miner_config.model_configs[task_config.model_type] = {}
@@ -61,7 +66,7 @@ class StableMiner(BaseMiner):
         ):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].safety_checker = ModelLoader(self.config.miner).load_safety_checker(
+            ].safety_checker = ModelLoader(self.bt_config.miner).load_safety_checker(
                 task_config.safety_checker, task_config.safety_checker_model_name
             )
             # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
@@ -77,7 +82,7 @@ class StableMiner(BaseMiner):
         ):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].processor = ModelLoader(self.config.miner).load_processor(
+            ].processor = ModelLoader(self.bt_config.miner).load_processor(
                 task_config.processor
             )
             # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
@@ -89,7 +94,7 @@ class StableMiner(BaseMiner):
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].refiner = ModelLoader(self.config).load_refiner(model, task_config)
+            ].refiner = ModelLoader(self.bt_config).load_refiner(model, task_config)
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
 
     def get_model_config(
@@ -115,7 +120,7 @@ class StableMiner(BaseMiner):
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
             task_config = self.get_config_for_task_type(task_type)
-            model_loader = ModelLoader(self.config)
+            model_loader = ModelLoader(self.bt_config)
             model = model_loader.load(model_name, task_config)
             logger.info(f"Model {model_name} loaded successfully.")
             return model
@@ -132,9 +137,9 @@ class StableMiner(BaseMiner):
             if model_type not in self.miner_config.model_configs:
                 self.miner_config.model_configs[model_type] = {}
 
-            self.miner_config.model_configs[model_type][
-                task_type
-            ].args = self.get_args_for_task(task_type)
+            self.miner_config.model_configs[model_type][task_type].args = (
+                self.get_args_for_task(task_type)
+            )
 
         logger.info("Model configurations set up successfully.")
 
@@ -148,7 +153,7 @@ class StableMiner(BaseMiner):
 
     def optimize_models(self) -> None:
         logger.info("Optimizing models...")
-        if not self.config.miner.optimize:
+        if not self.bt_config.miner.optimize:
             logger.info("Model optimization is disabled.")
             return
 

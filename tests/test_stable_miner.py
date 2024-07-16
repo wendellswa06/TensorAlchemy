@@ -50,6 +50,7 @@ class MockConfig:
     miner = Miner()
     axon = Axon()
     model_configs = MinerConfig(model_configs={})
+    full_path = "/tmp/test_wallet/test_hotkey/netuid1/miner"
 
 
 class TestStableMiner(unittest.TestCase):
@@ -66,9 +67,6 @@ class TestStableMiner(unittest.TestCase):
             "mock_load_processor": patch(
                 "neurons.miners.StableMiner.stable_miner.ModelLoader.load_processor",
                 return_value=MagicMock(),
-            ),
-            "mock_get_config": patch(
-                "neurons.miners.StableMiner.base.get_config", return_value=MockConfig()
             ),
             "mock_subtensor": patch("bittensor.subtensor", autospec=True),
             "mock_wallet": patch("bittensor.wallet", autospec=True),
@@ -127,7 +125,8 @@ class TestStableMiner(unittest.TestCase):
         ]
 
         logger.info("Creating StableMiner instance")
-        miner = StableMiner(task_configs)
+        mock_config = MockConfig()  # Create an instance of MockConfig
+        miner = StableMiner(mock_config, task_configs)
 
         self.assertEqual(mock_load_model.call_count, 2)
         self.assertEqual(mock_load_safety_checker.call_count, 2)

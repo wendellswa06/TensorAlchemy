@@ -3,6 +3,7 @@ import random
 import argparse
 from typing import Optional
 
+import bittensor
 import torch
 import bittensor as bt
 from loguru import logger
@@ -12,10 +13,8 @@ device: torch.device = None
 metagraph: bt.metagraph = None
 
 
-def get_config() -> None:
-    global config
-    if config is not None:
-        return config
+def get_config() -> bittensor.config:
+    # The code as is doesn't require a global config given current flow doesnt hit here twice
 
     argp = argparse.ArgumentParser(description="Miner Config")
 

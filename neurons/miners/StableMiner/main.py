@@ -15,6 +15,8 @@ from transformers import CLIPImageProcessor
 
 from loguru import logger
 
+from neurons.miners.config import get_config
+
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."
 # NOTE: It's not our bug, it's upstream
@@ -67,8 +69,11 @@ if __name__ == "__main__":
                 refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
             ),
         ]
-        # Start the miner
-        StableMiner(task_configs)
+        bt_config = get_config()
+        logger.info("Outputting miner config:")
+        logger.info("BT Config: ", bt_config)
+        logger.info("Task Config: ", task_configs)
+        StableMiner(bt_config, task_configs)
     except ImportError:
         logger.error(f"Error: {traceback.format_exc()}")
         logger.error("Please ensure all required packages are installed.")
