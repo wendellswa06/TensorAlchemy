@@ -1,23 +1,25 @@
+import math
+from io import BytesIO
+from unittest.mock import patch, MagicMock
+
+import bittensor as bt
 import pytest
 import requests
-from unittest.mock import patch, MagicMock
-from io import BytesIO
-
 import torch
-import bittensor as bt
-import torchvision.transforms as transforms
 from PIL import Image
 from loguru import logger
 
+from neurons.constants import IS_CI_ENV
 from neurons.protocol import ImageGeneration, ModelType
 from neurons.utils.image import (
-    tensor_to_image,
     image_to_base64,
     image_tensor_to_base64,
     bytesio_to_base64,
 )
+from neurons.validator.rewards.models import ImageRewardModel
 from neurons.validator.rewards.models.blacklist import BlacklistFilter
 from neurons.validator.rewards.models.nsfw import NSFWRewardModel
+from tests.fixtures import TEST_IMAGES
 
 
 # Mock functions and classes
@@ -42,8 +44,14 @@ def blacklist_filter():
     return BlacklistFilter()
 
 
+@pytest.fixture
+def image_reward_model():
+    return ImageRewardModel()
+
+
 def create_mock_synapse(images, height, width, hotkey):
     synapse = ImageGeneration(
+        prompt="lion sitting in jungle",
         seed=-1,
         width=width,
         images=images,
@@ -120,7 +128,7 @@ async def test_nsfw_image(mock_meta, nsfw_reward_model):
         )
     )
 
-    safe_image = image_to_base64(Image.open(r"tests/non_nsfw.jpeg"))
+    safe_image = image_to_base64(Image.open(r"tests/images/non_nsfw.jpeg"))
 
     response_nsfw = create_mock_synapse([nsfw_image], 512, 512, "hotkey_0")
     response_safe = create_mock_synapse([safe_image], 512, 512, "hotkey_1")
@@ -138,3 +146,33 @@ async def test_nsfw_image(mock_meta, nsfw_reward_model):
     assert torch.all(
         (rewards == 0) | (rewards == 1)
     )  # Ensure all rewards are either 0 or 1
+
+
+@pytest.mark.asyncio
+@patch(
+    "neurons.validator.rewards.models.base.get_metagraph",
+    return_value=mock_meta,
+)
+@pytest.mark.skipif(IS_CI_ENV, reason="Skipping this test in CI environment")
+async def test_image_reward_model(mock_meta, image_reward_model):
+    real_image = image_tensor_to_base64(TEST_IMAGES["REAL_IMAGE"])
+    real_image_low_inference = image_tensor_to_base64(
+        TEST_IMAGES["REAL_IMAGE_LOW_INFERENCE"]
+    )
+
+    response_real_image = create_mock_synapse([real_image], 1024, 1024, "hotkey_0")
+    response_real_image_low_inference = create_mock_synapse(
+        [real_image_low_inference], 1024, 1024, "hotkey_1"
+    )
+
+    responses = [response_real_image, response_real_image_low_inference]
+
+    rewards = await image_reward_model.get_rewards(responses[0], responses)
+    logger.info("rewards={rewards}".format(rewards=rewards))
+
+    assert math.isclose(rewards[0].item(), 1.2755, rel_tol=1e-4)
+    assert math.isclose(rewards[1].item(), 0.9905, rel_tol=1e-4)
+
+    assert (
+        rewards.shape[0] == 5
+    )  # Ensure we have rewards for all hotkeys in the mock metagraph

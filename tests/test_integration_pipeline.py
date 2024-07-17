@@ -1,20 +1,23 @@
-import pytest
+from typing import List, Any, Tuple
 from unittest.mock import patch, MagicMock, AsyncMock
-import torch
+
 import bittensor as bt
+import pytest
+import torch
+from PIL.Image import Image as ImageType
 from loguru import logger
 
 from neurons.protocol import ImageGeneration, ModelType
-from neurons.utils.image import image_tensor_to_base64
-from neurons.validator.rewards.types import ScoringResults
+from neurons.utils.image import image_tensor_to_base64, image_to_tensor
+from neurons.validator.backend.exceptions import PostMovingAveragesError
+from neurons.validator.forward import update_moving_averages
 from neurons.validator.rewards.models import RewardModelType
 from neurons.validator.rewards.pipeline import (
     get_scoring_results,
     filter_rewards,
 )
-from neurons.validator.forward import update_moving_averages
-from neurons.constants import MOVING_AVERAGE_ALPHA
-from neurons.validator.backend.exceptions import PostMovingAveragesError
+from neurons.validator.rewards.types import ScoringResults
+from tests.fixtures import TEST_IMAGES
 
 
 # Mock functions
@@ -47,8 +50,38 @@ mock_meta = mock_metagraph()
 mock_client = mock_backend_client()
 
 
+class MockScoringModel:
+    """Mock RM.load from ImageReward"""
+
+    def inference_rank(self, prompt: str, images: List[ImageType]) -> Tuple[Any, float]:
+        logger.error(f"prompt: {prompt}, images: {images}")
+        image = images[0]
+        score = 0.0
+        # Those scores are real
+        image_scores = {
+            "BLACK": -2.26,
+            "SOLID_COLOR_FILLED": -2.27,
+            "REAL_IMAGE": 1.27,
+            "REAL_IMAGE_LOW_INFERENCE": 0.9,
+        }
+        image_tensor = image_to_tensor(image)
+
+        for key in image_scores.keys():
+            logger.info(f"key={key}")
+            if image_tensor.equal(TEST_IMAGES[key]):
+                return (1, image_scores[key])
+
+        return (1, 0.0)
+        # raise ValueError(f"Score not set for image {image_tensor}")
+
+
+def mock_imagereward_load(*args, **kwargs):
+    return MockScoringModel()
+
+
 def generate_synapse(hotkey: str, image_content: torch.Tensor) -> bt.Synapse:
     synapse = ImageGeneration(
+        prompt="lion sitting in jungle",
         generation_type="TEXT_TO_IMAGE",
         seed=-1,
         model_type=ModelType.ALCHEMY.value,
@@ -58,64 +91,26 @@ def generate_synapse(hotkey: str, image_content: torch.Tensor) -> bt.Synapse:
     return synapse
 
 
-# Updated MockImageRewardModel
-class MockImageRewardModel:
-    def __init__(self):
-        self.reward_values = {
-            "hotkey_0": 0.9,
-            "hotkey_1": 0.1,  # This will be the "black" image
-            "hotkey_2": 0.7,
-            "hotkey_3": 0.5,
-            "hotkey_4": 0.8,
-        }
-
-    @property
-    def name(self):
-        return RewardModelType.IMAGE
-
-    def get_reward(self, response: bt.Synapse) -> float:
-        # Return reward based on the hotkey
-        return self.reward_values.get(response.axon.hotkey, 0.5)
-
-
 async def run_pipeline_test():
     # Generate test responses
     responses = []
     for i, hotkey in enumerate(mock_meta.hotkeys):
         if i == 0:
-            image_content = torch.full(
-                [3, 64, 64],
-                200,
-                dtype=torch.float,
-            )
+            image_content = TEST_IMAGES["SOLID_COLOR_FILLED"]
         elif i == 1:
-            image_content = torch.zeros(
-                [3, 64, 64],
-                dtype=torch.float,
-            )
+            image_content = TEST_IMAGES["BLACK"]
         elif i == 2:
-            image_content = torch.full(
-                [3, 64, 64],
-                200,
-                dtype=torch.float,
-            )
-        else:
-            image_content = torch.full(
-                [3, 64, 64],
-                150 + i * 20,
-                dtype=torch.float,
-            )
+            image_content = TEST_IMAGES["SOLID_COLOR_FILLED"]
+        elif i == 3:
+            image_content = TEST_IMAGES["REAL_IMAGE"]
+        elif i == 4:
+            image_content = TEST_IMAGES["REAL_IMAGE_LOW_INFERENCE"]
         responses.append(generate_synapse(hotkey, image_content))
 
-    # Patch the ImageRewardModel with our mock
-    with patch(
-        "neurons.validator.rewards.models.image_reward.ImageRewardModel",
-        MockImageRewardModel,
-    ):
-        # Run the full pipeline
-        results: ScoringResults = await get_scoring_results(
-            ModelType.CUSTOM, responses[0], responses
-        )
+    # Run the full pipeline
+    results: ScoringResults = await get_scoring_results(
+        ModelType.CUSTOM, responses[0], responses
+    )
 
     logger.info("Detailed scores for each reward type:")
     for score in results.scores:
@@ -250,10 +245,7 @@ class MockBackendClient:
     "neurons.validator.rewards.models.human.get_backend_client",
     return_value=mock_client,
 )
-@patch(
-    "neurons.validator.rewards.models.image_reward.ImageRewardModel",
-    MockImageRewardModel,
-)
+@patch("neurons.validator.rewards.models.image_reward.RM.load", mock_imagereward_load)
 async def test_full_pipeline_integration_multiple_runs(*mocks):
     num_runs = 5
     all_results = []
@@ -325,10 +317,7 @@ async def test_full_pipeline_integration_multiple_runs(*mocks):
     "neurons.validator.rewards.models.human.get_backend_client",
     return_value=mock_client,
 )
-@patch(
-    "neurons.validator.rewards.models.image_reward.ImageRewardModel",
-    MockImageRewardModel,
-)
+@patch("neurons.validator.rewards.models.image_reward.RM.load", mock_imagereward_load)
 async def test_full_pipeline_integration_with_moving_averages(*mocks):
     num_runs = 3
     all_results = []

@@ -1,6 +1,7 @@
 import os
 
 IS_TEST: bool = False
+IS_CI_ENV: bool = os.environ.get("CI") == "true"
 
 
 IA_BUCKET_NAME = "image-alchemy"

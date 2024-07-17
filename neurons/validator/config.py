@@ -11,6 +11,7 @@ import bittensor as bt
 from loguru import logger
 import logging_loki
 
+from neurons import constants
 from neurons.constants import (
     IS_TEST,
     EVENTS_RETENTION_SIZE,
@@ -27,6 +28,10 @@ def get_default_device() -> torch.device:
 
 def configure_loki_logger():
     """Configure sending logs to loki server"""
+
+    if constants.IS_TEST:
+        # Don't use loki for test runs
+        return
 
     class JSONFormatter(logging.Formatter):
         def format(self, record):
