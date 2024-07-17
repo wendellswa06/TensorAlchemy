@@ -181,8 +181,10 @@ def add_args(parser):
 
 
 config: bt.config = None
+wallet: bt.wallet = None
 device: torch.device = None
 metagraph: bt.metagraph = None
+subtensor: bt.subtensor = None
 backend_client: "TensorAlchemyBackendClient" = None
 validator_run_id: ContextVar[str] = ContextVar(
     "validator_run_id", default=uuid.uuid4().hex[:8]
@@ -248,6 +250,22 @@ def get_config():
     check_config(config)
 
     return config
+
+
+def get_wallet(config: Optional[bt.config] = get_config()) -> bt.wallet:
+    global wallet
+    if not wallet:
+        wallet = bt.wallet(config=config)
+
+    return wallet
+
+
+def get_subtensor(config: Optional[bt.config] = get_config()) -> bt.subtensor:
+    global subtensor
+    if not subtensor:
+        subtensor = bt.subtensor(config=config)
+
+    return subtensor
 
 
 def get_metagraph(netuid: int = 25, network: str = "test", **kwargs) -> bt.metagraph:

@@ -42,7 +42,9 @@ from neurons.validator.schemas import Batch
 from neurons.validator.config import (
     get_device,
     get_config,
+    get_wallet,
     get_metagraph,
+    get_subtensor,
     get_backend_client,
     update_validator_settings,
     validator_run_id,
@@ -170,7 +172,7 @@ class StableValidator:
         self.prompt_generation_failures = 0
 
         # Init subtensor
-        self.subtensor = bt.subtensor(config=self.config)
+        self.subtensor = get_subtensor(config=self.config)
         logger.info(f"Loaded subtensor: {self.subtensor}")
 
         try:
@@ -190,7 +192,7 @@ class StableValidator:
         logger.info(f"Using server {self.api_url}")
 
         # Init wallet.
-        self.wallet = bt.wallet(config=self.config)
+        self.wallet = get_wallet(config=self.config)
         self.wallet.create_if_non_existent()
 
         # Dendrite pool for querying the network during training.
@@ -552,7 +554,7 @@ class StableValidator:
             self.resync_metagraph()
 
         if self.should_set_weights():
-            await set_weights(self)
+            await set_weights(self.hotkeys, self.moving_average_scores)
             self.prev_block = ttl_get_block(self)
 
     def get_validator_index(self):

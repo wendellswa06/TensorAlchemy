@@ -1,25 +1,34 @@
 import bittensor as bt
 import concurrent.futures
+from typing import List
 
 import torch
 from loguru import logger
 
+from neurons.validator.config import (
+    get_config,
+    get_device,
+    get_wallet,
+    get_metagraph,
+    get_subtensor,
+    get_backend_client,
+)
 from neurons.validator.backend.exceptions import PostWeightsError
 from neurons.validator.utils.version import get_validator_spec_version
 
 
-async def set_weights(val: "StableValidator"):
+async def set_weights(hotkeys: List[str], moving_average_scores: torch.tensor):
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
-        val.moving_average_scores,
+        moving_average_scores,
         p=1,
         dim=0,
     )
 
     try:
-        await val.backend_client.post_weights(
-            val.hotkeys,
+        await get_backend_client().post_weights(
+            hotkeys,
             raw_weights,
         )
 
@@ -27,15 +36,18 @@ async def set_weights(val: "StableValidator"):
         logger.error(f"error logging weights to the weights api: {e}")
 
     try:
+        config: bt.config = get_config()
+        metagraph: bt.metagraph = get_metagraph()
+
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
-            uids=val.metagraph.uids.to("cpu"),
+            uids=metagraph.uids.to("cpu"),
             weights=raw_weights.to("cpu"),
-            netuid=val.config.netuid,
-            subtensor=val.subtensor,
-            metagraph=val.metagraph,
+            netuid=config.netuid,
+            metagraph=metagraph,
+            subtensor=get_subtensor(),
         )
     except Exception as e:
         logger.error(f"Could not process weights for netuid {e}")
@@ -47,9 +59,9 @@ async def set_weights(val: "StableValidator"):
     # Define a function to set weights that will be executed by the executor
     def set_weights_task():
         try:
-            val.subtensor.set_weights(
-                wallet=val.wallet,
-                netuid=val.config.netuid,
+            get_subtensor().set_weights(
+                wallet=get_wallet(),
+                netuid=get_config().netuid,
                 uids=processed_weight_uids,
                 weights=processed_weights,
                 wait_for_finalization=True,
@@ -61,4 +73,4 @@ async def set_weights(val: "StableValidator"):
 
     # Use an executor to run the weight-setting task
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        _future = executor.submit(set_weights_task)
+        executor.submit(set_weights_task)
