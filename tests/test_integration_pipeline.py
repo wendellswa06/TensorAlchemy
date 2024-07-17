@@ -53,7 +53,9 @@ mock_client = mock_backend_client()
 class MockScoringModel:
     """Mock RM.load from ImageReward"""
 
-    def inference_rank(self, prompt: str, images: List[ImageType]) -> Tuple[Any, float]:
+    def inference_rank(
+        self, prompt: str, images: List[ImageType]
+    ) -> Tuple[Any, float]:
         logger.error(f"prompt: {prompt}, images: {images}")
         image = images[0]
         score = 0.0
@@ -67,12 +69,13 @@ class MockScoringModel:
         image_tensor = image_to_tensor(image)
 
         for key in image_scores.keys():
-            logger.info(f"key={key}")
-            if image_tensor.equal(TEST_IMAGES[key]):
+            # Find matching image
+            if image_tensor.shape == TEST_IMAGES[key].shape and torch.allclose(
+                image_tensor, TEST_IMAGES[key], atol=1e-2
+            ):
                 return (1, image_scores[key])
 
-        return (1, 0.0)
-        # raise ValueError(f"Score not set for image {image_tensor}")
+        raise ValueError(f"Score not set for image {image_tensor}")
 
 
 def mock_imagereward_load(*args, **kwargs):
@@ -245,7 +248,10 @@ class MockBackendClient:
     "neurons.validator.rewards.models.human.get_backend_client",
     return_value=mock_client,
 )
-@patch("neurons.validator.rewards.models.image_reward.RM.load", mock_imagereward_load)
+@patch(
+    "neurons.validator.rewards.models.image_reward.RM.load",
+    mock_imagereward_load,
+)
 async def test_full_pipeline_integration_multiple_runs(*mocks):
     num_runs = 5
     all_results = []
@@ -317,7 +323,10 @@ async def test_full_pipeline_integration_multiple_runs(*mocks):
     "neurons.validator.rewards.models.human.get_backend_client",
     return_value=mock_client,
 )
-@patch("neurons.validator.rewards.models.image_reward.RM.load", mock_imagereward_load)
+@patch(
+    "neurons.validator.rewards.models.image_reward.RM.load",
+    mock_imagereward_load,
+)
 async def test_full_pipeline_integration_with_moving_averages(*mocks):
     num_runs = 3
     all_results = []
