@@ -4,6 +4,8 @@ import os
 import argparse
 import uuid
 from contextvars import ContextVar
+from logging.handlers import QueueHandler, QueueListener
+from multiprocessing import Queue
 from typing import Dict, Optional
 
 import torch
@@ -32,6 +34,23 @@ def configure_loki_logger():
     if constants.IS_TEST:
         # Don't use loki for test runs
         return
+
+    class LogHandler(logging_loki.LokiHandler):
+
+        def handleError(self, record):
+            self.emitter.close()
+            # When Loki endpoint giving error for some reason,
+            # parent .handleError starts spamming error trace for each failure
+            # so we are disabling this default behaviour
+            # super().handleError(record)
+
+    class CustomLokiLoggingHandler(QueueHandler):
+
+        def __init__(self, queue: Queue, **kwargs):
+            super().__init__(queue)
+            self.handler = LogHandler(**kwargs)  # noqa: WPS110
+            self.listener = QueueListener(self.queue, self.handler)
+            self.listener.start()
 
     class JSONFormatter(logging.Formatter):
         def format(self, record):
@@ -71,7 +90,9 @@ def configure_loki_logger():
             }
             return json.dumps(log_record)
 
-    loki_handler = logging_loki.LokiHandler(
+    # Use LokiQueueHandler to upload logs in background
+    loki_handler = CustomLokiLoggingHandler(
+        Queue(-1),
         url="https://loki.tensoralchemy.ai/loki/api/v1/push",
         tags={"application": "tensoralchemy-validator"},
         auth=("tensoralchemy-loki", "tPaaDGH0lG"),
@@ -273,7 +294,9 @@ def get_subtensor(config: Optional[bt.config] = get_config()) -> bt.subtensor:
     return subtensor
 
 
-def get_metagraph(netuid: int = 25, network: str = "test", **kwargs) -> bt.metagraph:
+def get_metagraph(
+    netuid: int = 25, network: str = "test", **kwargs
+) -> bt.metagraph:
     global metagraph
     if not metagraph:
         metagraph = bt.metagraph(
