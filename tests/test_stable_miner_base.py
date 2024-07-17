@@ -2,7 +2,6 @@ import time
 
 import pytest
 from unittest.mock import MagicMock, patch
-from bittensor import subtensor, wallet, metagraph
 
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.protocol import IsAlive, ImageGeneration
@@ -19,8 +18,10 @@ class TestStableMinerAsBase:
     @patch("bittensor.metagraph")
     @patch("bittensor.axon")
     @patch("neurons.miners.StableMiner.wandb_utils.WandbUtils")
+    @patch("neurons.miners.StableMiner.wandb_utils.WandbTimer")
     def stable_miner(
         self,
+        mock_wandb_timer,
         mock_wandb,
         mock_axon,
         mock_metagraph,
@@ -41,6 +42,9 @@ class TestStableMinerAsBase:
         mock_config = MagicMock()
         mock_config.axon.port = 1234
         mock_config.axon.get.return_value = None
+        mock_config.wandb.project = "test_project"
+        mock_config.wandb.entity = "test_entity"
+        mock_config.wandb.api_key = "test_api_key"
         mock_get_bt_miner_config.return_value = mock_config
         mock_subtensor.return_value = MagicMock()
         mock_wallet.return_value = MagicMock()
@@ -148,8 +152,8 @@ class TestStableMinerAsBase:
         synapse = MagicMock(spec=IsAlive)
         synapse.axon = MagicMock()
         synapse.axon.hotkey = "test_hotkey"
-        stable_miner.hotkey_whitelist = {"test_hotkey"}
-        stable_miner.coldkey_whitelist = {"test_coldkey"}
+        stable_miner.HOTKEY_WHITELIST_VALUES = ["test_hotkey"]
+        stable_miner.COLDKEY_WHITELIST_VALUES = ["test_coldkey"]
 
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
         stable_miner.metagraph.hotkeys.index.return_value = 0
@@ -166,10 +170,10 @@ class TestStableMinerAsBase:
         synapse = MagicMock(spec=IsAlive)
         synapse.dendrite = MagicMock()
         synapse.dendrite.hotkey = "test_hotkey"
-        stable_miner.coldkey_whitelist = {"test_coldkey"}
-        stable_miner.hotkey_whitelist = {"test_hotkey"}
+        stable_miner.COLDKEY_WHITELIST_VALUES = ["test_coldkey"]
+        stable_miner.HOTKEY_WHITELIST_VALUES = ["test_hotkey"]
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
-        mock_get_caller_stake = MagicMock(return_value=1000)
+        mock_get_caller_stake.return_value = 1000
         stable_miner.request_dict = {
             "test_hotkey": {
                 "history": [time.perf_counter() - 2],

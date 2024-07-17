@@ -6,7 +6,6 @@ import traceback
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import bittensor
 import torch
 import torchvision.transforms as transforms
 from diffusers.callbacks import SDXLCFGCutoffCallback
@@ -31,6 +30,9 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
+    COLDKEY_WHITELIST_VALUES = ["5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"]
+    HOTKEY_WHITELIST_VALUES = ["5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"]
+
     def __init__(self) -> None:
         self.bt_config = get_bt_miner_config()
         self.wandb: Optional[WandbUtils] = None
@@ -39,67 +41,93 @@ class BaseMiner(ABC):
             bt.debug()
             logger.info("Enabling debug mode...")
 
-        # Build args
+        self.initialize_components()
+        self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
+
+    def initialize_components(self) -> None:
+        self.initialize_args()
+        self.initialize_event_dict()
+        self.initialize_subtensor_connection()
+        self.initialize_metagraph()
+        self.initialize_wallet()
+        self.loop_until_registered()
+        self.initialize_defaults()
+        self.initialize_transform_function()
+        self.initialize_wandb()
+        self.start_background_loop()
+
+    def is_whitelisted(
+        self, caller_hotkey: str = None, caller_coldkey: str = None
+    ) -> bool:
+        if caller_hotkey and self._is_in_whitelist(caller_hotkey):
+            return True
+
+        if caller_hotkey:
+            caller_coldkey = get_coldkey_for_hotkey(caller_hotkey)
+            if self._is_in_whitelist(caller_coldkey):
+                return True
+
+        if caller_coldkey and self._is_in_whitelist(caller_coldkey):
+            return True
+
+        return False
+
+    def _is_in_whitelist(self, key: str) -> bool:
+        return (
+            key in self.HOTKEY_WHITELIST_VALUES or key in self.COLDKEY_WHITELIST_VALUES
+        )
+
+    def initialize_args(self) -> None:
         self.t2i_args = self.get_t2i_args()
         self.i2i_args = self.get_i2i_args()
 
-        # Init blacklists and whitelists
-        self.hotkey_blacklist: set = set()
-        self.coldkey_blacklist: set = set()
-        self.coldkey_whitelist: set = set(
-            ["5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"]
-        )
-        self.hotkey_whitelist: set = set(
-            ["5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"]
-        )
-
-        self.storage_client: Any = None
-
-        # Initialise event dict
+    def initialize_event_dict(self) -> None:
         self.event: Dict[str, Any] = {}
         self.mapping: Dict[str, Dict] = {}
 
-        # Establish subtensor connection
+    def initialize_subtensor_connection(self) -> None:
         logger.info("Establishing subtensor connection")
         self.subtensor: bt.subtensor = bt.subtensor(config=self.bt_config)
 
-        # Create the metagraph
+    def initialize_metagraph(self) -> None:
         self.metagraph: bt.metagraph = self.subtensor.metagraph(
             netuid=self.bt_config.netuid
         )
 
-        # Configure the wallet
+    def initialize_wallet(self) -> None:
         self.wallet: bt.wallet = bt.wallet(config=self.bt_config)
 
-        # Wait until the miner is registered
-        self.loop_until_registered()
-
-        # Defaults
+    def initialize_defaults(self) -> None:
         self.stats: Stats = get_defaults(self)
 
-        # Set up transform function
+    def initialize_transform_function(self) -> None:
         self.transform: transforms.Compose = transforms.Compose(
             [transforms.PILToTensor()]
         )
 
-        # Start the wandb logging thread if both project
-        # and entity have been provided
-        if all(
+    def initialize_wandb(self) -> None:
+        if self._is_wandb_configured():
+            self.wandb = self._create_wandb_instance()
+
+    def _is_wandb_configured(self) -> bool:
+        return all(
             [
                 self.bt_config.wandb.project,
                 self.bt_config.wandb.entity,
                 self.bt_config.wandb.api_key,
             ]
-        ):
-            self.wandb = WandbUtils(
-                self,
-                self.metagraph,
-                self.bt_config,
-                self.wallet,
-                self.event,
-            )
+        )
 
-        # Start the generic background loop
+    def _create_wandb_instance(self) -> WandbUtils:
+        return WandbUtils(
+            self,
+            self.metagraph,
+            self.bt_config,
+            self.wallet,
+            self.event,
+        )
+
+    def start_background_loop(self) -> None:
         self.background_steps: int = 1
         self.background_timer: BackgroundTimer = BackgroundTimer(
             300,
@@ -109,15 +137,13 @@ class BaseMiner(ABC):
         self.background_timer.daemon = True
         self.background_timer.start()
 
-        # Init history dict
-        self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
-
     def start_axon(self) -> None:
         # Serve the axon
-        colored_log(
-            f"Serving axon on port {self.bt_config.axon.port}.",
-            color="green",
-        )
+        colored_log(f"Serving axon on port {self.bt_config.axon.port}.", color="green")
+        self.create_axon()
+        self.register_axon()
+
+    def create_axon(self) -> None:
         try:
             self.axon: bt.axon = (
                 bt.axon(
@@ -140,10 +166,15 @@ class BaseMiner(ABC):
                 .start()
             )
             colored_log(f"Axon created: {self.axon}", color="green")
+        except Exception as e:
+            logger.error(f"Failed to create axon: {e}")
+            raise
 
+    def register_axon(self) -> None:
+        try:
             self.subtensor.serve_axon(axon=self.axon, netuid=self.bt_config.netuid)
         except Exception as e:
-            logger.error(f"Failed to start axon: {e}")
+            logger.error(f"Failed to register axon: {e}")
             raise
 
     def get_t2i_args(self) -> Dict:
@@ -161,23 +192,30 @@ class BaseMiner(ABC):
     def loop_until_registered(self) -> None:
         while True:
             try:
-                self.miner_index: Optional[int] = self.get_miner_index()
-                if self.miner_index is not None:
-                    logger.info(
-                        f"Miner {self.bt_config.wallet.hotkey} is registered with uid "
-                        f"{self.metagraph.uids[self.miner_index]}"
-                    )
+                if self.is_miner_registered():
                     break
-
-                logger.warning(
-                    f"Miner {self.bt_config.wallet.hotkey} is not registered. "
-                    "Sleeping for 120 seconds..."
-                )
-                time.sleep(120)
-                self.metagraph.sync(subtensor=self.subtensor)
+                self.handle_unregistered_miner()
             except Exception as e:
                 logger.error(f"Error in loop_until_registered: {e}")
                 time.sleep(120)
+
+    def is_miner_registered(self) -> bool:
+        self.miner_index = self.get_miner_index()
+        if self.miner_index is not None:
+            logger.info(
+                f"Miner {self.bt_config.wallet.hotkey} is registered with uid "
+                f"{self.metagraph.uids[self.miner_index]}"
+            )
+            return True
+        return False
+
+    def handle_unregistered_miner(self) -> None:
+        logger.warning(
+            f"Miner {self.bt_config.wallet.hotkey} is not registered. "
+            "Sleeping for 120 seconds..."
+        )
+        time.sleep(120)
+        self.metagraph.sync(subtensor=self.subtensor)
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> List[bool]:
         clip_input = self.processor(
@@ -252,10 +290,7 @@ class BaseMiner(ABC):
         self.stats.total_requests += 1
         start_time: float = time.perf_counter()
 
-        # Set up args
-        model_type: str = ModelType.CUSTOM
-        if synapse.model_type is not None:
-            model_type = synapse.model_type
+        model_type: str = synapse.model_type or ModelType.CUSTOM
 
         try:
             model_config: ModelConfig = self.get_model_config(
@@ -266,28 +301,58 @@ class BaseMiner(ABC):
             logger.error(f"Error getting model config: {e}")
             return synapse
 
-        model_args: Dict[str, Any] = self.setup_model_args(synapse, model_config)
+        model_args = self._setup_model_args(synapse, model_config)
+        images = await self._attempt_generate_images(model_args, synapse, model_config)
 
-        if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
-            try:
+        if len(images) == 0:
+            logger.info(f"Failed to generate any images after {3} attempts.")
+
+        # Count timeouts
+        if time.perf_counter() - start_time > timeout:
+            self.stats.timeouts += 1
+
+        images = self._filter_nsfw_images(images)
+        self._log_to_wandb(images, synapse.prompt)
+        self._log_generation_time(start_time)
+
+        # Save images as base64 before sending through synapse
+        synapse.images = [image_to_base64(image) for image in images]
+
+        return synapse
+
+    def _setup_model_args(
+        self, synapse: ImageGeneration, model_config: ModelConfig
+    ) -> Dict[str, Any]:
+        model_args: Dict[str, Any] = copy.deepcopy(model_config.args)
+        try:
+            model_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+            model_args["width"] = synapse.width
+            model_args["height"] = synapse.height
+            model_args["num_images_per_prompt"] = synapse.num_images_per_prompt
+            model_args["guidance_scale"] = synapse.guidance_scale
+            if synapse.negative_prompt:
+                model_args["negative_prompt"] = [synapse.negative_prompt]
+
+            model_args["num_inference_steps"] = getattr(
+                synapse, "steps", model_args.get("num_inference_steps", 50)
+            )
+
+            if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
                 model_args["image"] = transforms.transforms.ToPILImage()(
                     bt.Tensor.deserialize(synapse.prompt_image)
                 )
-            except Exception as e:
-                logger.error(f"Error processing image for image-to-image: {e}")
-                return synapse
+        except AttributeError as e:
+            logger.error(f"Error setting up model args: {e}")
 
-        if synapse.generation_type == "image_to_image":
-            model_args["image"] = transforms.transforms.ToPILImage()(
-                bt.Tensor.deserialize(synapse.prompt_image)
-            )
+        return model_args
 
-        # Output logs
-        do_logs(self, synapse, model_args)
-
+    async def _attempt_generate_images(
+        self,
+        model_args: Dict[str, Any],
+        synapse: ImageGeneration,
+        model_config: ModelConfig,
+    ) -> List:
         images = []
-
-        # Generate images
         for attempt in range(3):
             try:
                 seed: int = synapse.seed
@@ -308,63 +373,43 @@ class BaseMiner(ABC):
                     bt.Tensor.serialize(self.transform(image)) for image in images
                 ]
                 colored_log(
-                    f"{sh('Generating')} -> Successful image generation after"
-                    f" {attempt+1} attempt(s).",
+                    f"{sh('Generating')} -> Successful image generation after {attempt + 1} attempt(s).",
                     color="cyan",
                 )
                 break
             except Exception as e:
                 logger.error(
-                    f"Error in attempt number {attempt+1} to generate an image:"
-                    f" {e}... sleeping for 5 seconds..."
+                    f"Error in attempt number {attempt + 1} to generate an image: {e}... sleeping for 5 seconds..."
                 )
                 await asyncio.sleep(5)
+        return images
 
-        if len(images) == 0:
-            logger.info(
-                f"Failed to generate any images after" f" {attempt+1} attempts."
-            )
-
-        # Count timeouts
-        if time.perf_counter() - start_time > timeout:
-            self.stats.timeouts += 1
-
-        # Log NSFW images
+    def _filter_nsfw_images(self, images: List[torch.Tensor]) -> List[torch.Tensor]:
         try:
             if any(self.nsfw_image_filter(images)):
                 logger.info("An image was flagged as NSFW: discarding image.")
                 self.stats.nsfw_count += 1
-                images = [empty_image_tensor() for _ in images]
+                return [empty_image_tensor() for _ in images]
         except Exception as e:
             logger.error(f"Error in NSFW filtering: {e}")
+        return images
 
-        # Log to wandb
+    def _log_to_wandb(self, images: List[torch.Tensor], prompt: str) -> None:
         try:
             if self.wandb:
-                # Store the images and prompts for uploading to wandb
-                self.wandb.add_images(images, synapse.prompt)
-
-                # Log to Wandb
+                self.wandb.add_images(images, prompt)
                 self.wandb.log()
-
         except Exception as e:
             logger.error(f"Error trying to log events to wandb: {e}")
 
-        # Log time to generate image
+    def _log_generation_time(self, start_time: float) -> None:
         generation_time: float = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
-
         average_time: float = self.stats.generation_time / self.stats.total_requests
         colored_log(
-            f"{sh('Time')} -> {generation_time:.2f}s "
-            f"| Average: {average_time:.2f}s",
+            f"{sh('Time')} -> {generation_time:.2f}s | Average: {average_time:.2f}s",
             color="yellow",
         )
-
-        # Save images as base64 before sending through synapse
-        synapse.images = [image_to_base64(image) for image in images]
-
-        return synapse
 
     def generate_with_refiner(
         self, model_args: Dict[str, Any], model_config: ModelConfig
@@ -423,15 +468,9 @@ class BaseMiner(ABC):
         caller_hotkey: str = synapse.axon.hotkey
 
         try:
-            # Retrieve the coldkey of the caller
-            caller_coldkey: str = get_coldkey_for_hotkey(caller_hotkey)
-
             priority: float = 0.0
 
-            if (
-                caller_coldkey in self.coldkey_whitelist
-                or caller_hotkey in self.hotkey_whitelist
-            ):
+            if self.is_whitelisted(caller_hotkey=caller_hotkey):
                 priority = 25000.0
                 logger.info(
                     "Setting the priority of whitelisted key"
@@ -513,7 +552,7 @@ class BaseMiner(ABC):
             # Allow through any whitelisted keys unconditionally
             # Note that blocking these keys
             # will result in a ban from the network
-            if caller_coldkey in self.coldkey_whitelist:
+            if self.is_whitelisted(caller_coldkey=caller_coldkey):
                 colored_log(
                     f"Whitelisting coldkey's {synapse_type}"
                     + f" request from {caller_hotkey}.",
@@ -521,7 +560,7 @@ class BaseMiner(ABC):
                 )
                 return False, "Whitelisted coldkey recognized."
 
-            if caller_hotkey in self.hotkey_whitelist:
+            if self.is_whitelisted(caller_hotkey=caller_hotkey):
                 colored_log(
                     f"Whitelisting hotkey's {synapse_type}"
                     + f" request from {caller_hotkey}.",
