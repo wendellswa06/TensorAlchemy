@@ -176,7 +176,3 @@ class TestStableMiner(unittest.TestCase):
 
         self.assertEqual(model, mock_load_model.return_value)
         mock_load_model.assert_called_once_with("dummy_model_name", task_config)
-
-
-if __name__ == "__main__":
-    unittest.main()

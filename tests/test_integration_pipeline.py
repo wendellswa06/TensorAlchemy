@@ -84,24 +84,24 @@ async def run_pipeline_test():
     for i, hotkey in enumerate(mock_meta.hotkeys):
         if i == 0:
             image_content = torch.full(
-                [3, 1024, 1024],
+                [3, 64, 64],
                 200,
                 dtype=torch.float,
             )
         elif i == 1:
             image_content = torch.zeros(
-                [3, 1024, 1024],
+                [3, 64, 64],
                 dtype=torch.float,
             )
         elif i == 2:
             image_content = torch.full(
-                [3, 1024, 1024],
+                [3, 64, 64],
                 200,
                 dtype=torch.float,
             )
         else:
             image_content = torch.full(
-                [3, 1024, 1024],
+                [3, 64, 64],
                 150 + i * 20,
                 dtype=torch.float,
             )
@@ -121,7 +121,9 @@ async def run_pipeline_test():
     for score in results.scores:
         logger.info("{}: {}".format(score.type, score.scores))
 
-    logger.info("Combined scores before filtering: {}".format(results.combined_scores))
+    logger.info(
+        "Combined scores before filtering: {}".format(results.combined_scores)
+    )
 
     # Check if we have all expected score types
     expected_score_types = {
@@ -284,7 +286,9 @@ async def test_full_pipeline_integration_multiple_runs(*mocks):
                 + f" Expected {score_type_0}, got {score_type_run}"
             )
 
-            assert torch.allclose(score_0.scores, score_run.scores, atol=1e-6), (
+            assert torch.allclose(
+                score_0.scores, score_run.scores, atol=1e-6
+            ), (
                 f"Inconsistent scores for {score_type_0} in run {run + 1}. "
                 f"Run 0 scores: {score_0.scores}, Run {run + 1} scores: {score_run.scores}"
             )
@@ -334,7 +338,8 @@ async def test_full_pipeline_integration_with_moving_averages(*mocks):
 
     mock_backend_client = MockBackendClient()
     with patch(
-        "neurons.validator.forward.get_backend_client", return_value=mock_backend_client
+        "neurons.validator.forward.get_backend_client",
+        return_value=mock_backend_client,
     ):
         for run in range(num_runs):
             logger.info("Starting run {} of {}".format(run + 1, num_runs))
@@ -360,7 +365,9 @@ async def test_full_pipeline_integration_with_moving_averages(*mocks):
     for i in range(1, num_runs):
         assert torch.allclose(
             all_filtered_rewards[0], all_filtered_rewards[i], atol=1e-6
-        ), "Inconsistent filtered rewards between run 1 and run {}".format(i + 1)
+        ), "Inconsistent filtered rewards between run 1 and run {}".format(
+            i + 1
+        )
 
     # Additional consistency checks
     for run in range(num_runs):
@@ -385,7 +392,9 @@ async def test_full_pipeline_integration_with_moving_averages(*mocks):
             ), f"Score type {score_type_0} returned None scores in run {run + 1}"
 
             try:
-                assert torch.allclose(score_0.scores, score_run.scores, atol=1e-6), (
+                assert torch.allclose(
+                    score_0.scores, score_run.scores, atol=1e-6
+                ), (
                     f"Inconsistent scores for {score_type_0} in run {run + 1}. "
                     f"Run 0 scores: {score_0.scores}, Run {run + 1} scores: {score_run.scores}"
                 )
@@ -411,7 +420,3 @@ async def test_full_pipeline_integration_with_moving_averages(*mocks):
     logger.info("All runs completed successfully with consistent results!")
     logger.info(f"Initial moving average scores: {ma_history[0]}")
     logger.info(f"Final moving average scores: {ma_history[-1]}")
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])

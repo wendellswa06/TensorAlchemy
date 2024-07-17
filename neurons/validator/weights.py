@@ -1,13 +1,13 @@
+import asyncio
 import bittensor as bt
-import concurrent.futures
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
 
 import torch
 from loguru import logger
 
 from neurons.validator.config import (
     get_config,
-    get_device,
     get_wallet,
     get_metagraph,
     get_subtensor,
@@ -51,6 +51,7 @@ async def set_weights(hotkeys: List[str], moving_average_scores: torch.tensor):
         )
     except Exception as e:
         logger.error(f"Could not process weights for netuid {e}")
+        return
 
     logger.info("processed_weights", processed_weights)
     logger.info("processed_weight_uids", processed_weight_uids)
@@ -72,5 +73,7 @@ async def set_weights(hotkeys: List[str], moving_average_scores: torch.tensor):
             logger.error(f"Failed to set weights {e}")
 
     # Use an executor to run the weight-setting task
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.submit(set_weights_task)
+    with ThreadPoolExecutor(thread_name_prefix="weight_setter") as executor:
+        await asyncio.get_event_loop().run_in_executor(
+            executor, set_weights_task
+        )
