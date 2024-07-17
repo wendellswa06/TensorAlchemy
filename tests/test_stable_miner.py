@@ -83,6 +83,10 @@ class TestStableMiner(unittest.TestCase):
                 "neurons.miners.StableMiner.base.BaseMiner.loop",
                 return_value=None,
             ),
+            "mock_get_bt_miner_config": patch(
+                "neurons.miners.StableMiner.base.get_bt_miner_config",
+                return_value=MockConfig(),
+            ),
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
         self.addCleanup(lambda: [patcher.stop() for patcher in self.patches.values()])
@@ -125,8 +129,7 @@ class TestStableMiner(unittest.TestCase):
         ]
 
         logger.info("Creating StableMiner instance")
-        mock_config = MockConfig()  # Create an instance of MockConfig
-        miner = StableMiner(mock_config, task_configs)
+        miner = StableMiner(task_configs)
 
         self.assertEqual(mock_load_model.call_count, 2)
         self.assertEqual(mock_load_safety_checker.call_count, 2)

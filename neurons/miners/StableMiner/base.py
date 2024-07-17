@@ -12,8 +12,8 @@ import torchvision.transforms as transforms
 from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
 from neurons.constants import VPERMIT_TAO
-from neurons.miners.config import get_config
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
+from neurons.miners.config import get_bt_miner_config
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
 from neurons.utils import BackgroundTimer, background_loop
 from neurons.utils.defaults import Stats, get_defaults
@@ -31,8 +31,8 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    def __init__(self, bt_config: bittensor.config) -> None:
-        self.bt_config = bt_config
+    def __init__(self) -> None:
+        self.bt_config = get_bt_miner_config()
         self.wandb: Optional[WandbUtils] = None
 
         if self.bt_config.logging.debug:

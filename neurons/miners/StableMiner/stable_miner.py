@@ -19,18 +19,15 @@ from neurons.miners.StableMiner.utils import warm_up
 
 
 class StableMiner(BaseMiner):
-    def __init__(
-        self, bt_config: bittensor.config, task_configs: List[TaskConfig]
-    ) -> None:
+    def __init__(self, task_configs: List[TaskConfig]) -> None:
         logger.info("Starting StableMiner initialization")
+        super().__init__()
 
         self.task_configs = task_configs
         self.miner_config = MinerConfig()
         # TODO: Fix safety checker and processor to allow different values for each task config
         self.safety_checker: Optional[torch.nn.Module] = None
         self.processor: Optional[torch.nn.Module] = None
-
-        super().__init__(bt_config)
 
         logger.info("Initializing StableMiner...")
         self.initialize_all_models()

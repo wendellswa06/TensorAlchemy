@@ -7,7 +7,6 @@ from diffusers import (
     DiffusionPipeline,
 )
 from transformers import CLIPImageProcessor
-from neurons.miners.config import get_config
 from neurons.protocol import ModelType
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
@@ -45,8 +44,6 @@ def run_miner():
             refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
         ),
     ]
-    bt_config = get_config()
     logger.info("Outputting miner config:")
-    logger.info(f"BT Config: {bt_config}")
     logger.info(f"Task Config: {task_configs}")
-    StableMiner(bt_config, task_configs)
+    StableMiner(task_configs)

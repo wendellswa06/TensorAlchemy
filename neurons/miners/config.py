@@ -6,15 +6,16 @@ from typing import Optional
 import bittensor
 import torch
 import bittensor as bt
-from loguru import logger
 
-config: bt.config = None
+bt_miner_config: bt.config = None
 device: torch.device = None
 metagraph: bt.metagraph = None
 
 
-def get_config() -> bittensor.config:
-    # The code as is doesn't require a global config given current flow doesnt hit here twice
+def get_bt_miner_config() -> bittensor.config:
+    global bt_miner_config
+    if bt_miner_config:
+        return bt_miner_config
 
     argp = argparse.ArgumentParser(description="Miner Config")
 
@@ -79,22 +80,22 @@ def get_config() -> bittensor.config:
     bt.logging.add_args(argp)
     bt.subtensor.add_args(argp)
 
-    config = bt.config(argp)
-    config.full_path = os.path.expanduser(
+    bt_miner_config = bt.config(argp)
+    bt_miner_config.full_path = os.path.expanduser(
         "{}/{}/{}/netuid{}/{}".format(
-            config.logging.logging_dir,
-            config.wallet.name,
-            config.wallet.hotkey,
-            config.netuid,
+            bt_miner_config.logging.logging_dir,
+            bt_miner_config.wallet.name,
+            bt_miner_config.wallet.hotkey,
+            bt_miner_config.netuid,
             "miner",
         )
     )
 
     # Ensure the directory for logging exists
-    if not os.path.exists(config.full_path):
-        os.makedirs(config.full_path, exist_ok=True)
+    if not os.path.exists(bt_miner_config.full_path):
+        os.makedirs(bt_miner_config.full_path, exist_ok=True)
 
-    return config
+    return bt_miner_config
 
 
 def get_metagraph(
