@@ -23,7 +23,10 @@ from neurons.utils.image import (
 )
 from neurons.utils.log import colored_log, sh
 from neurons.utils.nsfw import clean_nsfw_from_prompt
-from neurons.miners.StableMiner.utils import get_caller_stake, get_coldkey_for_hotkey
+from neurons.miners.StableMiner.utils import (
+    get_caller_stake,
+    get_coldkey_for_hotkey,
+)
 from neurons.miners.StableMiner.utils.log import do_logs
 from neurons.miners.StableMiner.wandb_utils import WandbUtils
 
@@ -141,7 +144,9 @@ class BaseMiner(ABC):
             )
             colored_log(f"Axon created: {self.axon}", color="green")
 
-            self.subtensor.serve_axon(axon=self.axon, netuid=self.bt_config.netuid)
+            self.subtensor.serve_axon(
+                axon=self.axon, netuid=self.bt_config.netuid
+            )
         except Exception as e:
             logger.error(f"Failed to start axon: {e}")
             raise
@@ -266,7 +271,9 @@ class BaseMiner(ABC):
             logger.error(f"Error getting model config: {e}")
             return synapse
 
-        model_args: Dict[str, Any] = self.setup_model_args(synapse, model_config)
+        model_args: Dict[str, Any] = self.setup_model_args(
+            synapse, model_config
+        )
 
         if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
             try:
@@ -292,9 +299,9 @@ class BaseMiner(ABC):
             try:
                 seed: int = synapse.seed
                 model_args["generator"] = [
-                    torch.Generator(device=self.bt_config.miner.device).manual_seed(
-                        seed
-                    )
+                    torch.Generator(
+                        device=self.bt_config.miner.device
+                    ).manual_seed(seed)
                 ]
 
                 # Set CFG Cutoff
@@ -305,7 +312,8 @@ class BaseMiner(ABC):
                 images = self.generate_with_refiner(model_args, model_config)
 
                 synapse.images = [
-                    bt.Tensor.serialize(self.transform(image)) for image in images
+                    bt.Tensor.serialize(self.transform(image))
+                    for image in images
                 ]
                 colored_log(
                     f"{sh('Generating')} -> Successful image generation after"
@@ -354,7 +362,9 @@ class BaseMiner(ABC):
         generation_time: float = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
 
-        average_time: float = self.stats.generation_time / self.stats.total_requests
+        average_time: float = (
+            self.stats.generation_time / self.stats.total_requests
+        )
         colored_log(
             f"{sh('Time')} -> {generation_time:.2f}s "
             f"| Average: {average_time:.2f}s",
@@ -392,7 +402,9 @@ class BaseMiner(ABC):
             "prompt": model_args["prompt"],
             "num_inference_steps": int(model_args["num_inference_steps"] * 0.2),
         }
-        model_args["num_inference_steps"] = int(model_args["num_inference_steps"] * 0.8)
+        model_args["num_inference_steps"] = int(
+            model_args["num_inference_steps"] * 0.8
+        )
         return refiner_args
 
     def setup_model_args(
@@ -487,13 +499,17 @@ class BaseMiner(ABC):
 
                     # The difference in seconds between
                     # the current request and the previous one
-                    delta: float = now - self.request_dict[caller_hotkey]["history"][-1]
+                    delta: float = (
+                        now - self.request_dict[caller_hotkey]["history"][-1]
+                    )
 
                     # E.g., 0.3 < 1.0
                     if delta < rate_limit:
                         # Count number of rate limited
                         # calls from caller's hotkey
-                        self.request_dict[caller_hotkey]["rate_limited_count"] += 1
+                        self.request_dict[caller_hotkey][
+                            "rate_limited_count"
+                        ] += 1
                         exceeded_rate_limit = True
 
                     # Store the data
@@ -574,7 +590,9 @@ class BaseMiner(ABC):
     def blacklist_is_alive(self, synapse: IsAlive) -> Tuple[bool, str]:
         return self._base_blacklist(synapse)
 
-    def blacklist_image_generation(self, synapse: ImageGeneration) -> Tuple[bool, str]:
+    def blacklist_image_generation(
+        self, synapse: ImageGeneration
+    ) -> Tuple[bool, str]:
         return self._base_blacklist(synapse)
 
     def priority_is_alive(self, synapse: IsAlive) -> float:
@@ -592,7 +610,9 @@ class BaseMiner(ABC):
                 is_registered: bool = self.check_still_registered()
 
                 if not is_registered:
-                    colored_log("The miner is not currently registered.", color="red")
+                    colored_log(
+                        "The miner is not currently registered.", color="red"
+                    )
                     time.sleep(120)
 
                     # Ensure the metagraph is synced
@@ -623,7 +643,9 @@ class BaseMiner(ABC):
                     ]
 
                     # Retrieve total number of requests
-                    total_requests_counted: int = sum([x[1] for x in top_requestors])
+                    total_requests_counted: int = sum(
+                        [x[1] for x in top_requestors]
+                    )
 
                     try:
                         # Sort by count
