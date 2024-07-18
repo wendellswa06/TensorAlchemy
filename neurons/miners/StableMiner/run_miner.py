@@ -1,0 +1,52 @@
+from loguru import logger
+import torch
+from diffusers import (
+    AutoPipelineForText2Image,
+    AutoPipelineForImage2Image,
+    DPMSolverMultistepScheduler,
+    DiffusionPipeline,
+)
+from transformers import CLIPImageProcessor
+from neurons.miners.config import get_config
+from neurons.protocol import ModelType
+from neurons.miners.StableMiner.schema import TaskType, TaskConfig
+from neurons.miners.StableMiner.stable_miner import StableMiner
+from neurons.safety import StableDiffusionSafetyChecker
+
+
+def run_miner():
+    task_configs = [
+        TaskConfig(
+            model_type=ModelType.CUSTOM,
+            task_type=TaskType.TEXT_TO_IMAGE,
+            pipeline=AutoPipelineForText2Image,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16",
+            scheduler=DPMSolverMultistepScheduler,
+            safety_checker=StableDiffusionSafetyChecker,
+            safety_checker_model_name="CompVis/stable-diffusion-safety-checker",
+            processor=CLIPImageProcessor,
+            refiner_class=DiffusionPipeline,
+            refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
+        ),
+        TaskConfig(
+            model_type=ModelType.CUSTOM,
+            task_type=TaskType.IMAGE_TO_IMAGE,
+            pipeline=AutoPipelineForImage2Image,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16",
+            scheduler=DPMSolverMultistepScheduler,
+            safety_checker=StableDiffusionSafetyChecker,
+            safety_checker_model_name="CompVis/stable-diffusion-safety-checker",
+            processor=CLIPImageProcessor,
+            refiner_class=DiffusionPipeline,
+            refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
+        ),
+    ]
+    bt_config = get_config()
+    logger.info("Outputting miner config:")
+    logger.info(f"BT Config: {bt_config}")
+    logger.info(f"Task Config: {task_configs}")
+    StableMiner(bt_config, task_configs)
