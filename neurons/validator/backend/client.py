@@ -88,14 +88,18 @@ class TensorAlchemyBackendClient:
 
         return await _poll_task_with_retry()
 
-    async def get_task(self, timeout: int = 3) -> ImageGenerationTaskModel | None:
+    async def get_task(
+        self, timeout: int = 3
+    ) -> ImageGenerationTaskModel | None:
         """Fetch new task from backend.
 
         Returns task or None if there is no pending task
         """
         try:
             async with self._client() as client:
-                response = await client.get(f"{self.api_url}/tasks", timeout=timeout)
+                response = await client.get(
+                    f"{self.api_url}/tasks", timeout=timeout
+                )
         except httpx.ReadTimeout as ex:
             raise GetTaskError(f"/tasks read timeout ({timeout}s)") from ex
         except Exception as ex:
@@ -119,6 +123,11 @@ class TensorAlchemyBackendClient:
             if task.get("code") == "NO_TASKS_FOUND":
                 return None
 
+        if response.status_code == 401:
+            if task.get("code") == "VALIDATOR_NOT_FOUND_YET":
+                logger.info("Validator not yet in-sync with backend...")
+                return None
+
         raise GetTaskError(
             f"/tasks failed with status_code {response.status_code}:"
             f" {self._error_response_text(response)}"
@@ -128,7 +137,9 @@ class TensorAlchemyBackendClient:
         """Get human votes from backend"""
         try:
             async with self._client() as client:
-                response = await client.get(f"{self.api_url}/votes", timeout=timeout)
+                response = await client.get(
+                    f"{self.api_url}/votes", timeout=timeout
+                )
         except httpx.ReadTimeout:
             raise GetVotesError(f"/votes read timeout({timeout}s)")
 
@@ -193,7 +204,9 @@ class TensorAlchemyBackendClient:
                     json={
                         "weights": {
                             hotkey: moving_average.item()
-                            for hotkey, moving_average in zip(hotkeys, raw_weights)
+                            for hotkey, moving_average in zip(
+                                hotkeys, raw_weights
+                            )
                         }
                     },
                     timeout=timeout,
@@ -245,7 +258,9 @@ class TensorAlchemyBackendClient:
 
             signature = self._sign_message(message)
 
-            request.headers.update({"X-Signature": signature, "X-Timestamp": timestamp})
+            request.headers.update(
+                {"X-Signature": signature, "X-Timestamp": timestamp}
+            )
         except Exception as e:
             logger.error(
                 f"Exception raised while signing request: {e}; sending plain old request"
@@ -256,9 +271,13 @@ class TensorAlchemyBackendClient:
         try:
             from neurons.validator.utils.version import get_validator_version
 
-            request.headers.update({"X-Validator-Version": get_validator_version()})
+            request.headers.update(
+                {"X-Validator-Version": get_validator_version()}
+            )
         except Exception:
-            logger.error(f"Exception raised while including validator's version")
+            logger.error(
+                f"Exception raised while including validator's version"
+            )
 
     def _sign_message(self, message: str):
         """Sign message using validator's hotkey"""
