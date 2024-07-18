@@ -152,8 +152,8 @@ class TestStableMinerAsBase:
         synapse = MagicMock(spec=IsAlive)
         synapse.axon = MagicMock()
         synapse.axon.hotkey = "test_hotkey"
-        stable_miner.HOTKEY_WHITELIST_VALUES = ["test_hotkey"]
-        stable_miner.COLDKEY_WHITELIST_VALUES = ["test_coldkey"]
+        stable_miner.hotkey_whitelist = ["test_hotkey"]
+        stable_miner.coldkey_whitelist = ["test_coldkey"]
 
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
         stable_miner.metagraph.hotkeys.index.return_value = 0
@@ -170,8 +170,8 @@ class TestStableMinerAsBase:
         synapse = MagicMock(spec=IsAlive)
         synapse.dendrite = MagicMock()
         synapse.dendrite.hotkey = "test_hotkey"
-        stable_miner.COLDKEY_WHITELIST_VALUES = ["test_coldkey"]
-        stable_miner.HOTKEY_WHITELIST_VALUES = ["test_hotkey"]
+        stable_miner.coldkey_whitelist = ["test_coldkey"]
+        stable_miner.hotkey_whitelist = ["test_hotkey"]
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
         mock_get_caller_stake.return_value = 1000
         stable_miner.request_dict = {

@@ -33,10 +33,11 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    COLDKEY_WHITELIST_VALUES = [
+    # Remember below values can be overridden
+    coldkey_whitelist = [
         "5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"
     ]
-    HOTKEY_WHITELIST_VALUES = [
+    hotkey_whitelist = [
         "5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"
     ]
 
@@ -81,8 +82,8 @@ class BaseMiner(ABC):
 
     def _is_in_whitelist(self, key: str) -> bool:
         return (
-            key in self.HOTKEY_WHITELIST_VALUES
-            or key in self.COLDKEY_WHITELIST_VALUES
+            key in self.hotkey_whitelist
+            or key in self.coldkey_whitelist
         )
 
     def initialize_args(self) -> None:
