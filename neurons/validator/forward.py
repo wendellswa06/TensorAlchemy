@@ -271,6 +271,8 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
 
 def log_event(event: dict):
     event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
+    # Reduce img output
+    event.images = [image_to_log(img) for img in event.images]
     logger.info(f"[log_event]: {event}")
 
 
