@@ -33,7 +33,7 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    # Remember below values can be overridden
+    # Remember below values can be overwritten in background_loop
     coldkey_whitelist = [
         "5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"
     ]
