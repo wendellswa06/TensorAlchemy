@@ -120,7 +120,9 @@ class StableValidator:
         index = None
         while True:
             try:
-                index = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+                index = self.metagraph.hotkeys.index(
+                    self.wallet.hotkey.ss58_address
+                )
             except Exception:
                 pass
 
@@ -249,9 +251,9 @@ class StableValidator:
         )
 
         # Init weights
-        self.weights = torch.ones_like(self.metagraph.uids, dtype=torch.float32).to(
-            self.device
-        )
+        self.weights = torch.ones_like(
+            self.metagraph.uids, dtype=torch.float32
+        ).to(self.device)
 
         # Init prev_block and step
         self.prev_block = ttl_get_block(self)
@@ -363,7 +365,9 @@ class StableValidator:
                     # If miner doesn't respond for 3 iterations rest it's count to
                     # the average to avoid spamming
                     if self.miner_query_history_fail_count[key] >= 3:
-                        self.miner_query_history_duration[key] = time.perf_counter()
+                        self.miner_query_history_duration[
+                            key
+                        ] = time.perf_counter()
                         self.miner_query_history_count[key] = int(
                             np.array(
                                 list(self.miner_query_history_count.values())
@@ -373,7 +377,9 @@ class StableValidator:
                     pass
                 return False
         except Exception as e:
-            logger.error(f"Error checking UID {uid}: {e}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error checking UID {uid}: {e}\n{traceback.format_exc()}"
+            )
             return False
 
     async def reload_settings(self) -> None:
@@ -393,7 +399,9 @@ class StableValidator:
         self.step = 0
         while True:
             try:
-                logger.info(f"Started new validator run ({validator_run_id.get()}).")
+                logger.info(
+                    f"Started new validator run ({validator_run_id.get()})."
+                )
 
                 # Get a random number of uids
                 try:
@@ -468,7 +476,9 @@ class StableValidator:
 
             # If the user interrupts the program, gracefully exit.
             except KeyboardInterrupt:
-                logger.success("Keyboard interrupt detected. Exiting validator.")
+                logger.success(
+                    "Keyboard interrupt detected. Exiting validator."
+                )
 
                 self.axon.stop()
 
@@ -483,7 +493,7 @@ class StableValidator:
 
     async def get_image_generation_task(
         self,
-        timeout: int = 60,
+        timeout: int = 20,
     ) -> ImageGenerationTaskModel | None:
         """
         Fetch new image generation task from backend or generate new one
@@ -494,8 +504,7 @@ class StableValidator:
         # before going on and creating a synthetic task
         task: Optional[ImageGenerationTaskModel] = None
         try:
-            # task = await self.backend_client.poll_task(timeout=timeout)
-            task = None
+            task = await self.backend_client.poll_task(timeout=timeout)
         # Allow validator to just skip this step if they like
         except KeyboardInterrupt:
             pass
@@ -521,7 +530,9 @@ class StableValidator:
                 height=1024,
             )
 
-        is_bad_prompt = await self.openai_service.check_prompt_for_nsfw(task.prompt)
+        is_bad_prompt = await self.openai_service.check_prompt_for_nsfw(
+            task.prompt
+        )
 
         if is_bad_prompt:
             try:
@@ -663,7 +674,8 @@ class StableValidator:
                 "neuron_weights": self.moving_average_scores.to("cpu").tolist(),
             }
             torch.save(
-                neuron_state_dict, f"{self.config.alchemy.full_path}/model.torch"
+                neuron_state_dict,
+                f"{self.config.alchemy.full_path}/model.torch",
             )
             colored_log(
                 f"Saved model {self.config.alchemy.full_path}/model.torch",
@@ -679,7 +691,9 @@ class StableValidator:
         """Load hotkeys and moving average scores from filesystem."""
         logger.info("Loading previously saved validator state...")
         try:
-            state_dict = torch.load(f"{self.config.alchemy.full_path}/model.torch")
+            state_dict = torch.load(
+                f"{self.config.alchemy.full_path}/model.torch"
+            )
             neuron_weights = torch.tensor(state_dict["neuron_weights"])
 
             has_nans = torch.isnan(neuron_weights).any()
@@ -699,9 +713,9 @@ class StableValidator:
                     + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
-                self.moving_average_scores[: len(neuron_weights)] = neuron_weights.to(
-                    self.device
-                )
+                self.moving_average_scores[
+                    : len(neuron_weights)
+                ] = neuron_weights.to(self.device)
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict
@@ -750,4 +764,6 @@ class StableValidator:
                 logger.error(f"Failed to serve Axon with exception: {e}")
 
         except Exception as e:
-            logger.error(f"Failed to create Axon initialize with exception: {e}")
+            logger.error(
+                f"Failed to create Axon initialize with exception: {e}"
+            )
