@@ -3,8 +3,6 @@ import pathlib
 import sys
 import warnings
 
-from neurons.miners.StableMiner.run_miner import run_miner
-
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."
 # NOTE: It's not our bug, it's upstream
@@ -22,9 +20,9 @@ def setup_paths():
     if file_path not in sys.path:
         sys.path.append(file_path)
 
-
 def main():
     setup_paths()
+    from neurons.miners.StableMiner.run_miner import run_miner
     run_miner()
 
 
