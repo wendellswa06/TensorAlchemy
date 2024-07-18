@@ -78,7 +78,9 @@ async def update_moving_averages(
 
     # Number of miners has reduced (less miners online now)
     elif rewards.size(0) < previous_ma_scores.size(0):
-        logger.warning("Fewer miners than expected. Truncating moving averages.")
+        logger.warning(
+            "Fewer miners than expected. Truncating moving averages."
+        )
         previous_ma_scores = previous_ma_scores[: rewards.size(0)]
 
     # We merge the new rewards into the moving average using ALPHA
@@ -256,7 +258,9 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
                         "steps": response.steps,
                         "guidance_scale": response.guidance_scale,
                         "generation_type": response.generation_type,
-                        "images": [image_to_log(image) for image in response.images],
+                        "images": [
+                            image_to_log(image) for image in response.images
+                        ],
                     },
                     indent=2,
                 )
@@ -288,7 +292,9 @@ def log_event_to_wandb(wandb, event: dict, prompt: str):
     try:
         wandb.log(asdict(wandb_event))
     except Exception as e:
-        logger.error(f"Unable to log event to wandb due to the following error: {e}")
+        logger.error(
+            f"Unable to log event to wandb due to the following error: {e}"
+        )
 
 
 async def create_batch_for_upload(
@@ -453,17 +459,6 @@ async def run_step(
         synapse,
         responses,
     )
-
-    for uid in range(1, 255):
-        try:
-            score = validator.moving_average_scores[uid]
-            if score > 0:
-                logger.info(
-                    f"miner_uid={uid}, miner_score={score}",
-                    extra={"miner_uid": uid, "miner_score": score},
-                )
-        except IndexError:
-            continue
 
     # Apply isalive filtering
     rewards_tensor_adjusted = scoring_results.combined_scores
