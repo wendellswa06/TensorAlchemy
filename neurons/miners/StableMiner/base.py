@@ -33,13 +33,6 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    # Remember below values can be overwritten in background_loop
-    coldkey_whitelist = [
-        "5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"
-    ]
-    hotkey_whitelist = [
-        "5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"
-    ]
 
     def __init__(self) -> None:
         self.storage_client: Any = None
@@ -49,7 +42,14 @@ class BaseMiner(ABC):
         if self.bt_config.logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")
-
+        self.hotkey_blacklist: set = set()
+        self.coldkey_blacklist: set = set()
+        self.coldkey_whitelist: set = set(
+            ["5F1FFTkJYyceVGE4DCVN5SxfEQQGJNJQ9CVFVZ3KpihXLxYo"]
+        )
+        self.hotkey_whitelist: set = set(
+            ["5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"]
+        )
         self.initialize_components()
         self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
 
@@ -82,10 +82,7 @@ class BaseMiner(ABC):
         return False
 
     def _is_in_whitelist(self, key: str) -> bool:
-        return (
-            key in self.hotkey_whitelist
-            or key in self.coldkey_whitelist
-        )
+        return key in self.hotkey_whitelist or key in self.coldkey_whitelist
 
     def initialize_args(self) -> None:
         self.t2i_args = self.get_t2i_args()
