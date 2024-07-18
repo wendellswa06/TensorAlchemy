@@ -42,6 +42,7 @@ class BaseMiner(ABC):
     ]
 
     def __init__(self) -> None:
+        self.storage_client: Any = None
         self.bt_config = get_bt_miner_config()
         self.wandb: Optional[WandbUtils] = None
 
