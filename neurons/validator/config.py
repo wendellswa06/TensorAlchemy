@@ -28,6 +28,10 @@ def get_default_device() -> torch.device:
     return torch.device("cuda:0")
 
 
+def get_subtensor_network_from_netuid(netuid: int) -> str:
+    return {25: "testnet", 26: "finney"}.get(netuid, "")
+
+
 def configure_loki_logger():
     """Configure sending logs to loki server"""
 
@@ -78,8 +82,12 @@ def configure_loki_logger():
 
             log_record = {
                 "level": record.levelname.lower(),
+                "module": record.module,
+                "func_name": record.funcName,
+                "thread": record.threadName,
                 "run_id": validator_run_id.get(),
                 "netuid": netuid,
+                "subnet": get_subtensor_network_from_netuid(netuid),
                 "hotkey": hotkey,
                 "message": msg,
                 "filename": record.filename,

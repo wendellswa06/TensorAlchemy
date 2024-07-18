@@ -14,10 +14,12 @@ from neurons.validator.config import (
     get_backend_client,
 )
 from neurons.validator.backend.exceptions import PostWeightsError
+from neurons.validator.utils import measure_time
 from neurons.validator.utils.version import get_validator_spec_version
 
 
 async def set_weights(hotkeys: List[str], moving_average_scores: torch.tensor):
+    logger.info("[set_weights]")
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
@@ -53,11 +55,12 @@ async def set_weights(hotkeys: List[str], moving_average_scores: torch.tensor):
         logger.error(f"Could not process weights for netuid {e}")
         return
 
-    logger.info("processed_weights", processed_weights)
-    logger.info("processed_weight_uids", processed_weight_uids)
+    logger.info(f"processed_weights: {processed_weights}")
+    logger.info(f"processed_weight_uids: {processed_weight_uids}")
 
     # Set the weights on chain via our subtensor connection.
     # Define a function to set weights that will be executed by the executor
+
     def set_weights_task():
         try:
             get_subtensor().set_weights(
