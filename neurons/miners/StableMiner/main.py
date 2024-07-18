@@ -15,8 +15,6 @@ from transformers import CLIPImageProcessor
 
 from loguru import logger
 
-from neurons.miners.config import get_config
-
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."
 # NOTE: It's not our bug, it's upstream
@@ -34,6 +32,7 @@ if __name__ == "__main__":
         )
         if file_path not in sys.path:
             sys.path.append(file_path)
+        from neurons.miners.config import get_config
         from neurons.protocol import ModelType
         from neurons.miners.StableMiner.schema import TaskType, TaskConfig
         from neurons.miners.StableMiner.stable_miner import StableMiner
