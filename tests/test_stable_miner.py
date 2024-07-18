@@ -25,11 +25,6 @@ class MockConfig:
         name = "test_wallet"
         hotkey = "test_hotkey"
 
-    class Wandb:
-        project = ""
-        entity = ""
-        api_key = ""
-
     class Miner:
         device = "cuda:0"
         optimize = True
@@ -46,7 +41,6 @@ class MockConfig:
     netuid = 1
     logging = Logging()
     wallet = Wallet()
-    wandb = Wandb()
     miner = Miner()
     axon = Axon()
     model_configs = MinerConfig(model_configs={})

@@ -10,7 +10,6 @@ from datetime import datetime
 import bittensor as bt
 import torch
 import torchvision.transforms as T
-import wandb as wandb_lib
 from bittensor import AxonInfo
 from loguru import logger
 
@@ -270,31 +269,9 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def log_event_to_wandb(wandb, event: dict, prompt: str):
-    event = convert_enum_keys_to_strings(event)
-
-    # Log the event to wandb.
-    wandb_event = copy.deepcopy(event)
-    file_type = "png"
-
-    def gen_caption(prompt, i):
-        return f"{prompt}\n({event['uids'][i]} | {event['hotkeys'][i]})"
-
-    for e, image in enumerate(wandb_event["images"]):
-        wandb_event["images"][e] = wandb_lib.Image(
-            multi_to_tensor(image),
-            caption=gen_caption(prompt, e),
-            file_type=file_type,
-        )
-
-    wandb_event = EventSchema.from_dict(wandb_event)
-
-    try:
-        wandb.log(asdict(wandb_event))
-    except Exception as e:
-        logger.error(
-            f"Unable to log event to wandb due to the following error: {e}"
-        )
+def log_event(event: dict):
+    event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
+    logger.info(f"[log_event]: {event}")
 
 
 async def create_batch_for_upload(
@@ -492,7 +469,7 @@ async def run_step(
         coldkey_blacklist=validator.coldkey_blacklist,
     )
 
-    # Update event and save it to wandb
+    # Create event for logging
     event: Dict = {}
     rewards_list = scoring_results.combined_scores[uids].tolist()
 
@@ -526,13 +503,8 @@ async def run_step(
         logger.error(f"Error updating event dict: {err}")
 
     try:
-        log_event_to_wandb(
-            validator.wandb,
-            event,
-            prompt,
-        )
-        logger.info("Logged event to wandb.")
+        log_event(event)
     except Exception as e:
-        logger.error(f"Failed while logging to wandb: {e}")
+        logger.error(f"Failed while logging event: {e}")
 
     return event

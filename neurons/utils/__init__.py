@@ -23,13 +23,10 @@ from neurons.constants import (
     IA_VALIDATOR_WEIGHT_FILES,
     IA_VALIDATOR_WHITELIST,
     N_NEURONS,
-    WANDB_MINER_PATH,
-    WANDB_VALIDATOR_PATH,
 )
 from neurons.utils.log import colored_log
 from neurons.utils.gcloud import retrieve_public_file
 
-from neurons.validator.utils.wandb import init_wandb
 from neurons.validator.rewards.models.types import (
     RewardModelType,
 )
@@ -272,73 +269,6 @@ def background_loop(self, is_validator):
             logger.error(
                 f"An error occurred trying to update settings from the cloud: {e}."
             )
-
-    # Clean up the wandb runs and cache folders
-    if self.background_steps == 1 or self.background_steps % 180 == 0:
-        logger.info("Trying to clean wandb directoy...")
-        wandb_path = WANDB_VALIDATOR_PATH if is_validator else WANDB_MINER_PATH
-        try:
-            if os.path.exists(wandb_path):
-                # Write a condition to skip this if there are no runs to clean
-                # os.path.basename(path).split("run-")[1].split("-")[0], "%Y%m%d_%H%M%S"
-                runs = [
-                    x
-                    for x in os.listdir(f"{wandb_path}/wandb")
-                    if "run-" in x and "latest-run" not in x
-                ]
-                if len(runs) > 0:
-                    subprocess.call(
-                        f"cd {wandb_path} && echo 'y' | wandb sync --clean --clean-old-hours 3",
-                        shell=True,
-                    )
-                    logger.info("Cleaned all synced wandb runs.")
-                    subprocess.Popen(
-                        ["wandb artifact cache cleanup 5GB"],
-                        shell=True,
-                    )
-                    logger.info("Cleaned all wandb cache data > 5GB.")
-
-                # Catch any runs that the stock wandb function doesn't
-                runs = [
-                    x
-                    for x in os.listdir(f"{wandb_path}/wandb")
-                    if "run-" in x and "latest-run" not in x
-                ]
-
-                # Leave the most recent 3 runs
-                try:
-                    if len(runs) > 3:
-                        # Sort runs
-                        runs = sorted(
-                            runs,
-                            key=lambda x: datetime.strptime(
-                                x.split("run-")[-1].rsplit("-")[0], "%Y%m%d_%H%M%S"
-                            ),
-                        )
-                        for run in runs[:-3]:
-                            shutil.rmtree(f"{wandb_path}/wandb/{run}")
-
-                        logger.info("Finished cleaning out old runs...")
-                except Exception as e:
-                    logger.warning(f"Failed to manually delete old wandb runs: {e}")
-
-            else:
-                logger.warning(f"The path {wandb_path} doesn't exist yet.")
-        except Exception as e:
-            logger.error(
-                f"An error occurred trying to clean wandb artifacts and runs: {e}."
-            )
-
-    # Attempt to init wandb if it wasn't sucessfully originally
-    if (self.background_steps % 5 == 0) and is_validator and not self.wandb_loaded:
-        try:
-            init_wandb(self)
-            logger.info("Loaded wandb")
-            self.wandb_loaded = True
-        except Exception:
-            self.wandb_loaded = False
-            logger.error("Unable to load wandb. Retrying in 5 minutes.")
-            logger.error(f"wandb loading error: {traceback.format_exc()}")
 
     self.background_steps += 1
 
