@@ -37,7 +37,9 @@ class StableMiner(BaseMiner):
 
     def initialize_all_models(self) -> None:
         for task_config in self.task_configs:
-            logger.info(f"Initializing models for task: {task_config.task_type}...")
+            logger.info(
+                f"Initializing models for task: {task_config.task_type}..."
+            )
             self.initialize_model_for_task(task_config)
         self.setup_model_configs()
 
@@ -63,8 +65,11 @@ class StableMiner(BaseMiner):
         ):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].safety_checker = ModelLoader(self.bt_config.miner).load_safety_checker(
-                task_config.safety_checker, task_config.safety_checker_model_name
+            ].safety_checker = ModelLoader(
+                self.bt_config.miner
+            ).load_safety_checker(
+                task_config.safety_checker,
+                task_config.safety_checker_model_name,
             )
             # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
             self.safety_checker = self.miner_config.model_configs[
@@ -83,15 +88,17 @@ class StableMiner(BaseMiner):
                 task_config.processor
             )
             # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
-            self.processor = self.miner_config.model_configs[task_config.model_type][
-                task_config.task_type
-            ].processor
+            self.processor = self.miner_config.model_configs[
+                task_config.model_type
+            ][task_config.task_type].processor
 
         if task_config.refiner_class and task_config.refiner_model_name:
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].refiner = ModelLoader(self.bt_config).load_refiner(model, task_config)
+            ].refiner = ModelLoader(self.bt_config).load_refiner(
+                model, task_config
+            )
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
 
     def get_model_config(
@@ -113,7 +120,9 @@ class StableMiner(BaseMiner):
         logger.info(f" No config found for task type {task_type}..")
         return None
 
-    def load_model(self, model_name: str, task_type: TaskType) -> torch.nn.Module:
+    def load_model(
+        self, model_name: str, task_type: TaskType
+    ) -> torch.nn.Module:
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
             task_config = self.get_config_for_task_type(task_type)
@@ -122,7 +131,9 @@ class StableMiner(BaseMiner):
             logger.info(f"Model {model_name} loaded successfully.")
             return model
         except Exception as e:
-            logger.error(f"Error loading {task_type.value} model: {e}, skipping...")
+            logger.error(
+                f"Error loading {task_type.value} model: {e}, skipping..."
+            )
 
     def setup_model_configs(self) -> None:
         logger.info("Setting up model configurations...")

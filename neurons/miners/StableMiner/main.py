@@ -20,12 +20,13 @@ def setup_paths():
     if file_path not in sys.path:
         sys.path.append(file_path)
 
+
 def main():
     setup_paths()
     from neurons.miners.StableMiner.run_miner import run_miner
+
     run_miner()
 
 
 if __name__ == "__main__":
     main()
-

@@ -22,7 +22,9 @@ class ModelLoader:
         model.set_progress_bar_config(disable=True)
 
         if task_config.scheduler and hasattr(model, "scheduler"):
-            model.scheduler = task_config.scheduler.from_config(model.scheduler.config)
+            model.scheduler = task_config.scheduler.from_config(
+                model.scheduler.config
+            )
 
         return model
 
@@ -30,19 +32,23 @@ class ModelLoader:
         self, safety_checker_class: Type, model_name: str
     ) -> Optional[torch.nn.Module]:
         if safety_checker_class and model_name:
-            safety_checker = safety_checker_class.from_pretrained(model_name).to(
-                self.config.device
-            )
+            safety_checker = safety_checker_class.from_pretrained(
+                model_name
+            ).to(self.config.device)
             return safety_checker
         return None
 
-    def load_processor(self, processor_class: Type) -> Optional[torch.nn.Module]:
+    def load_processor(
+        self, processor_class: Type
+    ) -> Optional[torch.nn.Module]:
         if processor_class:
             processor = processor_class()
             return processor
         return None
 
-    def load_refiner(self, model, task_config: TaskConfig) -> Optional[torch.nn.Module]:
+    def load_refiner(
+        self, model, task_config: TaskConfig
+    ) -> Optional[torch.nn.Module]:
         if task_config.refiner_class:
             refiner = task_config.refiner_class.from_pretrained(
                 task_config.refiner_model_name,
