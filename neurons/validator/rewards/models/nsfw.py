@@ -18,7 +18,7 @@ class NSFWRewardModel(BaseRewardModel):
     def __init__(self):
         super().__init__()
         self.safetychecker = StableDiffusionSafetyChecker.from_pretrained(
-            "CompVis/stable-diffusion-safety-checker"
+            "Falconsai/nsfw_image_detection"
         ).to(get_device())
         self.processor = CLIPImageProcessor()
 
@@ -30,9 +30,10 @@ class NSFWRewardModel(BaseRewardModel):
             return 1.0
 
         try:
-
             # Clip expects RGB int values in range (0, 255)
-            scaled_tensors = [tensor * 255 for tensor in synapse_to_tensors(response)]
+            scaled_tensors = [
+                tensor * 255 for tensor in synapse_to_tensors(response)
+            ]
 
             clip_input = self.processor(
                 scaled_tensors,
