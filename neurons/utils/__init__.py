@@ -23,19 +23,20 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
     N_NEURONS,
 )
-from neurons.utils.log import colored_log, setup_logger
+from neurons.utils.log import colored_log
 from neurons.utils.gcloud import retrieve_public_file
 
 from neurons.validator.rewards.models.types import (
     RewardModelType,
 )
+from neurons.validator.utils.log import configure_logging
 
 
 # Background Loop
 class BackgroundTimer(Timer):
     def run(self):
-        # Nicer loguru logging
-        setup_logger()
+
+        configure_logging()
 
         self.function(*self.args, **self.kwargs)
         while not self.finished.wait(self.interval):
@@ -52,8 +53,8 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
         self.finished = multiprocessing.Event()
 
     def run(self):
-        # Nicer loguru logging
-        setup_logger()
+
+        configure_logging()
 
         logger.info(f"{self.function.__name__} started")
 
@@ -88,7 +89,6 @@ def background_loop(self, is_validator):
     Handles terminating the miner after deregistration and
     updating the blacklist and whitelist.
     """
-    setup_logger()
 
     neuron_type = "Validator" if is_validator else "Miner"
     whitelist_type = (

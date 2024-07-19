@@ -23,11 +23,7 @@ def setup_paths():
 
 def main():
     setup_paths()
-    from neurons.utils.log import setup_logger
     from neurons.miners.StableMiner.run_miner import run_miner
-
-    # Nicer loguru logging
-    setup_logger()
 
     run_miner()
 

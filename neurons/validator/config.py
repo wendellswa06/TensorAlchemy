@@ -1,22 +1,16 @@
-import json
-import logging
 import os
 import argparse
+import os
 import uuid
 from contextvars import ContextVar
-from logging.handlers import QueueHandler, QueueListener
-from multiprocessing import Queue
 from typing import Dict, Optional
 
-import torch
 import bittensor as bt
+import torch
 from loguru import logger
-import logging_loki
 
-from neurons import constants
 from neurons.constants import (
     IS_TEST,
-    EVENTS_RETENTION_SIZE,
 )
 
 
@@ -26,89 +20,6 @@ def get_default_device() -> torch.device:
         return torch.device("cpu:0")
 
     return torch.device("cuda:0")
-
-
-def get_subtensor_network_from_netuid(netuid: int) -> str:
-    return {25: "testnet", 26: "finney"}.get(netuid, "")
-
-
-def configure_loki_logger():
-    """Configure sending logs to loki server"""
-
-    if constants.IS_TEST:
-        # Don't use loki for test runs
-        return
-
-    class LogHandler(logging_loki.LokiHandler):
-        def handleError(self, record):
-            self.emitter.close()
-            # When Loki endpoint giving error for some reason,
-            # parent .handleError starts spamming error trace for each failure
-            # so we are disabling this default behaviour
-            # super().handleError(record)
-
-    class CustomLokiLoggingHandler(QueueHandler):
-        def __init__(self, queue: Queue, **kwargs):
-            super().__init__(queue)
-            self.handler = LogHandler(**kwargs)  # noqa: WPS110
-            self.listener = QueueListener(self.queue, self.handler)
-            self.listener.start()
-
-    class JSONFormatter(logging.Formatter):
-        def format(self, record):
-            from neurons.validator.utils.version import (
-                get_validator_version,
-                get_validator_spec_version,
-            )
-
-            try:
-                # Extract real message noisy msg line emitted by bittensor
-                # might exist better solution here
-                msg = "".join(record.getMessage().split(" - ")[1:])
-            except Exception:
-                msg = record.getMessage()
-
-            try:
-                netuid = get_config().netuid
-            except:
-                netuid = ""
-
-            try:
-                hotkey = bt.wallet(config=get_config()).hotkey.ss58_address
-            except Exception:
-                hotkey = ""
-
-            log_record = {
-                "level": record.levelname.lower(),
-                "module": record.module,
-                "func_name": record.funcName,
-                "thread": record.threadName,
-                "run_id": validator_run_id.get(),
-                "netuid": netuid,
-                "subnet": get_subtensor_network_from_netuid(netuid),
-                "hotkey": hotkey,
-                "message": msg,
-                "filename": record.filename,
-                "lineno": record.lineno,
-                "time": self.formatTime(record, self.datefmt),
-                "version": get_validator_version(),
-                "spec_version": get_validator_spec_version(),
-            }
-            return json.dumps(log_record)
-
-    # Use LokiQueueHandler to upload logs in background
-    loki_handler = CustomLokiLoggingHandler(
-        Queue(-1),
-        url="https://loki.tensoralchemy.ai/loki/api/v1/push",
-        tags={"application": "tensoralchemy-validator"},
-        auth=("tensoralchemy-loki", "tPaaDGH0lG"),
-        version="1",
-    )
-
-    # Send logs to loki as JSON
-    loki_handler.setFormatter(JSONFormatter())
-
-    logger.add(loki_handler)
 
 
 def check_config(to_check: bt.config):
@@ -135,20 +46,6 @@ def check_config(to_check: bt.config):
     to_check.alchemy.full_path = os.path.expanduser(full_path)
     if not os.path.exists(to_check.alchemy.full_path):
         os.makedirs(to_check.alchemy.full_path, exist_ok=True)
-
-    # Add custom event logger for the events.
-    logger.level("EVENTS", no=38, icon="📝")
-    logger.add(
-        to_check.alchemy.full_path + "/" + "completions.log",
-        rotation=EVENTS_RETENTION_SIZE,
-        serialize=True,
-        enqueue=True,
-        backtrace=False,
-        diagnose=False,
-        level="EVENTS",
-        format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}",
-    )
-    configure_loki_logger()
 
 
 def add_args(parser):
