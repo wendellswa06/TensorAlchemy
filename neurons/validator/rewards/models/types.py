@@ -18,7 +18,6 @@ class RewardModelType(str, Enum):
     EMPTY = "EMPTY"
     HUMAN = "HUMAN"
     IMAGE = "IMAGE"
-    SIMILARITY = "SIMILARITY"
 
 
 class PackedRewardModel(BaseModel):

@@ -1,7 +1,7 @@
 import json
 import asyncio
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 from datetime import datetime
 
@@ -15,6 +15,7 @@ from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
 from neurons.utils.defaults import Stats
+from neurons.utils.log import image_to_str
 from neurons.utils.image import (
     synapse_to_base64,
     empty_image_tensor,
@@ -161,6 +162,9 @@ async def query_axons_async(
             axons=[inbound_axon],
         )
 
+        for item in to_return:
+            print(len(item.images))
+
         return uid, to_return[0]
 
     # Create tasks for all axons
@@ -235,19 +239,6 @@ def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
     )
 
 
-def image_to_log(image: Any) -> str:
-    if isinstance(image, str):
-        return "base64(**IMAGEDATA**)"
-
-    if isinstance(image, bt.Tensor):
-        return f"bt.Tensor({image.shape})"
-
-    if hasattr(image, "shape"):
-        return f"shaped({image.shape})"
-
-    return "UNKNOWN IMAGE TYPE"
-
-
 def log_responses(responses: List[ImageGeneration], prompt: str):
     try:
         logger.info(
@@ -272,7 +263,7 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
                         "guidance_scale": response.guidance_scale,
                         "generation_type": response.generation_type,
                         "images": [
-                            image_to_log(image) for image in response.images
+                            image_to_str(image) for image in response.images
                         ],
                     },
                     indent=2,
@@ -286,7 +277,7 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
 def log_event(event: dict):
     event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
     # Reduce img output
-    event.images = [image_to_log(img) for img in event.images]
+    event.images = [image_to_str(img) for img in event.images]
     logger.info(f"[log_event]: {event}")
 
 
@@ -494,7 +485,7 @@ async def run_step(
                 "images": [
                     (
                         response.images[0]
-                        if (response.images != []) and (reward != 0)
+                        if (response.images != [])
                         else empty_image_tensor()
                     )
                     for response, reward in zip(responses, rewards_list)
