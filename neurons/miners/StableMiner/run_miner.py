@@ -26,8 +26,8 @@ def run_miner():
             safety_checker=StableDiffusionSafetyChecker,
             safety_checker_model_name="CompVis/stable-diffusion-safety-checker",
             processor=CLIPImageProcessor,
-            refiner_class=DiffusionPipeline,
-            refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
+            # refiner_class=DiffusionPipeline,
+            # refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
         ),
         TaskConfig(
             model_type=ModelType.CUSTOM,
@@ -40,8 +40,8 @@ def run_miner():
             safety_checker=StableDiffusionSafetyChecker,
             safety_checker_model_name="CompVis/stable-diffusion-safety-checker",
             processor=CLIPImageProcessor,
-            refiner_class=DiffusionPipeline,
-            refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
+            # refiner_class=DiffusionPipeline,
+            # refiner_model_name="stabilityai/stable-diffusion-xl-refiner-1.0",
         ),
     ]
     logger.info("Outputting miner config:")
