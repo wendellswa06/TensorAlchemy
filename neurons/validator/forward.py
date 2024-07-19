@@ -163,7 +163,7 @@ async def query_axons_async(
         )
 
         for item in to_return:
-            print(len(item.images))
+            print(item.to_headers())
 
         return uid, to_return[0]
 

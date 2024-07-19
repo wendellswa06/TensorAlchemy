@@ -85,14 +85,12 @@ class ImageGeneration(bt.Synapse):
                     represents the response from the miner.
     """
 
-    # Needed because bittensor does not support np.ndarray
-    # as part of their synapse, but they forcefully send it anyway 🤦
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     computed_body_hash: str = Field("")
 
     # Each image is base64 encoded image data
-    images: List[str] = []
+    images: List = []
 
     prompt_image: Optional[bt.Tensor] = Field(
         None,
@@ -131,7 +129,7 @@ class ImageGeneration(bt.Synapse):
 
     @field_validator("images", mode="before")
     def images_value(cls, inbound_images_list: List[Any]) -> List[str]:
-        from neurons.utils.log import image_to_log
+        from neurons.utils.log import image_to_str
         from loguru import logger
 
         logger.info(f"Incoming images: {len(inbound_images_list)}")
@@ -141,6 +139,6 @@ class ImageGeneration(bt.Synapse):
         ]
 
         for image in to_return:
-            logger.info(image_to_log(image))
+            logger.info(image_to_str(image))
 
         return to_return
