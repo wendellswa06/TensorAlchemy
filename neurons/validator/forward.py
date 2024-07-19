@@ -1,7 +1,7 @@
 import json
 import asyncio
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 from datetime import datetime
 
@@ -15,6 +15,7 @@ from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
 from neurons.utils.defaults import Stats
+from neurons.utils.log import image_to_log
 from neurons.utils.image import (
     synapse_to_base64,
     empty_image_tensor,
@@ -233,19 +234,6 @@ def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
         + f"| Min: {min(validator.miner_query_history_count.values()):.2f} "
         + f"| Mean: {sum(validator.miner_query_history_count.values()) / len(validator.miner_query_history_count.values()):.2f}",
     )
-
-
-def image_to_log(image: Any) -> str:
-    if isinstance(image, str):
-        return "base64(**IMAGEDATA**)"
-
-    if isinstance(image, bt.Tensor):
-        return f"bt.Tensor({image.shape})"
-
-    if hasattr(image, "shape"):
-        return f"shaped({image.shape})"
-
-    return "UNKNOWN IMAGE TYPE"
 
 
 def log_responses(responses: List[ImageGeneration], prompt: str):

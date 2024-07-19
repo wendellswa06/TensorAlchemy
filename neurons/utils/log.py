@@ -2,6 +2,9 @@ import sys
 import torch
 from loguru import logger
 
+import bittensor as bt
+from typing import Any
+
 
 def setup_logger() -> None:
     # Remove the default handler
@@ -28,6 +31,19 @@ def setup_logger() -> None:
         compression="zip",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
+
+
+def image_to_log(image: Any) -> str:
+    if isinstance(image, str):
+        return "base64(**IMAGEDATA**)"
+
+    if isinstance(image, bt.Tensor):
+        return f"bt.Tensor({image.shape})"
+
+    if hasattr(image, "shape"):
+        return f"shaped({image.shape})"
+
+    return "UNKNOWN IMAGE TYPE"
 
 
 def sh(message: str):

@@ -1,8 +1,8 @@
 import numpy as np
 import bittensor as bt
 from loguru import logger
-from PIL.Image import Image as ImageType
 
+from neurons.utils.log import image_to_log
 from neurons.utils.image import synapse_to_images
 
 from neurons.validator.rewards.models.base import BaseRewardModel
@@ -27,6 +27,8 @@ class BlacklistFilter(BaseRewardModel):
         # If any images in the response fail
         # the reward for that response is 0.0
         for image in synapse_to_images(response):
+            logger.info(image_to_log(image))
+
             # Check if the image is black image
             if np.array(image).sum() < 1:
                 return 1.0
