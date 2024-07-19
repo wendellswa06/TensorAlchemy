@@ -31,13 +31,16 @@ class BlacklistFilter(BaseRewardModel):
 
             # Check if the image is black image
             if np.array(image).sum() < 1:
+                logger.info("Black image")
                 return 1.0
 
             if image.width != response.width:
+                logger.info("Incorect width")
                 return 1.0
 
             # check image size
             if image.height != response.height:
+                logger.info("Incorect height")
                 return 1.0
 
         return 0.0
