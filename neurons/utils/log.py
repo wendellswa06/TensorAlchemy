@@ -35,9 +35,9 @@ def setup_logger() -> None:
     )
 
 
-def image_to_log(image: Any) -> str:
+def image_to_str(image: Any) -> str:
     if isinstance(image, str):
-        return "base64(**IMAGEDATA**)"
+        return f"base64(**bytes:<{len(image)}>**)"
 
     if isinstance(image, bt.Tensor):
         return f"bt.Tensor({image.shape})"

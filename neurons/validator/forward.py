@@ -15,7 +15,7 @@ from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
 from neurons.utils.defaults import Stats
-from neurons.utils.log import image_to_log
+from neurons.utils.log import image_to_str
 from neurons.utils.image import (
     synapse_to_base64,
     empty_image_tensor,
@@ -260,7 +260,7 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
                         "guidance_scale": response.guidance_scale,
                         "generation_type": response.generation_type,
                         "images": [
-                            image_to_log(image) for image in response.images
+                            image_to_str(image) for image in response.images
                         ],
                     },
                     indent=2,
@@ -274,7 +274,7 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
 def log_event(event: dict):
     event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
     # Reduce img output
-    event.images = [image_to_log(img) for img in event.images]
+    event.images = [image_to_str(img) for img in event.images]
     logger.info(f"[log_event]: {event}")
 
 
