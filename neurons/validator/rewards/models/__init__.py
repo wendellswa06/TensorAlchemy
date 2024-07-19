@@ -38,10 +38,6 @@ def get_reward_models() -> ModelStorage:
                 weight=0.8,
                 model=ImageRewardModel(),
             ),
-            # RewardModelType.SIMILARITY: PackedRewardModel(
-            #     weight=0.2,
-            #     model=ModelSimilarityRewardModel(),
-            # ),
             RewardModelType.HUMAN: PackedRewardModel(
                 weight=0.2,
                 model=HumanValidationRewardModel(),
@@ -87,7 +83,6 @@ def get_reward_functions(model_type: ModelType) -> List[PackedRewardModel]:
 
     return [
         get_function(get_reward_models(), RewardModelType.IMAGE),
-        get_function(get_reward_models(), RewardModelType.SIMILARITY),
         get_function(get_reward_models(), RewardModelType.HUMAN),
     ]
 
