@@ -5,6 +5,8 @@ from loguru import logger
 import bittensor as bt
 from typing import Any
 
+from PIL.Image import Image as ImageType
+
 
 def setup_logger() -> None:
     # Remove the default handler
@@ -42,6 +44,9 @@ def image_to_log(image: Any) -> str:
 
     if hasattr(image, "shape"):
         return f"shaped({image.shape})"
+
+    if isinstance(image, ImageType):
+        return f"PIL.Image({image.shape})"
 
     return f"UNKNOWN IMAGE TYPE {type(image)}"
 
