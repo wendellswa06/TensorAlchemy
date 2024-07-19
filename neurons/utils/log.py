@@ -1,5 +1,33 @@
+import sys
 import torch
 from loguru import logger
+
+
+def setup_logger() -> None:
+    # Remove the default handler
+    logger.remove()
+
+    # Add a custom handler with simplified formatting
+    logger.add(
+        sys.stdout,
+        level="INFO",
+        colorize=False,
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,  # This can help with thread-safety
+        catch=True,  # Catch exceptions raised during logging
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    )
+
+    # Optionally, add a file handler for more detailed logging
+    logger.add(
+        "detailed_log_{time}.log",
+        enqueue=True,
+        level="DEBUG",
+        rotation="500 MB",
+        compression="zip",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    )
 
 
 def sh(message: str):
@@ -24,4 +52,6 @@ def colored_log(
     color: str = "white",
     level: str = "INFO",
 ) -> None:
-    logger.opt(colors=True).log(level, f"<bold><{color}>{message}</{color}></bold>")
+    logger.opt(colors=True).log(
+        level, f"<bold><{color}>{message}</{color}></bold>"
+    )
