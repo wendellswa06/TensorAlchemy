@@ -162,9 +162,6 @@ async def query_axons_async(
             axons=[inbound_axon],
         )
 
-        for item in to_return:
-            print(item.to_headers())
-
         return uid, to_return[0]
 
     # Create tasks for all axons

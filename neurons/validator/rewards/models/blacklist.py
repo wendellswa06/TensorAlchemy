@@ -22,7 +22,6 @@ class BlacklistFilter(BaseRewardModel):
     def get_reward(self, response: bt.Synapse) -> float:
         # Check the number of returned images in the response
         if len(response.images) != response.num_images_per_prompt:
-            logger.info("No images")
             return 1.0
 
         # If any images in the response fail
@@ -32,16 +31,13 @@ class BlacklistFilter(BaseRewardModel):
 
             # Check if the image is black image
             if np.array(image).sum() < 1:
-                logger.info("Black image")
                 return 1.0
 
             if image.width != response.width:
-                logger.info("Incorect width")
                 return 1.0
 
             # check image size
             if image.height != response.height:
-                logger.info("Incorect height")
                 return 1.0
 
         return 0.0

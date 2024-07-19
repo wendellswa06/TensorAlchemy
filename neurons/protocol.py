@@ -90,7 +90,7 @@ class ImageGeneration(bt.Synapse):
     computed_body_hash: str = Field("")
 
     # Each image is base64 encoded image data
-    images: List[Any] = []
+    images: List[str] = []
 
     prompt_image: Optional[bt.Tensor] = Field(
         None,
@@ -129,16 +129,8 @@ class ImageGeneration(bt.Synapse):
 
     @field_validator("images", mode="before")
     def images_value(cls, inbound_images_list: List[Any]) -> List[str]:
-        from neurons.utils.log import image_to_str
-        from loguru import logger
-
-        logger.info(f"Incoming images: {len(inbound_images_list)}")
-
-        to_return: List[str] = [
-            deserialize_incoming_image(image) for image in inbound_images_list
+        return [
+            #
+            deserialize_incoming_image(image)
+            for image in inbound_images_list
         ]
-
-        for image in to_return:
-            logger.info(image_to_str(image))
-
-        return to_return
