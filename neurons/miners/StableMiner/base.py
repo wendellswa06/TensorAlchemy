@@ -402,8 +402,12 @@ class BaseMiner(ABC):
     def generate_with_refiner(
         self, model_args: Dict[str, Any], model_config: ModelConfig
     ) -> List:
-        model = model_config.model
-        refiner = model_config.refiner
+        model = model_config.model.to(self.bt_config.miner.device)
+        refiner = (
+            model_config.refiner.to(self.bt_config.miner.device)
+            if model_config.refiner
+            else None
+        )
 
         if refiner is not None:
             # Init refiner args
