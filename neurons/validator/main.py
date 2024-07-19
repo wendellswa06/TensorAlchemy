@@ -25,7 +25,11 @@ if __name__ == "__main__":
 
     current_folder = str(pathlib.Path(__file__).parent.resolve())
 
+    from neurons.utils.log import setup_logger
     from neurons.update_checker import check_for_updates
+
+    # Nicer loguru logging
+    setup_logger()
 
     try:
         check_for_updates(current_folder, REPO_URL)
