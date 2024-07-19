@@ -366,6 +366,7 @@ class BaseMiner(ABC):
                 )
                 break
             except Exception as e:
+                traceback.print_exc()
                 logger.error(
                     f"Error in attempt number {attempt + 1} to generate an image: {e}... sleeping for 5 seconds..."
                 )

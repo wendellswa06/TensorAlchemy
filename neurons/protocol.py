@@ -85,14 +85,12 @@ class ImageGeneration(bt.Synapse):
                     represents the response from the miner.
     """
 
-    # Needed because bittensor does not support np.ndarray
-    # as part of their synapse, but they forcefully send it anyway 🤦
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     computed_body_hash: str = Field("")
 
     # Each image is base64 encoded image data
-    images: List[str] = []
+    images: List[Any] = []
 
     prompt_image: Optional[bt.Tensor] = Field(
         None,
