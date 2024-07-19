@@ -494,7 +494,7 @@ async def run_step(
                 "images": [
                     (
                         response.images[0]
-                        if (response.images != []) and (reward != 0)
+                        if (response.images != [])
                         else empty_image_tensor()
                     )
                     for response, reward in zip(responses, rewards_list)
