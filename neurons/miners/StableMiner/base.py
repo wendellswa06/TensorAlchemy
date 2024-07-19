@@ -314,6 +314,8 @@ class BaseMiner(ABC):
         try:
             model_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
             model_args["width"] = synapse.width
+            model_args["denoising_end"] = 0.8
+            model_args["output_type"] = "latent"
             model_args["height"] = synapse.height
             model_args["num_images_per_prompt"] = synapse.num_images_per_prompt
             model_args["guidance_scale"] = synapse.guidance_scale
