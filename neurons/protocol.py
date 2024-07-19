@@ -134,6 +134,8 @@ class ImageGeneration(bt.Synapse):
         from neurons.utils.log import image_to_log
         from loguru import logger
 
+        logger.info(f"Incoming images: {len(inbound_images_list)}")
+
         to_return: List[str] = [
             deserialize_incoming_image(image) for image in inbound_images_list
         ]
