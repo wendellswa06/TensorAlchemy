@@ -10,7 +10,6 @@ from datetime import datetime
 import bittensor as bt
 import torch
 import torchvision.transforms as T
-import wandb as wandb_lib
 from bittensor import AxonInfo
 from loguru import logger
 
@@ -20,8 +19,6 @@ from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 from neurons.utils.defaults import Stats
 from neurons.utils.image import (
     synapse_to_base64,
-    multi_to_tensor,
-    empty_image,
     empty_image_tensor,
 )
 
@@ -41,12 +38,25 @@ from neurons.validator.rewards.types import (
     ScoringResults,
 )
 from neurons.validator.rewards.pipeline import (
-    filter_rewards,
     get_scoring_results,
     apply_masking_functions,
 )
 
 transform = T.Compose([T.PILToTensor()])
+
+
+def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
+    for uid in range(1, 255):
+        try:
+            score = float(moving_average_scores[uid])
+            score_log = f"{score:.4f}"
+            if score > 0:
+                logger.info(
+                    f"miner_uid={uid}, miner_score={score_log}",
+                    extra={"miner_uid": uid, "miner_score": score},
+                )
+        except IndexError:
+            continue
 
 
 async def update_moving_averages(
@@ -96,6 +106,11 @@ async def update_moving_averages(
     moving_average_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
+
+    try:
+        log_moving_averages(moving_average_scores)
+    except Exception:
+        pass
 
     # Save moving averages scores on backend
     try:
@@ -270,31 +285,11 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def log_event_to_wandb(wandb, event: dict, prompt: str):
-    event = convert_enum_keys_to_strings(event)
-
-    # Log the event to wandb.
-    wandb_event = copy.deepcopy(event)
-    file_type = "png"
-
-    def gen_caption(prompt, i):
-        return f"{prompt}\n({event['uids'][i]} | {event['hotkeys'][i]})"
-
-    for e, image in enumerate(wandb_event["images"]):
-        wandb_event["images"][e] = wandb_lib.Image(
-            multi_to_tensor(image),
-            caption=gen_caption(prompt, e),
-            file_type=file_type,
-        )
-
-    wandb_event = EventSchema.from_dict(wandb_event)
-
-    try:
-        wandb.log(asdict(wandb_event))
-    except Exception as e:
-        logger.error(
-            f"Unable to log event to wandb due to the following error: {e}"
-        )
+def log_event(event: dict):
+    event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
+    # Reduce img output
+    event.images = [image_to_log(img) for img in event.images]
+    logger.info(f"[log_event]: {event}")
 
 
 async def create_batch_for_upload(
@@ -460,18 +455,6 @@ async def run_step(
         responses,
     )
 
-    for uid in range(1, 255):
-        try:
-            score = float(validator.moving_average_scores[uid])
-            score_log = f"{score:.4f}"
-            if score > 0:
-                logger.info(
-                    f"miner_uid={uid}, miner_score={score_log}",
-                    extra={"miner_uid": uid, "miner_score": score},
-                )
-        except IndexError:
-            continue
-
     # Apply isalive filtering
     rewards_tensor_adjusted = scoring_results.combined_scores
 
@@ -492,7 +475,7 @@ async def run_step(
         coldkey_blacklist=validator.coldkey_blacklist,
     )
 
-    # Update event and save it to wandb
+    # Create event for logging
     event: Dict = {}
     rewards_list = scoring_results.combined_scores[uids].tolist()
 
@@ -526,13 +509,8 @@ async def run_step(
         logger.error(f"Error updating event dict: {err}")
 
     try:
-        log_event_to_wandb(
-            validator.wandb,
-            event,
-            prompt,
-        )
-        logger.info("Logged event to wandb.")
+        log_event(event)
     except Exception as e:
-        logger.error(f"Failed while logging to wandb: {e}")
+        logger.error(f"Failed while logging event: {e}")
 
     return event

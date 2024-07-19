@@ -26,21 +26,6 @@ def get_bt_miner_config() -> bittensor.config:
         default=1,
     )
     argp.add_argument(
-        "--wandb.project",
-        type=str,
-        default="",
-    )
-    argp.add_argument(
-        "--wandb.entity",
-        type=str,
-        default="",
-    )
-    argp.add_argument(
-        "--wandb.api_key",
-        type=str,
-        default="",
-    )
-    argp.add_argument(
         "--miner.device",
         type=str,
         default="cuda:0",

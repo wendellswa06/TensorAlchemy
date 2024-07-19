@@ -144,9 +144,6 @@ class ModelSimilarityRewardModel(BaseRewardModel):
 
         # Add any args from the parent class
         argp.add_argument("--netuid", type=int, default=1)
-        argp.add_argument("--wandb.project", type=str, default="")
-        argp.add_argument("--wandb.entity", type=str, default="")
-        argp.add_argument("--wandb.api_key", type=str, default="")
         argp.add_argument("--miner.optimize", action="store_true")
         argp.add_argument("--miner.device", type=str, default=get_device())
 

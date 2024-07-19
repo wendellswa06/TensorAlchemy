@@ -12,7 +12,6 @@ from typing import Optional
 import bittensor as bt
 import sentry_sdk
 import torch
-import wandb
 import numpy as np
 from loguru import logger
 
@@ -53,7 +52,6 @@ from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
 from neurons.validator.forward import run_step
 from neurons.validator.services.openai.service import get_openai_service
-from neurons.validator.utils.wandb import init_wandb, reinit_wandb
 from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
     ttl_get_block,
@@ -169,8 +167,6 @@ class StableValidator:
 
         self.backend_client = TensorAlchemyBackendClient()
 
-        wandb.login(anonymous="must")
-
         self.prompt_generation_failures = 0
 
         # Init subtensor
@@ -270,16 +266,6 @@ class StableValidator:
 
         # Init sync with the network. Updates the metagraph.
         asyncio.run(self.sync())
-
-        # Init wandb.
-        try:
-            init_wandb(self)
-            logger.info("Loaded wandb")
-            self.wandb_loaded = True
-        except Exception:
-            self.wandb_loaded = False
-            logger.error("Unable to load wandb. Retrying in 5 minnutes.")
-            logger.error(f"wandb loading error: {traceback.format_exc()}")
 
         # Init blacklists and whitelists
         self.hotkey_blacklist = set()
@@ -460,19 +446,6 @@ class StableValidator:
 
                 # End the current step and prepare for the next iteration.
                 self.step += 1
-
-                # Assuming each step is 3 minutes restart wandb run ever
-                # 3 hours to avoid overloading a validators storage space
-                if self.step % 360 == 0 and self.step != 0:
-                    logger.info("Re-initializing wandb run...")
-                    try:
-                        reinit_wandb(self)
-                        self.wandb_loaded = True
-                    except Exception as e:
-                        logger.info(
-                            f"An unexpected error occurred reinitializing wandb: {e}"
-                        )
-                        self.wandb_loaded = False
 
             # If the user interrupts the program, gracefully exit.
             except KeyboardInterrupt:

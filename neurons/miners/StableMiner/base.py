@@ -27,17 +27,14 @@ from neurons.miners.StableMiner.utils import (
     get_coldkey_for_hotkey,
 )
 from neurons.miners.StableMiner.utils.log import do_logs
-from neurons.miners.StableMiner.wandb_utils import WandbUtils
 
 import bittensor as bt
 
 
 class BaseMiner(ABC):
-
-    def __init__(self) -> None:
+    def __init__(self, bt_config: bittensor.config) -> None:
         self.storage_client: Any = None
         self.bt_config = get_bt_miner_config()
-        self.wandb: Optional[WandbUtils] = None
 
         if self.bt_config.logging.debug:
             bt.debug()
@@ -112,29 +109,8 @@ class BaseMiner(ABC):
             [transforms.PILToTensor()]
         )
 
-    def initialize_wandb(self) -> None:
-        if self._is_wandb_configured():
-            self.wandb = self._create_wandb_instance()
-
-    def _is_wandb_configured(self) -> bool:
-        return all(
-            [
-                self.bt_config.wandb.project,
-                self.bt_config.wandb.entity,
-                self.bt_config.wandb.api_key,
-            ]
-        )
-
-    def _create_wandb_instance(self) -> WandbUtils:
-        return WandbUtils(
-            self,
-            self.metagraph,
-            self.bt_config,
-            self.wallet,
-            self.event,
-        )
-
     def start_background_loop(self) -> None:
+        # Start the generic background loop
         self.background_steps: int = 1
         self.background_timer: BackgroundTimer = BackgroundTimer(
             300,
@@ -410,15 +386,8 @@ class BaseMiner(ABC):
             logger.error(f"Error in NSFW filtering: {e}")
         return images
 
-    def _log_to_wandb(self, images: List[torch.Tensor], prompt: str) -> None:
-        try:
-            if self.wandb:
-                self.wandb.add_images(images, prompt)
-                self.wandb.log()
-        except Exception as e:
-            logger.error(f"Error trying to log events to wandb: {e}")
-
     def _log_generation_time(self, start_time: float) -> None:
+        # Log time to generate image
         generation_time: float = time.perf_counter() - start_time
         self.stats.generation_time += generation_time
         average_time: float = (
