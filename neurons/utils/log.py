@@ -43,7 +43,7 @@ def image_to_log(image: Any) -> str:
     if hasattr(image, "shape"):
         return f"shaped({image.shape})"
 
-    return "UNKNOWN IMAGE TYPE"
+    return f"UNKNOWN IMAGE TYPE {type(image)}"
 
 
 def sh(message: str):
