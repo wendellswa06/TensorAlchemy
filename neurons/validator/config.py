@@ -40,7 +40,6 @@ def configure_loki_logger():
         return
 
     class LogHandler(logging_loki.LokiHandler):
-
         def handleError(self, record):
             self.emitter.close()
             # When Loki endpoint giving error for some reason,
@@ -49,7 +48,6 @@ def configure_loki_logger():
             # super().handleError(record)
 
     class CustomLokiLoggingHandler(QueueHandler):
-
         def __init__(self, queue: Queue, **kwargs):
             super().__init__(queue)
             self.handler = LogHandler(**kwargs)  # noqa: WPS110
@@ -161,13 +159,18 @@ def add_args(parser):
         help="Network netuid",
         default=26,
     )
-
     parser.add_argument(
         "--alchemy.name",
         type=str,
         help="Trials for this validator go in validator.root"
         + " / (wallet_cold - wallet_hot) / validator.name.",
         default="image_alchemy_validator",
+    )
+    parser.add_argument(
+        "--alchemy.debug",
+        type=bool,
+        default=False,
+        help="Should we enable debug logging?",
     )
     parser.add_argument(
         "--alchemy.device",

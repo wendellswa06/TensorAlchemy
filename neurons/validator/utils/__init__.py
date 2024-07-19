@@ -18,10 +18,7 @@ from neurons.constants import (
     N_NEURONS_TO_QUERY,
     VPERMIT_TAO,
 )
-from neurons.validator.config import (
-    get_config,
-    get_metagraph,
-)
+from neurons.validator.config import get_config, get_metagraph, get_subtensor
 from neurons.validator.services.openai.service import (
     get_openai_service,
     OpenAIRequestFailed,
@@ -56,8 +53,8 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 
 # 12 seconds updating block.
 @ttl_cache(maxsize=1, ttl=12)
-def ttl_get_block(self) -> int:
-    return self.subtensor.get_current_block()
+def ttl_get_block() -> int:
+    return get_subtensor().get_current_block()
 
 
 def check_uid_availability(
@@ -111,7 +108,9 @@ async def get_random_uids(
         if (
             uid_is_available
             and (self.metagraph.axons[uid].hotkey not in self.hotkey_blacklist)
-            and (self.metagraph.axons[uid].coldkey not in self.coldkey_blacklist)
+            and (
+                self.metagraph.axons[uid].coldkey not in self.coldkey_blacklist
+            )
         ):
             avail_uids.append(uid)
             if uid_is_not_excluded:
@@ -134,7 +133,9 @@ async def get_random_uids(
         tasks = []
 
         logger.info(f"UIDs in pool: {final_uids}")
-        logger.info(f"Querying uids: {candidate_uids[uid:uid+N_NEURONS_TO_QUERY]}")
+        logger.info(
+            f"Querying uids: {candidate_uids[uid:uid+N_NEURONS_TO_QUERY]}"
+        )
 
         t1 = time.perf_counter()
 
@@ -171,7 +172,9 @@ async def get_random_uids(
                 else:
                     continue
 
-            logger.info(f"Added uids: {temp_list} in {time.perf_counter() - t2:.2f}s")
+            logger.info(
+                f"Added uids: {temp_list} in {time.perf_counter() - t2:.2f}s"
+            )
 
             avg_num_list.append(len(temp_list))
 
@@ -216,7 +219,9 @@ def calculate_mean_dissimilarity(dissimilarity_matrix):
             mean_dissimilarities.append(0)
             continue
         # divide by amount of non zero values
-        non_zero_values = [value for value in dissimilarity_values if value != 0]
+        non_zero_values = [
+            value for value in dissimilarity_values if value != 0
+        ]
         mean_dissimilarity = sum(dissimilarity_values) / len(non_zero_values)
         mean_dissimilarities.append(mean_dissimilarity)
 
@@ -308,7 +313,10 @@ def call_corcel(self, prompt):
 
     try:
         response = requests.post(
-            "https://api.corcel.io/cortext/text", json=JSON, headers=HEADERS, timeout=15
+            "https://api.corcel.io/cortext/text",
+            json=JSON,
+            headers=HEADERS,
+            timeout=15,
         )
         response = response.json()[0]["choices"][0]["delta"]["content"]
     except requests.exceptions.ReadTimeout as e:

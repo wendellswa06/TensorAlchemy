@@ -1,10 +1,8 @@
 import json
 import asyncio
-import copy
 import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
-from dataclasses import asdict
 from datetime import datetime
 
 import bittensor as bt
@@ -446,7 +444,8 @@ async def run_step(
     start_time = time.time()
 
     # Log the results for monitoring purposes.
-    log_responses(responses, prompt)
+    if get_config().DEBUG:
+        log_responses(responses, prompt)
 
     # Calculate rewards
     scoring_results: ScoringResults = await get_scoring_results(
@@ -487,7 +486,7 @@ async def run_step(
         event.update(
             {
                 "task_type": task_type,
-                "block": ttl_get_block(validator),
+                "block": ttl_get_block(),
                 "step_length": time.time() - start_time,
                 "prompt": prompt if task_type == "TEXT_TO_IMAGE" else None,
                 "uids": uids,

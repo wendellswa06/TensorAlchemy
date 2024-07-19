@@ -17,12 +17,8 @@ class TestStableMinerAsBase:
     @patch("bittensor.wallet")
     @patch("bittensor.metagraph")
     @patch("bittensor.axon")
-    @patch("neurons.miners.StableMiner.wandb_utils.WandbUtils")
-    @patch("neurons.miners.StableMiner.wandb_utils.WandbTimer")
     def stable_miner(
         self,
-        mock_wandb_timer,
-        mock_wandb,
         mock_axon,
         mock_metagraph,
         mock_wallet,
@@ -42,9 +38,6 @@ class TestStableMinerAsBase:
         mock_config = MagicMock()
         mock_config.axon.port = 1234
         mock_config.axon.get.return_value = None
-        mock_config.wandb.project = "test_project"
-        mock_config.wandb.entity = "test_entity"
-        mock_config.wandb.api_key = "test_api_key"
         mock_get_bt_miner_config.return_value = mock_config
         mock_subtensor.return_value = MagicMock()
         mock_wallet.return_value = MagicMock()
@@ -67,7 +60,9 @@ class TestStableMinerAsBase:
         assert stable_miner.metagraph is not None
 
     @patch("bittensor.axon")
-    @patch("bittensor.utils.networking.get_external_ip", return_value="127.0.0.1")
+    @patch(
+        "bittensor.utils.networking.get_external_ip", return_value="127.0.0.1"
+    )
     @patch("bittensor.subtensor.serve_axon")
     def test_start_axon(
         self, mock_serve_axon, mock_get_external_ip, mock_axon, stable_miner
@@ -111,15 +106,21 @@ class TestStableMinerAsBase:
 
     def test_get_miner_info(self, stable_miner):
         stable_miner.metagraph.block.item.return_value = 1
-        stable_miner.metagraph.stake.__getitem__.return_value.item.return_value = 1.0
-        stable_miner.metagraph.trust.__getitem__.return_value.item.return_value = 1.0
+        stable_miner.metagraph.stake.__getitem__.return_value.item.return_value = (
+            1.0
+        )
+        stable_miner.metagraph.trust.__getitem__.return_value.item.return_value = (
+            1.0
+        )
         stable_miner.metagraph.consensus.__getitem__.return_value.item.return_value = (
             1.0
         )
         stable_miner.metagraph.incentive.__getitem__.return_value.item.return_value = (
             1.0
         )
-        stable_miner.metagraph.emission.__getitem__.return_value.item.return_value = 1.0
+        stable_miner.metagraph.emission.__getitem__.return_value.item.return_value = (
+            1.0
+        )
         miner_info = stable_miner.get_miner_info()
         assert miner_info == {
             "block": 1,
@@ -192,7 +193,9 @@ class TestStableMinerAsBase:
         priority = stable_miner.priority_is_alive(synapse)
         assert priority == 100
 
-    @patch.object(StableMiner, "_base_blacklist", return_value=(False, "Allowed"))
+    @patch.object(
+        StableMiner, "_base_blacklist", return_value=(False, "Allowed")
+    )
     def test_blacklist_is_alive(self, mock_base_blacklist, stable_miner):
         synapse = MagicMock(spec=IsAlive)
         is_blacklisted, reason = stable_miner.blacklist_is_alive(synapse)

@@ -6,7 +6,8 @@ import time
 import traceback
 import uuid
 import queue
-from multiprocessing import Manager, Queue
+from math import ceil
+from multiprocessing import Manager, Queue, set_start_method
 from typing import Optional
 
 import bittensor as bt
@@ -59,7 +60,14 @@ from neurons.validator.utils import (
     get_device_name,
     get_random_uids,
 )
-from neurons.validator.weights import set_weights
+from neurons.validator.weights import (
+    SetWeightsTask,
+    set_weights_loop,
+    tensor_to_list,
+)
+
+# Set the start method for multiprocessing
+set_start_method("spawn", force=True)
 
 
 def is_valid_current_directory() -> bool:
@@ -252,7 +260,7 @@ class StableValidator:
         ).to(self.device)
 
         # Init prev_block and step
-        self.prev_block = ttl_get_block(self)
+        self.prev_block = ttl_get_block()
         self.step = 0
 
         # Init sync with the network. Updates the metagraph.
@@ -296,6 +304,7 @@ class StableValidator:
 
         # Start the batch streaming background loop
         manager = Manager()
+        self.set_weights_queue: Queue = manager.Queue(maxsize=128)
         self.batches_upload_queue: Queue = manager.Queue(maxsize=2048)
 
         self.upload_images_process = MultiprocessBackgroundTimer(
@@ -304,6 +313,13 @@ class StableValidator:
             args=[self.batches_upload_queue],
         )
         self.upload_images_process.start()
+
+        self.set_weights_process = MultiprocessBackgroundTimer(
+            0.2,
+            set_weights_loop,
+            args=[self.set_weights_queue],
+        )
+        self.set_weights_process.start()
 
         # Create a Dict for storing miner query history
         try:
@@ -538,8 +554,14 @@ class StableValidator:
             self.resync_metagraph()
 
         if self.should_set_weights():
-            await set_weights(self.hotkeys, self.moving_average_scores)
-            self.prev_block = ttl_get_block(self)
+            self.set_weights_queue.put_nowait(
+                SetWeightsTask(
+                    epoch=ttl_get_block(),
+                    hotkeys=copy.deepcopy(self.hotkeys),
+                    weights=tensor_to_list(self.moving_average_scores),
+                )
+            )
+            self.prev_block = ttl_get_block()
 
     def get_validator_index(self):
         """
@@ -624,20 +646,53 @@ class StableValidator:
         since the last checkpoint to sync.
         """
         return (
-            ttl_get_block(self) - self.metagraph.last_update[self.uid]
+            ttl_get_block() - self.metagraph.last_update[self.uid]
         ) > self.config.alchemy.epoch_length
 
     def should_set_weights(self) -> bool:
-        # Check if all moving_averages_socres are the 0s or 1s
+        # Check if all moving_averages_scores are 0s or 1s
         ma_scores = self.moving_average_scores
         ma_scores_sum = sum(ma_scores)
-        if any([ma_scores_sum == len(ma_scores), ma_scores_sum == 0]):
+        logger.debug(
+            #
+            f"Moving average scores: {ma_scores},"
+            + f" Sum: {ma_scores_sum}"
+        )
+
+        if ma_scores_sum == len(ma_scores) or ma_scores_sum == 0:
+            logger.info(
+                "All moving average scores are either 0s or 1s. "
+                + "Not setting weights."
+            )
             return False
 
-        # Check if enough epoch blocks have elapsed since the last epoch.
-        return (
-            ttl_get_block(self) % self.prev_block
-        ) >= self.config.alchemy.epoch_length
+        # Check if enough epoch blocks have elapsed since the last epoch
+        current_block = ttl_get_block()
+        blocks_elapsed = current_block % self.prev_block
+        logger.debug(
+            f"Current block: {current_block},"
+            + f" Blocks elapsed: {blocks_elapsed}"
+        )
+
+        epoch_length: int = self.config.alchemy.epoch_length
+
+        should_set = blocks_elapsed >= epoch_length
+
+        # Calculate and log the approximate time until next weight set
+        if not should_set:
+            blocks_until_next_set = epoch_length - blocks_elapsed
+            # Assuming an average block time of 12 seconds
+            seconds_until_next_set = blocks_until_next_set * 12
+            minutes_until_next_set = ceil(seconds_until_next_set / 60)
+            logger.info(
+                "Next weight set in approximately "
+                f"{minutes_until_next_set} minutes "
+                f"({blocks_until_next_set} blocks)"
+            )
+
+        logger.info(f"Should set weights: {should_set}")
+
+        return should_set
 
     def save_state(self):
         """Save hotkeys, neuron model and moving average scores to filesystem."""

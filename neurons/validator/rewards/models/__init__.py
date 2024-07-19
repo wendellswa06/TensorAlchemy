@@ -7,7 +7,9 @@ from neurons.protocol import ModelType
 from neurons.validator.rewards.models.base import BaseRewardModel
 from neurons.validator.rewards.models.empty import EmptyScoreRewardModel
 from neurons.validator.rewards.models.blacklist import BlacklistFilter
-from neurons.validator.rewards.models.similarity import ModelSimilarityRewardModel
+from neurons.validator.rewards.models.similarity import (
+    ModelSimilarityRewardModel,
+)
 from neurons.validator.rewards.models.human import HumanValidationRewardModel
 from neurons.validator.rewards.models.image_reward import ImageRewardModel
 from neurons.validator.rewards.models.nsfw import NSFWRewardModel
@@ -41,7 +43,7 @@ def get_reward_models() -> ModelStorage:
             #     model=ModelSimilarityRewardModel(),
             # ),
             RewardModelType.HUMAN: PackedRewardModel(
-                weight=0.1 / 32,
+                weight=0.2,
                 model=HumanValidationRewardModel(),
             ),
         }

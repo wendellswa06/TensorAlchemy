@@ -1,11 +1,10 @@
 import os
 import sys
-import shutil
+import inspect
+import asyncio
 import traceback
-import subprocess
 import multiprocessing
 
-from datetime import datetime
 from threading import Timer
 
 import torch
@@ -50,18 +49,19 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
         self.finished = multiprocessing.Event()
 
     def run(self):
+        logger.info(f"{self.function.__name__} started")
+
         while not self.finished.is_set():
             try:
-                self.function(*self.args, **self.kwargs)
+                if inspect.iscoroutinefunction(self.function):
+                    asyncio.run(self.function(*self.args, **self.kwargs))
+                else:
+                    self.function(*self.args, **self.kwargs)
+
                 self.finished.wait(self.interval)
 
             except Exception as e:
-                logger.info(
-                    #
-                    "An error occurred in "
-                    + self.__class__.__name__
-                    + f" {e}"
-                )
+                logger.error(traceback.format_exc())
 
     def cancel(self):
         self.finished.set()
@@ -83,8 +83,12 @@ def background_loop(self, is_validator):
     updating the blacklist and whitelist.
     """
     neuron_type = "Validator" if is_validator else "Miner"
-    whitelist_type = IA_VALIDATOR_WHITELIST if is_validator else IA_MINER_WHITELIST
-    blacklist_type = IA_VALIDATOR_BLACKLIST if is_validator else IA_MINER_BLACKLIST
+    whitelist_type = (
+        IA_VALIDATOR_WHITELIST if is_validator else IA_MINER_WHITELIST
+    )
+    blacklist_type = (
+        IA_VALIDATOR_BLACKLIST if is_validator else IA_MINER_BLACKLIST
+    )
     warninglist_type = IA_MINER_WARNINGLIST
 
     # Terminate the miner / validator after deregistration
@@ -92,7 +96,9 @@ def background_loop(self, is_validator):
         try:
             self.metagraph.sync(subtensor=self.subtensor)
             if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-                logger.info(f">>> {neuron_type} has deregistered... terminating.")
+                logger.info(
+                    f">>> {neuron_type} has deregistered... terminating."
+                )
                 try:
                     _thread.interrupt_main()
                 except Exception as e:
@@ -102,10 +108,14 @@ def background_loop(self, is_validator):
                 try:
                     os.exit(0)
                 except Exception as e:
-                    logger.error(f"An error occurred trying to use os._exit(): {e}.")
+                    logger.error(
+                        f"An error occurred trying to use os._exit(): {e}."
+                    )
                 sys.exit(0)
         except Exception as e:
-            logger.error(f">>> An unexpected error occurred syncing the metagraph: {e}")
+            logger.error(
+                f">>> An unexpected error occurred syncing the metagraph: {e}"
+            )
 
     # Update the whitelists and blacklists
     if self.background_steps % 5 == 0:
@@ -173,7 +183,10 @@ def background_loop(self, is_validator):
                     if v["type"] == "coldkey"
                 }
                 logger.info("Retrieved the latest warninglists.")
-                if self.wallet.hotkey.ss58_address in self.hotkey_warninglist.keys():
+                if (
+                    self.wallet.hotkey.ss58_address
+                    in self.hotkey_warninglist.keys()
+                ):
                     hotkey_address: str = self.hotkey_warninglist[
                         self.wallet.hotkey.ss58_address
                     ][0]
@@ -187,7 +200,9 @@ def background_loop(self, is_validator):
                         color="red",
                     )
 
-                coldkey = get_coldkey_for_hotkey(self, self.wallet.hotkey.ss58_address)
+                coldkey = get_coldkey_for_hotkey(
+                    self, self.wallet.hotkey.ss58_address
+                )
                 if coldkey in self.coldkey_warninglist.keys():
                     coldkey_address: str = self.coldkey_warninglist[coldkey][0]
                     coldkey_warning: str = self.coldkey_warninglist[coldkey][1]
@@ -231,7 +246,10 @@ def background_loop(self, is_validator):
 
                     self.human_voting_weight = validator_weights[
                         "human_reward_model"
-                    ] / ((total_number_of_neurons / N_NEURONS) * adjustment_factor)
+                    ] / (
+                        (total_number_of_neurons / N_NEURONS)
+                        * adjustment_factor
+                    )
 
                 if validator_weights:
                     weights_to_add = []
@@ -250,7 +268,9 @@ def background_loop(self, is_validator):
                         # Normalize weights
                         if sum(weights_to_add) != 1:
                             weights_to_add = normalize_weights(weights_to_add)
-                            logger.info(f"Normalized model weights: {weights_to_add}")
+                            logger.info(
+                                f"Normalized model weights: {weights_to_add}"
+                            )
 
                         self.reward_weights = torch.tensor(
                             weights_to_add, dtype=torch.float32

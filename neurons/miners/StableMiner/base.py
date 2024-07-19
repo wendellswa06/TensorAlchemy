@@ -32,7 +32,7 @@ import bittensor as bt
 
 
 class BaseMiner(ABC):
-    def __init__(self, bt_config: bittensor.config) -> None:
+    def __init__(self) -> None:
         self.storage_client: Any = None
         self.bt_config = get_bt_miner_config()
 
@@ -59,7 +59,6 @@ class BaseMiner(ABC):
         self.loop_until_registered()
         self.initialize_defaults()
         self.initialize_transform_function()
-        self.initialize_wandb()
         self.start_background_loop()
 
     def is_whitelisted(
@@ -301,7 +300,6 @@ class BaseMiner(ABC):
             self.stats.timeouts += 1
 
         images = self._filter_nsfw_images(images)
-        self._log_to_wandb(images, synapse.prompt)
         self._log_generation_time(start_time)
 
         # Save images as base64 before sending through synapse
