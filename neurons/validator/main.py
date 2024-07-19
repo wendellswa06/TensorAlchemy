@@ -6,6 +6,7 @@ import warnings
 
 from loguru import logger
 
+
 # Suppress the eth_utils network warnings
 # "does not have a valid ChainId."
 # NOTE: It's not our bug, it's upstream
@@ -25,11 +26,10 @@ if __name__ == "__main__":
 
     current_folder = str(pathlib.Path(__file__).parent.resolve())
 
-    from neurons.utils.log import setup_logger
+    from neurons.validator.utils.log import configure_logging
     from neurons.update_checker import check_for_updates
 
-    # Nicer loguru logging
-    setup_logger()
+    configure_logging()
 
     try:
         check_for_updates(current_folder, REPO_URL)

@@ -379,6 +379,7 @@ async def run_step(
     model_type: str,
     stats: Stats,
 ):
+
     # Get Arguments
     prompt = task.prompt
     task_type = task.task_type
