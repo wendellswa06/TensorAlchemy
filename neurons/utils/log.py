@@ -46,7 +46,7 @@ def image_to_log(image: Any) -> str:
         return f"shaped({image.shape})"
 
     if isinstance(image, ImageType):
-        return f"PIL.Image({image.shape})"
+        return f"PIL.Image({image.width}, {image.height})"
 
     return f"UNKNOWN IMAGE TYPE {type(image)}"
 
