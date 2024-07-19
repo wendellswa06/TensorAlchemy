@@ -19,8 +19,6 @@ from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 from neurons.utils.defaults import Stats
 from neurons.utils.image import (
     synapse_to_base64,
-    multi_to_tensor,
-    empty_image,
     empty_image_tensor,
 )
 
@@ -40,12 +38,25 @@ from neurons.validator.rewards.types import (
     ScoringResults,
 )
 from neurons.validator.rewards.pipeline import (
-    filter_rewards,
     get_scoring_results,
     apply_masking_functions,
 )
 
 transform = T.Compose([T.PILToTensor()])
+
+
+def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
+    for uid in range(1, 255):
+        try:
+            score = float(moving_average_scores[uid])
+            score_log = f"{score:.4f}"
+            if score > 0:
+                logger.info(
+                    f"miner_uid={uid}, miner_score={score_log}",
+                    extra={"miner_uid": uid, "miner_score": score},
+                )
+        except IndexError:
+            continue
 
 
 async def update_moving_averages(
@@ -95,6 +106,11 @@ async def update_moving_averages(
     moving_average_scores: torch.FloatTensor = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
+
+    try:
+        log_moving_averages(moving_average_scores)
+    except Exception:
+        pass
 
     # Save moving averages scores on backend
     try:
@@ -438,18 +454,6 @@ async def run_step(
         synapse,
         responses,
     )
-
-    for uid in range(1, 255):
-        try:
-            score = float(validator.moving_average_scores[uid])
-            score_log = f"{score:.4f}"
-            if score > 0:
-                logger.info(
-                    f"miner_uid={uid}, miner_score={score_log}",
-                    extra={"miner_uid": uid, "miner_score": score},
-                )
-        except IndexError:
-            continue
 
     # Apply isalive filtering
     rewards_tensor_adjusted = scoring_results.combined_scores
