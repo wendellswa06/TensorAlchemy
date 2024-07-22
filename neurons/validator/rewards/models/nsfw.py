@@ -18,7 +18,7 @@ class NSFWRewardModel(BaseRewardModel):
     def __init__(self):
         super().__init__()
         self.safetychecker = StableDiffusionSafetyChecker.from_pretrained(
-            "Falconsai/nsfw_image_detection"
+            "CompVis/stable-diffusion-safety-checker"
         ).to(get_device())
         self.processor = CLIPImageProcessor()
 
