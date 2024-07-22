@@ -60,7 +60,7 @@ def get_bt_miner_config() -> bittensor.config:
         default="stabilityai/stable-diffusion-xl-refiner-1.0",
     )
     argp.add_argument(
-        "--miner.disable_loki_logging", action="store_true", default=False
+        "--alchemy.disable_loki_logging", action="store_true", default=False
     )
 
     bt.axon.add_args(argp)

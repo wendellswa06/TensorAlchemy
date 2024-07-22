@@ -30,7 +30,7 @@ from neurons.miners.StableMiner.utils.log import do_logs
 
 import bittensor as bt
 
-from neurons.validator.utils.log import configure_logging
+from neurons.utils.log import configure_logging
 
 
 class BaseMiner(ABC):

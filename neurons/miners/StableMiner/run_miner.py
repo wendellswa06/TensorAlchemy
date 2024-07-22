@@ -13,7 +13,7 @@ from neurons.protocol import ModelType
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.safety import StableDiffusionSafetyChecker
-from neurons.validator.utils.log import configure_logging
+from neurons.utils.log import configure_logging
 
 
 def run_miner():

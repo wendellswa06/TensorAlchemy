@@ -25,10 +25,6 @@ def main():
     setup_paths()
     from neurons.miners.StableMiner.run_miner import run_miner
 
-    from neurons import constants
-
-    constants.IS_MINER = True
-
     run_miner()
 
 
