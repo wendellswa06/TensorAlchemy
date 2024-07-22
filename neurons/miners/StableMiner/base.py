@@ -358,10 +358,6 @@ class BaseMiner(ABC):
 
                 images = self.generate_with_refiner(model_args, model_config)
 
-                synapse.images = [
-                    bt.Tensor.serialize(self.transform(image))
-                    for image in images
-                ]
                 logger.info(
                     f"{sh('Generating')} -> Successful image generation after {attempt + 1} attempt(s).",
                 )
