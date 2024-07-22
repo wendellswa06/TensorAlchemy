@@ -374,9 +374,14 @@ class BaseMiner(ABC):
                 await asyncio.sleep(5)
         return images
 
+    def get_model_args(self, denoising_end, output_type, **rest) -> Dict:
+        return rest
+
     def _filter_nsfw_images(
         self, images: List[torch.Tensor]
     ) -> List[torch.Tensor]:
+        if not images:
+            return images
         try:
             if any(self.nsfw_image_filter(images)):
                 logger.info("An image was flagged as NSFW: discarding image.")
@@ -417,9 +422,7 @@ class BaseMiner(ABC):
             images = refiner(**refiner_args).images
 
         else:
-            model_args.pop("denoising_end")
-            model_args.pop("output_type")
-            images = model(**model_args).images
+            images = model(self.get_model_args(**model_args)).images
         return images
 
     def setup_refiner_args(self, model_args: Dict[str, Any]) -> Dict[str, Any]:
