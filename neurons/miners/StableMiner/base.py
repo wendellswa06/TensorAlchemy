@@ -383,6 +383,7 @@ class BaseMiner(ABC):
                 self.stats.nsfw_count += 1
                 return [empty_image_tensor() for _ in images]
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in NSFW filtering: {e}")
         return images
 
@@ -416,11 +417,9 @@ class BaseMiner(ABC):
             images = refiner(**refiner_args).images
 
         else:
-            denoising_end = model_args.pop("denoising_end")
-            output_type = model_args.pop("output_type")
+            model_args.pop("denoising_end")
+            model_args.pop("output_type")
             images = model(**model_args).images
-            model_args[denoising_end] = denoising_end
-            model_args[output_type] = output_type
         return images
 
     def setup_refiner_args(self, model_args: Dict[str, Any]) -> Dict[str, Any]:
