@@ -38,11 +38,15 @@ class MockConfig:
         port = 8080
         external_ip = "127.0.0.1"
 
+    class Refiner:
+        enable = "true"
+
     netuid = 1
     logging = Logging()
     wallet = Wallet()
     miner = Miner()
     axon = Axon()
+    refiner = Refiner()
     model_configs = MinerConfig(model_configs={})
     full_path = "/tmp/test_wallet/test_hotkey/netuid1/miner"
 
@@ -82,8 +86,12 @@ class TestStableMiner(unittest.TestCase):
                 return_value=MockConfig(),
             ),
         }
-        self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
-        self.addCleanup(lambda: [patcher.stop() for patcher in self.patches.values()])
+        self.mocks = {
+            name: patcher.start() for name, patcher in self.patches.items()
+        }
+        self.addCleanup(
+            lambda: [patcher.stop() for patcher in self.patches.values()]
+        )
 
     def create_mock_model(self):
         mock_model = MagicMock(spec=DiffusionPipeline)

@@ -374,8 +374,8 @@ class BaseMiner(ABC):
                 await asyncio.sleep(5)
         return images
 
-    def get_model_args(self, denoising_end, output_type, **rest) -> Dict:
-        return rest
+    def without_keys(self, d: Dict, keys: List[str]) -> Dict:
+        return {k: v for k, v in d.items() if k not in keys}
 
     def _filter_nsfw_images(
         self, images: List[torch.Tensor]
@@ -422,7 +422,9 @@ class BaseMiner(ABC):
             images = refiner(**refiner_args).images
 
         else:
-            images = model(self.get_model_args(**model_args)).images
+            images = model(
+                **self.without_keys(model_args, ["denoising_end", "output_type"])
+            ).images
         return images
 
     def setup_refiner_args(self, model_args: Dict[str, Any]) -> Dict[str, Any]:
