@@ -180,7 +180,7 @@ class StableMiner(BaseMiner):
             )
             logger.info(f"Total GPU memory: {total:.2f} MB")
             logger.info(f"Free GPU memory: {free:.2f} MB")
-        except RuntimeError as e:
+        except Exception as e:
             logger.error(
                 f"Failed to log GPU memory usage {stage}: {str(e)}"
             )
