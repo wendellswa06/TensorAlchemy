@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     current_folder = str(pathlib.Path(__file__).parent.resolve())
 
-    from neurons.validator.utils.log import configure_logging
+    from neurons.utils.log import configure_logging
     from neurons.update_checker import check_for_updates
 
     configure_logging()

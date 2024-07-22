@@ -1,3 +1,5 @@
+import sys
+
 from loguru import logger
 import torch
 from diffusers import (
@@ -11,9 +13,13 @@ from neurons.protocol import ModelType
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.safety import StableDiffusionSafetyChecker
+from neurons.utils.log import configure_logging
 
 
 def run_miner():
+
+    configure_logging()
+
     task_configs = [
         TaskConfig(
             model_type=ModelType.CUSTOM,

@@ -37,6 +37,7 @@ from neurons.utils import (
     MultiprocessBackgroundTimer,
     background_loop,
 )
+from neurons.utils.log import configure_logging
 from neurons.validator.schemas import Batch
 from neurons.validator.config import (
     get_device,
@@ -52,7 +53,6 @@ from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
 from neurons.validator.forward import run_step
 from neurons.validator.services.openai.service import get_openai_service
-from neurons.validator.utils.log import configure_logging
 from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
     ttl_get_block,
