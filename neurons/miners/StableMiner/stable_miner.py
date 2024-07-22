@@ -96,7 +96,11 @@ class StableMiner(BaseMiner):
                 task_config.model_type
             ][task_config.task_type].processor
 
-        if task_config.refiner_class and task_config.refiner_model_name:
+        if (
+            self.bt_config.refiner.enable
+            and task_config.refiner_class
+            and task_config.refiner_model_name
+        ):
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
@@ -105,7 +109,8 @@ class StableMiner(BaseMiner):
             )
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
             self.log_gpu_memory_usage(
-                f"after loading model for task {task_config.task_type}")
+                f"after loading model for task {task_config.task_type}"
+            )
 
     def get_model_config(
         self, model_type: ModelType, task_type: TaskType
@@ -172,18 +177,14 @@ class StableMiner(BaseMiner):
             total = torch.cuda.get_device_properties(0).total_memory / 1024**2
             free = total - allocated
 
-            logger.info(
-                f"GPU memory allocated {stage}: {allocated:.2f} MB"
-            )
+            logger.info(f"GPU memory allocated {stage}: {allocated:.2f} MB")
             logger.info(
                 f"Max GPU memory allocated {stage}: {max_allocated:.2f} MB"
             )
             logger.info(f"Total GPU memory: {total:.2f} MB")
             logger.info(f"Free GPU memory: {free:.2f} MB")
         except Exception as e:
-            logger.error(
-                f"Failed to log GPU memory usage {stage}: {str(e)}"
-            )
+            logger.error(f"Failed to log GPU memory usage {stage}: {str(e)}")
 
     def optimize_models(self) -> None:
         logger.info("Optimizing models...")
