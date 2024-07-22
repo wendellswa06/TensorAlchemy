@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import argparse
@@ -60,6 +61,11 @@ def get_bt_miner_config() -> bittensor.config:
         default="stabilityai/stable-diffusion-xl-refiner-1.0",
     )
 
+    argp.add_argument(
+        "--refiner.enable",
+        action="store_true",
+    )
+
     bt.axon.add_args(argp)
     bt.wallet.add_args(argp)
     bt.logging.add_args(argp)
@@ -80,6 +86,7 @@ def get_bt_miner_config() -> bittensor.config:
     if not os.path.exists(bt_miner_config.full_path):
         os.makedirs(bt_miner_config.full_path, exist_ok=True)
 
+    logging.warning("bt_miner_config: {}".format(bt_miner_config))
     return bt_miner_config
 
 
