@@ -42,8 +42,12 @@ class StableMiner(BaseMiner):
             )
             self.initialize_model_for_task(task_config)
         self.setup_model_configs()
+        self.log_gpu_memory_usage("after initializing models")
 
     def initialize_model_for_task(self, task_config: TaskConfig) -> None:
+        self.log_gpu_memory_usage("before freeing cache")
+        torch.cuda.empty_cache()
+        self.log_gpu_memory_usage("after freeing cache")
         logger.info(f"Loading model for task: {task_config.task_type}")
         model = self.load_model(
             self.bt_config.miner.custom_model, task_config.task_type
@@ -100,6 +104,8 @@ class StableMiner(BaseMiner):
                 model, task_config
             )
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
+            self.log_gpu_memory_usage(
+                f"after loading model for task {task_config.task_type}")
 
     def get_model_config(
         self, model_type: ModelType, task_type: TaskType
@@ -158,6 +164,26 @@ class StableMiner(BaseMiner):
             return self.i2i_args
         else:
             return {}
+
+    def log_gpu_memory_usage(self, stage: str) -> None:
+        try:
+            allocated = torch.cuda.memory_allocated() / 1024**2
+            max_allocated = torch.cuda.max_memory_allocated() / 1024**2
+            total = torch.cuda.get_device_properties(0).total_memory / 1024**2
+            free = total - allocated
+
+            logger.info(
+                f"GPU memory allocated {stage}: {allocated:.2f} MB"
+            )
+            logger.info(
+                f"Max GPU memory allocated {stage}: {max_allocated:.2f} MB"
+            )
+            logger.info(f"Total GPU memory: {total:.2f} MB")
+            logger.info(f"Free GPU memory: {free:.2f} MB")
+        except RuntimeError as e:
+            logger.error(
+                f"Failed to log GPU memory usage {stage}: {str(e)}"
+            )
 
     def optimize_models(self) -> None:
         logger.info("Optimizing models...")

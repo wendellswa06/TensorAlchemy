@@ -405,7 +405,7 @@ class BaseMiner(ABC):
             else None
         )
 
-        if refiner is not None:
+        if refiner and self.bt_config.refiner.enable:
             # Init refiner args
             refiner_args = self.setup_refiner_args(model_args)
             images = model(**model_args).images
