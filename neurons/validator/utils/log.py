@@ -110,7 +110,7 @@ def configure_logging():
     logger.add(
         sys.stdout,
         colorize=True,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <6}</level> | <level>{message}</level>",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
     configure_loki_logger()
     patch_bt_logging()
