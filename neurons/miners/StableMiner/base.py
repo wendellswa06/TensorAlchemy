@@ -38,10 +38,6 @@ class BaseMiner(ABC):
         self.storage_client: Any = None
         self.bt_config = get_bt_miner_config()
 
-        configure_logging(
-            enable_loki_logger=not self.bt_config.miner.disable_loki_logging
-        )
-
         if self.bt_config.logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")

@@ -114,13 +114,14 @@ def patch_bt_logging():
     bt.logging.trace = logger.trace
 
 
-def configure_logging(enable_loki_logger=True):
+def configure_logging():
     logger.remove()
     logger.add(
         sys.stdout,
         colorize=True,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
+    enable_loki_logger = "--miner.disable_loki_logging" not in sys.argv
     if enable_loki_logger:
         configure_loki_logger()
     patch_bt_logging()
