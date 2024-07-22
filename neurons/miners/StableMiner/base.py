@@ -30,11 +30,17 @@ from neurons.miners.StableMiner.utils.log import do_logs
 
 import bittensor as bt
 
+from neurons.validator.utils.log import configure_logging
+
 
 class BaseMiner(ABC):
     def __init__(self) -> None:
         self.storage_client: Any = None
         self.bt_config = get_bt_miner_config()
+
+        configure_logging(
+            enable_loki_logger=not self.bt_config.miner.disable_loki_logging
+        )
 
         if self.bt_config.logging.debug:
             bt.debug()

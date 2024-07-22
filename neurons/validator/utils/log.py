@@ -12,6 +12,10 @@ import bittensor as bt
 import logging_loki
 
 
+LOKI_VALIDATOR_APP_NAME = "tensoralchemy-validator"
+LOKI_MINER_APP_NAME = "tensoralchemy-miner"
+
+
 def get_subtensor_network_from_netuid(netuid: int) -> str:
     return {25: "testnet", 26: "finney"}.get(netuid, "")
 
@@ -82,11 +86,16 @@ def configure_loki_logger():
             }
             return json.dumps(log_record)
 
+    application_name = (
+        LOKI_VALIDATOR_APP_NAME
+        if constants.IS_VALIDATOR
+        else LOKI_MINER_APP_NAME
+    )
     # Use LokiQueueHandler to upload logs in background
     loki_handler = CustomLokiLoggingHandler(
         Queue(-1),
         url="https://loki.tensoralchemy.ai/loki/api/v1/push",
-        tags={"application": "tensoralchemy-validator"},
+        tags={"application": application_name},
         auth=("tensoralchemy-loki", "tPaaDGH0lG"),
         version="1",
     )
@@ -105,12 +114,13 @@ def patch_bt_logging():
     bt.logging.trace = logger.trace
 
 
-def configure_logging():
+def configure_logging(enable_loki_logger=True):
     logger.remove()
     logger.add(
         sys.stdout,
         colorize=True,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
-    configure_loki_logger()
+    if enable_loki_logger:
+        configure_loki_logger()
     patch_bt_logging()

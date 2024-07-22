@@ -3,6 +3,11 @@ import os
 IS_TEST: bool = False
 IS_CI_ENV: bool = os.environ.get("CI") == "true"
 
+# We are running miner
+IS_MINER: bool = False
+
+# We are running validator
+IS_VALIDATOR: bool = False
 
 IA_BUCKET_NAME = "image-alchemy"
 IA_TEST_BUCKET_NAME = "image-alchemy-test"

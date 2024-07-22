@@ -28,6 +28,9 @@ if __name__ == "__main__":
 
     from neurons.validator.utils.log import configure_logging
     from neurons.update_checker import check_for_updates
+    from neurons import constants
+
+    constants.IS_VALIDATOR = True
 
     configure_logging()
 
