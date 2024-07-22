@@ -38,12 +38,3 @@ def summarize_rewards(reward_tensor: torch.Tensor) -> str:
         f"Max: {reward_tensor.max():.4f}, "
         f"Min non-zero: {non_zero.min():.4f}"
     )
-
-
-# Utility function for coloring logs
-def colored_log(
-    message: str,
-    color: str = "white",
-    level: str = "INFO",
-) -> None:
-    logger.log(level, f"<bold><{color}>{message}</{color}></bold>")

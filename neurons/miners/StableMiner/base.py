@@ -20,7 +20,7 @@ from neurons.utils.image import (
     image_to_base64,
     empty_image_tensor,
 )
-from neurons.utils.log import colored_log, sh
+from neurons.utils.log import sh
 from neurons.utils.nsfw import clean_nsfw_from_prompt
 from neurons.miners.StableMiner.utils import (
     get_caller_stake,
@@ -121,9 +121,7 @@ class BaseMiner(ABC):
 
     def start_axon(self) -> None:
         # Serve the axon
-        colored_log(
-            f"Serving axon on port {self.bt_config.axon.port}.", color="green"
-        )
+        logger.info(f"Serving axon on port {self.bt_config.axon.port}.")
         self.create_axon()
         self.register_axon()
 
@@ -149,7 +147,7 @@ class BaseMiner(ABC):
                 )
                 .start()
             )
-            colored_log(f"Axon created: {self.axon}", color="green")
+            logger.info(f"Axon created: {self.axon}", color="green")
         except Exception as e:
             logger.error(f"Failed to create axon: {e}")
             raise
@@ -362,9 +360,8 @@ class BaseMiner(ABC):
                     bt.Tensor.serialize(self.transform(image))
                     for image in images
                 ]
-                colored_log(
+                logger.info(
                     f"{sh('Generating')} -> Successful image generation after {attempt + 1} attempt(s).",
-                    color="cyan",
                 )
                 break
             except Exception as e:
@@ -394,9 +391,8 @@ class BaseMiner(ABC):
         average_time: float = (
             self.stats.generation_time / self.stats.total_requests
         )
-        colored_log(
+        logger.info(
             f"{sh('Time')} -> {generation_time:.2f}s | Average: {average_time:.2f}s",
-            color="yellow",
         )
 
     def generate_with_refiner(
@@ -551,28 +547,25 @@ class BaseMiner(ABC):
             # Note that blocking these keys
             # will result in a ban from the network
             if self.is_whitelisted(caller_coldkey=caller_coldkey):
-                colored_log(
+                logger.info(
                     f"Whitelisting coldkey's {synapse_type}"
                     + f" request from {caller_hotkey}.",
-                    color="green",
                 )
                 return False, "Whitelisted coldkey recognized."
 
             if self.is_whitelisted(caller_hotkey=caller_hotkey):
-                colored_log(
+                logger.info(
                     f"Whitelisting hotkey's {synapse_type}"
                     + f" request from {caller_hotkey}.",
-                    color="green",
                 )
                 return False, "Whitelisted hotkey recognized."
 
             # Reject request if rate limit was exceeded
             # and key wasn't whitelisted
             if exceeded_rate_limit:
-                colored_log(
+                logger.info(
                     f"Blacklisted a {synapse_type} request from {caller_hotkey}. "
                     f"Rate limit ({rate_limit:.2f}) exceeded. Delta: {delta:.2f}s.",
-                    color="red",
                 )
                 return (
                     True,
@@ -582,10 +575,9 @@ class BaseMiner(ABC):
 
             # Blacklist requests from validators that aren't registered
             if caller_stake is None:
-                colored_log(
+                logger.info(
                     f"Blacklisted a non-registered hotkey's {synapse_type} "
                     f"request from {caller_hotkey}.",
-                    color="red",
                 )
                 return (
                     True,
@@ -623,7 +615,7 @@ class BaseMiner(ABC):
         return self._base_priority(synapse)
 
     def loop(self) -> None:
-        colored_log("Starting miner loop.", color="green")
+        logger.info("Starting miner loop.", color="green")
         step: int = 0
         while True:
             try:
@@ -631,7 +623,7 @@ class BaseMiner(ABC):
                 is_registered: bool = self.check_still_registered()
 
                 if not is_registered:
-                    colored_log(
+                    logger.info(
                         "The miner is not currently registered.", color="red"
                     )
                     time.sleep(120)
@@ -654,7 +646,7 @@ class BaseMiner(ABC):
                         f"Incentive: {self.metagraph.I[self.miner_index]:.2f} | "
                         f"Emission: {self.metagraph.E[self.miner_index]:.2f}"
                     )
-                    colored_log(log, color="green")
+                    logger.info(log, color="green")
 
                     # Show the top 10 requestors by calls along
                     # with their delta Hotkey, count, delta, rate limited count
@@ -686,9 +678,8 @@ class BaseMiner(ABC):
                             )
                             formatted_str = f"{formatted_str}"
 
-                            colored_log(
+                            logger.info(
                                 f"{sh('Top Callers')} -> Metrics\n{formatted_str}",
-                                color="cyan",
                             )
                     except Exception as e:
                         logger.error(f"Error processing top requestors: {e}")

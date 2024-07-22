@@ -23,7 +23,6 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
     N_NEURONS,
 )
-from neurons.utils.log import colored_log
 from neurons.utils.gcloud import retrieve_public_file
 
 from neurons.validator.rewards.models.types import (
@@ -35,7 +34,6 @@ from neurons.validator.utils.log import configure_logging
 # Background Loop
 class BackgroundTimer(Timer):
     def run(self):
-
         configure_logging()
 
         self.function(*self.args, **self.kwargs)
@@ -53,7 +51,6 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
         self.finished = multiprocessing.Event()
 
     def run(self):
-
         configure_logging()
 
         logger.info(f"{self.function.__name__} started")
@@ -202,10 +199,9 @@ def background_loop(self, is_validator):
                         self.wallet.hotkey.ss58_address
                     ][1]
 
-                    colored_log(
+                    logger.info(
                         f"This hotkey is on the warning list: {hotkey_address}"
                         + f" | Date for rectification: {hotkey_warning}",
-                        color="red",
                     )
 
                 coldkey = get_coldkey_for_hotkey(
@@ -214,10 +210,9 @@ def background_loop(self, is_validator):
                 if coldkey in self.coldkey_warninglist.keys():
                     coldkey_address: str = self.coldkey_warninglist[coldkey][0]
                     coldkey_warning: str = self.coldkey_warninglist[coldkey][1]
-                    colored_log(
+                    logger.info(
                         f"This coldkey is on the warning list: {coldkey_address}"
                         + f" | Date for rectification: {coldkey_warning}",
-                        color="red",
                     )
 
             # Validator only
