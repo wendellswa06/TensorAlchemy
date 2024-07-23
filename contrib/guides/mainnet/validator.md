@@ -47,17 +47,10 @@ source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -
 export OPENAI_API_KEY=KEY
 ```
 
-### STEP 6. LOG IN TO YOUR WANDB ACCOUNT
-```bash
-wandb login APIKEY
-```
-
-### STEP 7. LAUNCH VALIDATOR
+### STEP 6. LAUNCH VALIDATOR
 ```bash
 python ~/TensorAlchemy/neurons/validator/main.py --wallet.name NAME --wallet.hotkey HOTKEY --netuid 26 --subtensor.network finney --axon.port 8101 --alchemy.device cuda:0 --logging.debug --logging.trace
 ```
-
-Important note:  Your start command (step 7) is logged to a public wandb account so do not include your OpenAI or Corcel API key in the start command.
 
 ### NOTES
 - ⚗️ You may want to use a different name for the validator’s venv if you intend to also run a miner on the same machine.
@@ -109,17 +102,10 @@ source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -
 export OPENAI_API_KEY=KEY
 ```
 
-### STEP 6. LOG IN TO YOUR WANDB ACCOUNT
-```bash
-wandb login APIKEY
-```
-
-### STEP 7. LAUNCH VALIDATOR
+### STEP 6. LAUNCH VALIDATOR
 ```bash
 pm2 start ~/TensorAlchemy/neurons/validator/main.py --interpreter ~/venvs/TensorAlchemy/bin/python --restart-delay 30000 --name NAME -- --wallet.name NAME --wallet.hotkey HOTKEY --netuid 26 --subtensor.network finney --axon.port 8101 --alchemy.device cuda:0 --logging.debug --logging.trace
 ```
-
-Important note:  Your start command (step 7) is logged to a public wandb account so do not include your OpenAI or Corcel API key in the start command.
 
 ## GUIDE 3 (pm2 + conda)
 
@@ -177,15 +163,8 @@ cd ~/TensorAlchemy && pip install -r validator_requirements.txt
 export OPENAI_API_KEY=KEY
 ```
 
-### STEP 5. LOG IN TO YOUR WANDB ACCOUNT
-```bash
-wandb login APIKEY
-```
-
-### STEP 6. LAUNCH VALIDATOR
+### STEP 5. LAUNCH VALIDATOR
 
 ```bash
 pm2 start ~/TensorAlchemy/neurons/validator/main.py --interpreter ~/anaconda3/envs/py310/bin/python --restart-delay 30000 --name NAME -- --wallet.name NAME --wallet.hotkey HOTKEY --netuid 26 --subtensor.network finney --axon.port 8101 --alchemy.device cuda:0 --logging.debug --logging.trace
 ```
-
-Important note:  Your start command (step 6) is logged to a public wandb account so do not include your OpenAI or Corcel API key in the start command.

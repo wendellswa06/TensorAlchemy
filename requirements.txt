@@ -1,8 +1,8 @@
-bittensor==6.12.1
+msgpack==1.0.8
+bittensor==7.2.0
 torch==2.3.0
 torchvision==0.18.0
-diffusers==0.27.2
-wandb==0.16.5
+diffusers==0.29.2
 accelerate==0.28.0
 transformers==4.35.2
 image-reward==1.5
@@ -18,3 +18,5 @@ pytest==7.4.4
 loguru==0.7.2
 sentry-sdk==2.2.0
 substrate-interface==1.7.5
+tenacity==8.3.0
+python-logging-loki==0.3.1

@@ -1,103 +1,178 @@
+import math
 from io import BytesIO
+from unittest.mock import patch, MagicMock
 
+import bittensor as bt
 import pytest
 import requests
 import torch
-import torchvision.transforms as transforms
-from neurons.protocol import ImageGeneration
-from neurons.validator.reward import BlacklistFilter, NSFWRewardModel
 from PIL import Image
+from loguru import logger
 
-import bittensor as bt
+from neurons.constants import IS_CI_ENV
+from neurons.protocol import ImageGeneration, ModelType
+from neurons.utils.image import (
+    image_to_base64,
+    image_tensor_to_base64,
+    bytesio_to_base64,
+)
+from neurons.validator.rewards.models import ImageRewardModel
+from neurons.validator.rewards.models.blacklist import BlacklistFilter
+from neurons.validator.rewards.models.nsfw import NSFWRewardModel
+from tests.fixtures import TEST_IMAGES
 
-blacklist_reward_model: BlacklistFilter = None
-nsfw_reward_model: NSFWRewardModel = None
+
+# Mock functions and classes
+def mock_metagraph():
+    mock = MagicMock()
+    mock.hotkeys = [f"hotkey_{i}" for i in range(5)]
+    mock.n = 5
+    return mock
 
 
-@pytest.fixture(autouse=True, scope="session")
-def setup() -> None:
-    global blacklist_reward_model, nsfw_reward_model
-
-    blacklist_reward_model = BlacklistFilter()
-    nsfw_reward_model = NSFWRewardModel()
+# Create instances of our mocks
+mock_meta = mock_metagraph()
 
 
-def test_black_image():
-    responses = [
-        ImageGeneration(
-            generation_type="TEXT_TO_IMAGE",
-            seed=-1,
-            model_type="alchemy",
-            images=[
-                bt.Tensor.serialize(torch.full([3, 1024, 1024], 254, dtype=torch.float))
-            ],
-        ),
-        ImageGeneration(
-            generation_type="TEXT_TO_IMAGE",
-            seed=-1,
-            model_type="alchemy",
-            images=[
-                bt.Tensor.serialize(torch.full([3, 1024, 1024], 0, dtype=torch.float))
-            ],
-        ),
-    ]
-    rewards = blacklist_reward_model.get_rewards(
-        responses, rewards=torch.ones(len(responses))
+@pytest.fixture
+def nsfw_reward_model():
+    return NSFWRewardModel()
+
+
+@pytest.fixture
+def blacklist_filter():
+    return BlacklistFilter()
+
+
+@pytest.fixture
+def image_reward_model():
+    return ImageRewardModel()
+
+
+def create_mock_synapse(images, height, width, hotkey):
+    synapse = ImageGeneration(
+        prompt="lion sitting in jungle",
+        seed=-1,
+        width=width,
+        images=images,
+        height=height,
+        generation_type="TEXT_TO_IMAGE",
+        model_type=ModelType.ALCHEMY.value,
+        num_images_per_prompt=len(images),
     )
-    assert rewards[0].item() == 1
-    assert rewards[1].item() == 0
+    synapse.axon = bt.TerminalInfo(hotkey=hotkey)
+    return synapse
 
 
-def test_incorrect_image_size():
-    responses = [
-        ImageGeneration(
-            generation_type="TEXT_TO_IMAGE",
-            seed=-1,
-            model_type="alchemy",
-            images=[
-                bt.Tensor.serialize(torch.full([3, 1024, 1024], 254, dtype=torch.float))
-            ],
-        ),
-        ImageGeneration(
-            generation_type="TEXT_TO_IMAGE",
-            seed=-1,
-            model_type="alchemy",
-            images=[
-                bt.Tensor.serialize(torch.full([3, 100, 1024], 254, dtype=torch.float))
-            ],
-        ),
-    ]
-    rewards = blacklist_reward_model.get_rewards(
-        responses, rewards=torch.ones(len(responses))
+@pytest.mark.asyncio
+@patch(
+    "neurons.validator.rewards.models.base.get_metagraph",
+    return_value=mock_meta,
+)
+async def test_black_image(mock_meta, blacklist_filter):
+    normal_image = image_tensor_to_base64(
+        torch.full([3, 1024, 1024], 255, dtype=torch.float)
     )
-    assert rewards[0].item() == 1
-    assert rewards[1].item() == 0
+    black_image = image_tensor_to_base64(
+        torch.full([3, 1024, 1024], 0, dtype=torch.float)
+    )
+
+    responses = [
+        create_mock_synapse([normal_image], 1024, 1024, "hotkey_0"),
+        create_mock_synapse([black_image], 1024, 1024, "hotkey_1"),
+    ]
+
+    rewards = await blacklist_filter.get_rewards(responses[0], responses)
+
+    assert rewards[0].item() == 0.0  # Normal image should not be blacklisted
+    assert rewards[1].item() == 1.0  # Black image should be blacklisted
 
 
-def test_nsfw_image():
+@pytest.mark.asyncio
+@patch(
+    "neurons.validator.rewards.models.base.get_metagraph",
+    return_value=mock_meta,
+)
+async def test_incorrect_image_size(mock_meta, blacklist_filter):
+    correct_size_image = image_tensor_to_base64(
+        torch.full([3, 1024, 1024], 255, dtype=torch.float)
+    )
+    incorrect_size_image = image_tensor_to_base64(
+        torch.full([3, 100, 1024], 255, dtype=torch.float)
+    )
+
+    responses = [
+        create_mock_synapse([correct_size_image], 1024, 1024, "hotkey_0"),
+        create_mock_synapse([incorrect_size_image], 1024, 1024, "hotkey_1"),
+    ]
+
+    rewards = await blacklist_filter.get_rewards(responses[0], responses)
+
+    # Correct size image should not be blacklisted
+    assert rewards[0].item() == 0.0
+    # Incorrect size image should be blacklisted
+    assert rewards[1].item() == 1.0
+
+
+@pytest.mark.asyncio
+@patch(
+    "neurons.validator.rewards.models.base.get_metagraph",
+    return_value=mock_meta,
+)
+async def test_nsfw_image(mock_meta, nsfw_reward_model):
     nsfw_image_url = "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a05eaa75-ac8c-4460-b6b0-b7eb47e06987/width=1024/00027-4120052916.jpeg"
-    transform = transforms.Compose([transforms.PILToTensor()])
-    response_nsfw = ImageGeneration(
-        generation_type="TEXT_TO_IMAGE",
-        seed=-1,
-        model_type="alchemy",
-        prompt="An nsfw woman.",
-        images=[
-            bt.Tensor.serialize(
-                transform(Image.open(BytesIO(requests.get(nsfw_image_url).content)))
-            )
-        ],
+
+    nsfw_image = bytesio_to_base64(
+        BytesIO(
+            requests.get(nsfw_image_url).content,
+        )
     )
-    response_no_nsfw = ImageGeneration(
-        generation_type="TEXT_TO_IMAGE",
-        seed=-1,
-        model_type="alchemy",
-        prompt="A majestic lion jumping from a big stone at night",
-        images=[bt.Tensor.serialize(transform(Image.open(r"tests/non_nsfw.jpeg")))],
+
+    safe_image = image_to_base64(Image.open(r"tests/images/non_nsfw.jpeg"))
+
+    response_nsfw = create_mock_synapse([nsfw_image], 512, 512, "hotkey_0")
+    response_safe = create_mock_synapse([safe_image], 512, 512, "hotkey_1")
+
+    responses = [response_nsfw, response_safe]
+
+    rewards = await nsfw_reward_model.get_rewards(responses[0], responses)
+
+    assert rewards[0].item() == 1.0  # NSFW image should be flagged
+    assert rewards[1].item() == 0.0  # Safe image should not be flagged
+
+    assert (
+        rewards.shape[0] == 5
+    )  # Ensure we have rewards for all hotkeys in the mock metagraph
+    assert torch.all(
+        (rewards == 0) | (rewards == 1)
+    )  # Ensure all rewards are either 0 or 1
+
+
+@pytest.mark.asyncio
+@patch(
+    "neurons.validator.rewards.models.base.get_metagraph",
+    return_value=mock_meta,
+)
+@pytest.mark.skipif(IS_CI_ENV, reason="Skipping this test in CI environment")
+async def test_image_reward_model(mock_meta, image_reward_model):
+    real_image = image_tensor_to_base64(TEST_IMAGES["REAL_IMAGE"])
+    real_image_low_inference = image_tensor_to_base64(
+        TEST_IMAGES["REAL_IMAGE_LOW_INFERENCE"]
     )
-    responses = [response_nsfw, response_no_nsfw]
-    rewards = nsfw_reward_model.get_rewards(
-        responses, rewards=torch.ones(len(responses))
+
+    response_real_image = create_mock_synapse([real_image], 1024, 1024, "hotkey_0")
+    response_real_image_low_inference = create_mock_synapse(
+        [real_image_low_inference], 1024, 1024, "hotkey_1"
     )
-    assert rewards[0].item() == 0
-    assert rewards[1].item() == 1
+
+    responses = [response_real_image, response_real_image_low_inference]
+
+    rewards = await image_reward_model.get_rewards(responses[0], responses)
+    logger.info("rewards={rewards}".format(rewards=rewards))
+
+    assert math.isclose(rewards[0].item(), 1.2755, rel_tol=1e-4)
+    assert math.isclose(rewards[1].item(), 0.9905, rel_tol=1e-4)
+
+    assert (
+        rewards.shape[0] == 5
+    )  # Ensure we have rewards for all hotkeys in the mock metagraph

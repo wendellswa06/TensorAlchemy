@@ -1,13 +1,13 @@
 import os
 
+IS_TEST: bool = False
+IS_CI_ENV: bool = os.environ.get("CI") == "true"
+
 IA_BUCKET_NAME = "image-alchemy"
 IA_TEST_BUCKET_NAME = "image-alchemy-test"
 IA_MINER_BLACKLIST = "blacklist_for_miners.json"
 IA_MINER_WHITELIST = "whitelist_for_miners.json"
 
-
-WANDB_MINER_PATH = os.path.expanduser("~/.ImageAlchemy/wandb/miner")
-WANDB_VALIDATOR_PATH = os.path.expanduser("~/.ImageAlchemy/wandb/validator")
 
 # Validator only
 N_NEURONS = 12

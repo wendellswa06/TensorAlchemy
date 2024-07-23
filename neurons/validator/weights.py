@@ -1,113 +1,111 @@
-# The MIT License (MIT)
-# Copyright © 2023 Yuma Rao
-# Copyright © 2023 Opentensor Foundation
+import queue
+import bittensor as bt
 from typing import List
-import concurrent.futures
-
+from multiprocessing import Queue
 import torch
 from loguru import logger
+from pydantic import BaseModel, ConfigDict
 
-import bittensor as bt
-
-from neurons.validator.signed_requests import SignedRequests
-from neurons.validator.utils import get_validator_spec_version
-
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
-# Utils for weights setting on chain.
+from neurons.validator.config import (
+    get_config,
+    get_wallet,
+    get_metagraph,
+    get_subtensor,
+    get_backend_client,
+)
+from neurons.validator.utils import ttl_get_block
+from neurons.validator.backend.exceptions import PostWeightsError
+from neurons.validator.utils.version import get_validator_spec_version
 
 
-def post_weights(
-    hotkey,
-    api_url: str,
-    hotkeys: List[str],
-    raw_weights: torch.Tensor,
-):
-    response = SignedRequests(hotkey=hotkey).post(
-        f"{api_url}/validator/weights",
-        json={
-            "weights": {
-                hotkey: moving_average.item()
-                for hotkey, moving_average in zip(hotkeys, raw_weights)
-            }
-        },
-        headers={"Content-Type": "application/json"},
-        timeout=30,
+class SetWeightsTask(BaseModel):
+    epoch: int
+    hotkeys: List[str]
+    weights: List[float]  # Changed from torch.Tensor to List[float]
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+def tensor_to_list(tensor: torch.Tensor) -> List[float]:
+    return tensor.detach().cpu().tolist()
+
+
+async def set_weights_loop(set_weights_queue: Queue) -> None:
+    try:
+        weights_event: SetWeightsTask = set_weights_queue.get(block=False)
+    except queue.Empty:
+        return
+
+    block: int = ttl_get_block()
+    epoch: int = weights_event.epoch
+
+    logger.info(f"Gathered a weights setting task for {block=} {epoch=}")
+
+    epoch_length: int = get_config().alchemy.epoch_length
+
+    if block > epoch + epoch_length:
+        logger.error("Failed to set weights before next epoch!")
+        return
+
+    await set_weights(
+        weights_event.hotkeys, torch.tensor(weights_event.weights)
     )
-    return response
 
 
-def set_weights(val):
+async def set_weights(
+    hotkeys: List[str],
+    moving_average_scores: torch.Tensor,
+) -> None:
+    logger.info("Going to set weights...")
+
+    # Ensure tensor is on CPU
+    moving_average_scores = moving_average_scores.cpu()
+
     # Calculate the average reward for each uid across non-zero values.
     # Replace any NaN values with 0.
     raw_weights = torch.nn.functional.normalize(
-        val.moving_average_scores,
+        moving_average_scores,
         p=1,
         dim=0,
     )
 
     try:
-        response = post_weights(
-            val.wallet.hotkey,
-            val.api_url,
-            val.hotkeys,
-            raw_weights,
-        )
-        if response.status_code != 200:
-            logger.info("Error logging weights to the Weights API")
-        else:
-            logger.info("Successfully logged weights to the Weights API")
-    except Exception as e:
-        logger.error(f"Error logging weights to the Weights API {e}")
+        await get_backend_client().post_weights(hotkeys, raw_weights)
+        logger.info("Posted weights to API")
+    except PostWeightsError as e:
+        logger.error(f"Error logging weights to the weights API: {e}")
+        return  # Added return to prevent further execution on error
 
     try:
+        config: bt.config = get_config()
+        metagraph: bt.metagraph = get_metagraph()
+
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
-            uids=val.metagraph.uids.to("cpu"),
-            weights=raw_weights.to("cpu"),
-            netuid=val.config.netuid,
-            subtensor=val.subtensor,
-            metagraph=val.metagraph,
+            uids=metagraph.uids.cpu(),
+            weights=raw_weights,
+            netuid=config.netuid,
+            metagraph=metagraph,
+            subtensor=get_subtensor(),
         )
     except Exception as e:
-        logger.error(f"Could not process weights for netuid {e}")
+        logger.error(f"Could not process weights for netuid: {e}")
+        return
 
-    logger.info("processed_weights", processed_weights)
-    logger.info("processed_weight_uids", processed_weight_uids)
-    from neurons.validator import validator
+    logger.info(f"Processed weights: {processed_weights}")
+    logger.info(f"Processed weight UIDs: {processed_weight_uids}")
 
-    # Set the weights on chain via our subtensor connection.
-
-    # Define a function to set weights that will be executed by the executor
-    def set_weights_task():
-        try:
-            val.subtensor.set_weights(
-                wallet=val.wallet,
-                netuid=val.config.netuid,
-                uids=processed_weight_uids,
-                weights=processed_weights,
-                wait_for_finalization=True,
-                version_key=get_validator_spec_version(),
-            )
-            logger.info("Weights set successfully!")
-        except Exception as e:
-            logger.error(f"Failed to set weights {e}")
-
-    # Use an executor to run the weight-setting task
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        _future = executor.submit(set_weights_task)
+    try:
+        get_subtensor().set_weights(
+            wallet=get_wallet(),
+            netuid=get_config().netuid,
+            uids=processed_weight_uids,
+            weights=processed_weights,
+            wait_for_finalization=True,
+            version_key=get_validator_spec_version(),
+        )
+        logger.info("Weights set successfully!")
+    except Exception as e:
+        logger.error(f"Failed to set weights: {e}")

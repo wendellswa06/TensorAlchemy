@@ -1,75 +1,28 @@
 # Utils for checkpointing and saving the model.
 import asyncio
-import copy
-import os
 import random
 import time
 import traceback
-from functools import lru_cache, update_wrapper
+from functools import lru_cache, update_wrapper, wraps
 from math import floor
 from typing import Any, Callable, List, Optional
 
-import numpy as np
-import pandas as pd
+import bittensor as bt
 import requests
 import torch
 import torch.nn as nn
-
-import wandb
-import bittensor as bt
 from loguru import logger
 
-from neurons.protocol import IsAlive, denormalize_image_model
-from neurons.validator.signed_requests import SignedRequests
+
 from neurons.constants import (
     N_NEURONS_TO_QUERY,
     VPERMIT_TAO,
-    WANDB_VALIDATOR_PATH,
 )
-
-
-def get_validator_version() -> str:
-    """Returns version of validator (i.e. 1.0.1)"""
-    import neurons.validator
-
-    return neurons.validator.__version__
-
-
-def get_validator_spec_version() -> int:
-    """Returns numeric representation of validator's version (i.e. 10001)"""
-    import neurons.validator
-
-    return neurons.validator.__spec_version__
-
-
-# Get tasks from the client server
-async def get_task(validator, timeout=5):
-    task = None
-    for _i in range(60):
-        await asyncio.sleep(1)
-        try:
-            response = SignedRequests(validator=validator).get(
-                f"{validator.api_url}/tasks", timeout=timeout
-            )
-
-            # No tasks found
-            if response.status_code == 404:
-                continue
-
-        except Exception as error:
-            logger.warning(
-                #
-                f"Failed to get task from {validator.api_url}/tasks: "
-                + str(error),
-            )
-
-            continue
-
-        if response.status_code == 200:
-            task = response.json()
-            return denormalize_image_model(**task)
-
-    return task
+from neurons.validator.config import get_config, get_metagraph, get_subtensor
+from neurons.validator.services.openai.service import (
+    get_openai_service,
+    OpenAIRequestFailed,
+)
 
 
 def _ttl_hash_gen(seconds: int):
@@ -86,7 +39,7 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 
     def wrapper(func: Callable) -> Callable:
         @lru_cache(maxsize, typed)
-        def ttl_func(ttl_hash, *args, **kwargs):
+        def ttl_func(_ttl_hash, *args, **kwargs):
             return func(*args, **kwargs)
 
         def wrapped(*args, **kwargs) -> Any:
@@ -100,45 +53,11 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 
 # 12 seconds updating block.
 @ttl_cache(maxsize=1, ttl=12)
-def ttl_get_block(self) -> int:
-    return self.subtensor.get_current_block()
-
-
-async def check_uid(dendrite, self, uid, response_times):
-    try:
-        t1 = time.perf_counter()
-        response = await dendrite(
-            self.metagraph.axons[uid],
-            IsAlive(),
-            deserialize=False,
-            timeout=self.async_timeout,
-        )
-        if response.is_success:
-            response_times.append(time.perf_counter() - t1)
-            self.isalive_dict[uid] = 0
-            return True
-        else:
-            try:
-                self.isalive_failed_count[uid] += 1
-                key = self.metagraph.axons[uid].hotkey
-                self.miner_query_history_fail_count[key] += 1
-                # If miner doesn't respond for 3 iterations rest it's count to the average to avoid spamming
-                if self.miner_query_history_fail_count[key] >= 3:
-                    self.miner_query_history_duration[key] = time.perf_counter()
-                    self.miner_query_history_count[key] = int(
-                        np.array(list(self.miner_query_history_count.values())).mean()
-                    )
-            except Exception:
-                pass
-            return False
-    except Exception as e:
-        logger.error(f"Error checking UID {uid}: {e}\n{traceback.format_exc()}")
-        return False
+def ttl_get_block() -> int:
+    return get_subtensor().get_current_block()
 
 
 def check_uid_availability(
-    dendrite,
-    metagraph: "bt.metagraph.Metagraph",
     uid: int,
     vpermit_tao_limit: int,
 ) -> bool:
@@ -150,22 +69,25 @@ def check_uid_availability(
     Returns:
         bool: True if uid is available, False otherwise
     """
+    metagraph: bt.metagraph = get_metagraph()
+
     # Filter non serving axons.
     if not metagraph.axons[uid].is_serving:
         return False
+
     # Filter validator permit > 1024 stake.
     if metagraph.validator_permit[uid]:
         if metagraph.S[uid] > vpermit_tao_limit:
             return False
-    # # Filter for miners that are processing other responses
-    # if not await check_uid(dendrite, metagraph.axons[uid], uid):
-    # return False
-    # # Available otherwise.
+
+    # Available otherwise.
     return True
 
 
 async def get_random_uids(
-    self, dendrite, k: int, exclude: List[int] = None
+    self,
+    k: int,
+    exclude: List[int] = None,
 ) -> torch.LongTensor:
     """Returns k available random uids from the metagraph.
     Args:
@@ -181,24 +103,25 @@ async def get_random_uids(
 
     # Filter for only serving miners
     for uid in range(self.metagraph.n.item()):
-        uid_is_available = check_uid_availability(
-            dendrite, self.metagraph, uid, VPERMIT_TAO
-        )
+        uid_is_available = check_uid_availability(uid, VPERMIT_TAO)
         uid_is_not_excluded = exclude is None or uid not in exclude
         if (
             uid_is_available
             and (self.metagraph.axons[uid].hotkey not in self.hotkey_blacklist)
-            and (self.metagraph.axons[uid].coldkey not in self.coldkey_blacklist)
+            and (
+                self.metagraph.axons[uid].coldkey not in self.coldkey_blacklist
+            )
         ):
             avail_uids.append(uid)
             if uid_is_not_excluded:
                 candidate_uids.append(uid)
 
-    # # Sort candidate UIDs by their count history
-    # # This prioritises miners that have been queried less than average
+    # Sort candidate UIDs by their count history
+    # This prioritises miners that have been queried less than average
     # candidate_uids = [i for i,_ in sorted(zip(candidate_uids, [self.miner_query_history_count[self.metagraph.axons[uid].hotkey] for uid in candidate_uids]))]
 
     # Random sort candidate_uids
+    random.seed(time.time())
     random.shuffle(candidate_uids)
 
     # Find the first K uids that respond with IsAlive
@@ -210,14 +133,16 @@ async def get_random_uids(
         tasks = []
 
         logger.info(f"UIDs in pool: {final_uids}")
-        logger.info(f"Querying uids: {candidate_uids[uid:uid+N_NEURONS_TO_QUERY]}")
+        logger.info(
+            f"Querying uids: {candidate_uids[uid:uid+N_NEURONS_TO_QUERY]}"
+        )
 
         t1 = time.perf_counter()
 
         times_list = []
 
         for u in candidate_uids[uid : uid + N_NEURONS_TO_QUERY]:
-            tasks.append(check_uid(dendrite, self, u, times_list))
+            tasks.append(self.check_uid(u, times_list))
 
         responses = await asyncio.gather(*tasks)
         attempt_counter += 1
@@ -247,7 +172,9 @@ async def get_random_uids(
                 else:
                     continue
 
-            logger.info(f"Added uids: {temp_list} in {time.perf_counter() - t2:.2f}s")
+            logger.info(
+                f"Added uids: {temp_list} in {time.perf_counter() - t2:.2f}s"
+            )
 
             avg_num_list.append(len(temp_list))
 
@@ -264,10 +191,11 @@ async def get_random_uids(
         pass
 
     logger.info(
-        f"Time to find all {len(final_uids)} uids: {time.perf_counter() - t0:.2f}s in {attempt_counter} attempts | Avg active UIDs per attempt: {sum_avg:.2f}"
+        f"Time to find all {len(final_uids)}"
+        + f" uids: {time.perf_counter() - t0:.2f}s"
+        + f" in {attempt_counter} attempts"
+        + f" | Avg active UIDs per attempt: {sum_avg:.2f}"
     )
-
-    # print({f"UID_{candidate_uid}": "Active" if candidate_uid in final_uids else "Inactive" for i, candidate_uid in enumerate(candidate_uids)})
 
     uids = (
         torch.tensor(final_uids)
@@ -291,7 +219,9 @@ def calculate_mean_dissimilarity(dissimilarity_matrix):
             mean_dissimilarities.append(0)
             continue
         # divide by amount of non zero values
-        non_zero_values = [value for value in dissimilarity_values if value != 0]
+        non_zero_values = [
+            value for value in dissimilarity_values if value != 0
+        ]
         mean_dissimilarity = sum(dissimilarity_values) / len(non_zero_values)
         mean_dissimilarities.append(mean_dissimilarity)
 
@@ -312,12 +242,11 @@ def calculate_mean_dissimilarity(dissimilarity_matrix):
         # All elements are the same (no range), set all values to 0.5
         mean_dissimilarities = [0.5] * num_images
     # clamp to [0,1]
-    mean_dissimilarities = [min(1, max(0, value)) for value in mean_dissimilarities]
-
-    # Ensure sum of values is 1 (normalize)
-    # sum_values = sum(mean_dissimilarities)
-    # if sum_values != 0:
-    # mean_dissimilarities = [value / sum_values for value in mean_dissimilarities]
+    mean_dissimilarities = [
+        #
+        min(1, max(0, value))
+        for value in mean_dissimilarities
+    ]
 
     return mean_dissimilarities
 
@@ -354,28 +283,6 @@ def corcel_parse_response(text):
     return split
 
 
-def call_openai(client, model, prompt):
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": prompt,
-            },
-        ],
-        temperature=1,
-        max_tokens=256,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-    )
-    logger.info(f"OpenAI response object: {response}")
-    response = response.choices[0].message.content
-    if response:
-        logger.info(f"Prompt generated with OpenAI: {response}")
-    return response
-
-
 def call_corcel(self, prompt):
     HEADERS = {
         "Content-Type": "application/json",
@@ -406,12 +313,16 @@ def call_corcel(self, prompt):
 
     try:
         response = requests.post(
-            "https://api.corcel.io/cortext/text", json=JSON, headers=HEADERS, timeout=15
+            "https://api.corcel.io/cortext/text",
+            json=JSON,
+            headers=HEADERS,
+            timeout=15,
         )
         response = response.json()[0]["choices"][0]["delta"]["content"]
     except requests.exceptions.ReadTimeout as e:
         logger.info(
-            f"Corcel request timed out after 15 seconds... falling back to OpenAI..."
+            "Corcel request timed out after 15 seconds..."
+            + " falling back to OpenAI..."
         )
 
     if response:
@@ -455,7 +366,13 @@ def get_random_creature():
             "turtle",
             "fox",
             "owl",
-            "human being",
+            "human",
+            "man",
+            "woman",
+            "girl",
+            "boy",
+            "robot",
+            "drone",
         ]
     )
 
@@ -516,6 +433,7 @@ def get_random_adjective():
             "ethereal",
             "vibrant",
             "serene",
+            "bustling",
             "whimsical",
             "luminous",
             "enigmatic",
@@ -657,11 +575,16 @@ def generate_story_prompt() -> str:
     return to_return
 
 
-def generate_random_prompt_gpt(
+async def generate_random_prompt_gpt(
     self,
     model: str = "gpt-4",
     prompt: Optional[str] = None,
 ):
+    """Generates random prompt for image generation
+
+    Returns None if there was some error during generation
+    (i.e OpenAI request failed etc.)
+    """
     response = None
     if not prompt:
         prompt = generate_story_prompt()
@@ -681,22 +604,14 @@ def generate_random_prompt_gpt(
             logger.error("Falling back to OpenAI if available...")
 
     if not response:
-        if self.openai_client:
-            for _ in range(2):
-                try:
-                    response = call_openai(self.openai_client, model, prompt)
-                except Exception as e:
-                    logger.error(f"An unexpected error occurred calling OpenAI: {e}")
-                    logger.error("Sleeping for 10 seconds and retrying once...")
-                    time.sleep(10)
-
-                if response:
-                    break
-        else:
-            logger.warning(
-                "Attempted to use OpenAI as a fallback "
-                + "but the OPENAI_API_KEY is not set."
+        openai_service = get_openai_service()
+        try:
+            response = await openai_service.create_completion_request(
+                model,
+                prompt,
             )
+        except OpenAIRequestFailed as e:
+            logger.error(f"error during creation of completion prompt: {e}")
 
     # Remove any double quotes from the output
     if response:
@@ -745,94 +660,34 @@ def generate_followup_prompt_gpt(
     return None
 
 
-def init_wandb(self, reinit=False):
-    """Starts a new wandb run."""
-    tags = [
-        self.wallet.hotkey.ss58_address,
-        get_validator_version(),
-        f"netuid_{self.metagraph.netuid}",
-    ]
+def measure_time(func):
+    """This decorator logs time of function execution"""
 
-    if self.config.mock:
-        tags.append("mock")
+    @wraps(func)
+    def sync_measure_time_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        logger.warning(
+            f"[measure_time] function {func.__name__} took {total_time:.2f} seconds"
+        )
+        return result
 
-    for fn in self.reward_functions:
-        tags.append(str(fn.name))
+    async def async_measure_time_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = await func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        logger.warning(
+            f"[measure_time] async function {func.__name__} took {total_time:.2f} seconds"
+        )
+        return result
 
-    wandb_config = {
-        key: copy.deepcopy(self.config.get(key, None))
-        for key in ("neuron", "alchemy", "reward", "netuid", "wandb")
-    }
-    wandb_config["alchemy"].pop("full_path", None)
-
-    if not os.path.exists(WANDB_VALIDATOR_PATH):
-        os.makedirs(WANDB_VALIDATOR_PATH, exist_ok=True)
-
-    project = "ImageAlchemyTest"
-
-    if self.config.netuid == 26:
-        project = "ImageAlchemy"
-
-    self.wandb = wandb.init(
-        anonymous="allow",
-        reinit=reinit,
-        project=project,
-        entity="tensoralchemists",
-        config=wandb_config,
-        dir=WANDB_VALIDATOR_PATH,
-        tags=tags,
-    )
-    logger.success(f"Started a new wandb run called {self.wandb.name}.")
-
-
-def reinit_wandb(self):
-    """Reinitializes wandb, rolling over the run."""
-    if self.wandb:
-        try:
-            self.wandb.finish()
-        except Exception:
-            pass
-    init_wandb(self, reinit=True)
-
-
-def get_promptdb_backup(netuid, prompt_history=[], limit=1):
-    api = wandb.Api()
-    project = "ImageAlchemy" if netuid == 26 else "ImageAlchemyTest"
-    runs = api.runs(f"tensoralchemists/{project}")
-
-    for run in runs:
-        if len(prompt_history) >= limit:
-            break
-        if run.historyLineCount >= 100:
-            history = run.history()
-            if ("prompt_t2i" not in history.columns) or (
-                "prompt_i2i" not in history.columns
-            ):
-                continue
-            for i in range(0, len(history) - 1, 2):
-                if len(prompt_history) >= limit:
-                    break
-
-                if (
-                    pd.isna(history.loc[i, "prompt_t2i"])
-                    or (history.loc[i, "prompt_t2i"] is None)
-                    or (i == len(history))
-                    or (history.loc[i + 1, "prompt_i2i"] is None)
-                    or pd.isna(history.loc[i + 1, "prompt_i2i"])
-                ):
-                    continue
-
-                prompt_tuple = (
-                    history.loc[i, "prompt_t2i"],
-                    history.loc[i + 1, "prompt_i2i"],
-                )
-
-                if prompt_tuple in prompt_history:
-                    continue
-
-                prompt_history.append(prompt_tuple)
-
-    return prompt_history
+    if asyncio.iscoroutinefunction(func):
+        return async_measure_time_wrapper
+    else:
+        return sync_measure_time_wrapper
 
 
 def get_device_name(device: torch.device):
