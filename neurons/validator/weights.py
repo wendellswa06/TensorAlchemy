@@ -81,15 +81,27 @@ async def set_weights(
         metagraph: bt.metagraph = get_metagraph()
 
         uids: List[int] = []
-        for hotkey in hotkeys:
-            uids.append(metagraph.hotkeys.index(hotkey))
 
+        # New list to store weights for valid hotkeys
+        valid_weights: List[float] = []
+
+        for hotkey, weight in zip(hotkeys, raw_weights):
+            try:
+                uid = metagraph.hotkeys.index(hotkey)
+                uids.append(uid)
+                # Only add weight if hotkey is found
+                valid_weights.append(weight)
+            except ValueError:
+                logger.error(f"Hotkey {hotkey} not found in metagraph")
+
+        # Now uids and valid_weights have the same length
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
             uids=torch.tensor(uids).cpu(),
-            weights=raw_weights,
+            # Use valid_weights instead of raw_weights
+            weights=torch.tensor(valid_weights).cpu(),
             netuid=config.netuid,
             metagraph=metagraph,
             subtensor=get_subtensor(),
