@@ -8,6 +8,7 @@ from neurons.protocol import IsAlive, ImageGeneration
 from neurons.miners.StableMiner.schema import TaskConfig, ModelType, TaskType
 import torch
 from diffusers import DiffusionPipeline
+from neurons.miners.StableMiner.utils.helpers import setup_model_args
 
 
 class TestStableMinerAsBase:
@@ -139,9 +140,11 @@ class TestStableMinerAsBase:
         synapse.height = 512
         synapse.num_images_per_prompt = 1
         synapse.guidance_scale = 7.5
+        synapse.negative_prompt = None
+        synapse.generation_type = "TEXT_TO_IMAGE"
         model_config = MagicMock()
         model_config.args = {}
-        model_args = stable_miner.setup_model_args(synapse, model_config)
+        model_args = setup_model_args(synapse, model_config)
         assert model_args["prompt"] == ["test_prompt"]
         assert model_args["width"] == 512
         assert model_args["height"] == 512
@@ -184,7 +187,7 @@ class TestStableMinerAsBase:
             }
         }
         is_blacklisted, reason = stable_miner._base_blacklist(synapse)
-        assert reason == "Whitelisted coldkey recognized."
+        assert reason == "Whitelisted or registered"
         assert is_blacklisted is False
 
     @patch.object(StableMiner, "_base_priority", return_value=100)
