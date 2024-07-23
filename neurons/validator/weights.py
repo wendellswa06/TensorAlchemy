@@ -80,11 +80,15 @@ async def set_weights(
         config: bt.config = get_config()
         metagraph: bt.metagraph = get_metagraph()
 
+        uids: List[int] = []
+        for hotkey in hotkeys:
+            uids.append(metagraph.hotkeys.index(hotkey))
+
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
-            uids=metagraph.uids.cpu(),
+            uids=torch.tensor(uids).cpu(),
             weights=raw_weights,
             netuid=config.netuid,
             metagraph=metagraph,
