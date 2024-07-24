@@ -203,7 +203,7 @@ def get_subtensor(config: Optional[bt.config] = get_config()) -> bt.subtensor:
 
 
 def get_metagraph(
-    netuid: int = 25, network: str = "test", **kwargs
+    netuid: int = 26, network: str = "finney", **kwargs
 ) -> bt.metagraph:
     global metagraph
     if not metagraph:
