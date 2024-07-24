@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import time
 import traceback
@@ -259,6 +260,13 @@ class BaseMiner(ABC):
 
         images = filter_nsfw_images(images, self.nsfw_image_filter)
         log_generation_time(start_time, self.stats.total_requests)
+
+        if self.bt_config.localsave.enable:
+            for i, image in enumerate(images):
+                image_pil = transforms.ToPILImage()(image.cpu())
+                image_path = os.path.join("/tmp", f"generated_image_{i}.png")
+                image_pil.save(image_path)
+                logger.info(f"Image saved to {image_path}")
 
         synapse.images = [image_to_base64(image) for image in images]
 
