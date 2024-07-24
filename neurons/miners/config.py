@@ -69,6 +69,11 @@ def get_bt_miner_config() -> bittensor.config:
         action="store_true",
     )
 
+    argp.add_argument(
+        "--localsave.enable",
+        action="store_true",
+    )
+
     bt.axon.add_args(argp)
     bt.wallet.add_args(argp)
     bt.logging.add_args(argp)
