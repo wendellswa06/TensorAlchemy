@@ -258,7 +258,7 @@ class BaseMiner(ABC):
             self.stats.timeouts += 1
 
         images = filter_nsfw_images(images, self.nsfw_image_filter)
-        log_generation_time(start_time)
+        log_generation_time(start_time, self.stats.total_requests)
 
         synapse.images = [image_to_base64(image) for image in images]
 
