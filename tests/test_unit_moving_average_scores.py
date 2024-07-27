@@ -7,6 +7,7 @@ from typing import Dict
 
 from neurons.validator.config import get_device
 from neurons.validator.forward import update_moving_averages
+from neurons.constants import MOVING_AVERAGE_ALPHA
 
 
 # Mock functions and classes
@@ -35,8 +36,12 @@ mock_client = mock_backend_client()
 def patch_all_dependencies(func):
     @wraps(func)
     @patch("neurons.validator.forward.get_metagraph", return_value=mock_meta)
-    @patch("neurons.validator.forward.get_backend_client", return_value=mock_client)
-    @patch("neurons.validator.forward.get_device", return_value=torch.device("cpu"))
+    @patch(
+        "neurons.validator.forward.get_backend_client", return_value=mock_client
+    )
+    @patch(
+        "neurons.validator.forward.get_device", return_value=torch.device("cpu")
+    )
     async def wrapper(*args, **kwargs):
         return await func()
 
@@ -50,6 +55,30 @@ def dict_to_tensor(rewards_dict: Dict[str, float], n: int) -> torch.FloatTensor:
         if index < n:
             rewards_tensor[index] = value
     return rewards_tensor
+
+
+@pytest.mark.asyncio
+@patch_all_dependencies
+async def test_alpha_respected():
+    moving_average_scores = torch.zeros(256)
+    rewards = {"hotkey_39": 1.0}  # Set a high reward for one hotkey
+    rewards_tensor = dict_to_tensor(rewards, 256)
+
+    # Run update_moving_averages multiple times
+    for _ in range(5):
+        moving_average_scores = await update_moving_averages(
+            moving_average_scores, rewards_tensor, alpha=MOVING_AVERAGE_ALPHA
+        )
+
+    # Check if the change respects the alpha value
+    expected_value = (
+        1 - (1 - MOVING_AVERAGE_ALPHA) ** 5
+    )  # Theoretical value after 5 updates
+    actual_value = moving_average_scores[39].item()
+
+    assert (
+        abs(actual_value - expected_value) < 1e-6
+    ), f"Expected ~{expected_value}, but got {actual_value}"
 
 
 @pytest.mark.asyncio
@@ -93,6 +122,12 @@ async def test_large_rewards():
     current_moving_average = moving_average_scores[39]
 
     assert current_moving_average > previous_moving_average
+    assert (
+        abs(
+            current_moving_average - MOVING_AVERAGE_ALPHA * rewards["hotkey_39"]
+        )
+        < 1e-6
+    )
 
 
 @pytest.mark.asyncio
@@ -124,7 +159,9 @@ async def test_zero_rewards():
     )
     current_moving_average_scores_sum = moving_average_scores.sum()
 
-    assert previous_moving_average_scores_sum >= current_moving_average_scores_sum
+    assert (
+        previous_moving_average_scores_sum >= current_moving_average_scores_sum
+    )
 
 
 @pytest.mark.asyncio
@@ -141,4 +178,14 @@ async def test_ones_rewards():
     )
     current_moving_average_scores_sum = moving_average_scores.sum()
 
-    assert previous_moving_average_scores_sum < current_moving_average_scores_sum
+    assert (
+        previous_moving_average_scores_sum < current_moving_average_scores_sum
+    )
+
+    expected_sum = 256 * MOVING_AVERAGE_ALPHA
+    actual_sum = current_moving_average_scores_sum.item()
+
+    # Increase tolerance slightly to account for floating point precision
+    assert (
+        abs(actual_sum - expected_sum) < 1e-5
+    ), f"Expected sum to be close to {expected_sum}, but got {actual_sum}"
