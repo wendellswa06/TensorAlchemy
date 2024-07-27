@@ -111,8 +111,6 @@ class BaseRewardModel:
         # into the moving averages after all scoring has been completed.
         non_zero_uids = torch.nonzero(rewards).squeeze().to(torch.long)
 
-        logger.info(f"{rewards=}: {non_zero_uids=}")
-
         return ScoringResult(
             scores=rewards,
             type=self.name,

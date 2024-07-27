@@ -56,8 +56,6 @@ class ScoringResults(BaseModel):
         self.scores.append(other)
         self.combined_uids = combine_uids(self.combined_uids, other.uids)
 
-        logger.info(f"Combined UIDs {self.combined_uids}")
-
     def add_scores(self, others: List[ScoringResult]) -> None:
         self.scores += others
 
