@@ -93,9 +93,6 @@ async def test_set_weights_backend_error(mock_dependencies):
 
     await set_weights(hotkeys, moving_average_scores)
 
-    # Wait for a short time to allow the async task to complete
-    await asyncio.sleep(0.1)
-
     # Check if set_weights was still called on subtensor despite backend error
     mock_dependencies["subtensor"].set_weights.assert_called_once()
 

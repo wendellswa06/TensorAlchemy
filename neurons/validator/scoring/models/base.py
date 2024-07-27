@@ -37,6 +37,12 @@ class BaseRewardModel:
                 + "must implement reward method"
             )
 
+    def zeros(self) -> torch.Tensor:
+        return torch.zeros(get_metagraph().n).to(get_device())
+
+    def ones(self) -> torch.Tensor:
+        return torch.ones(get_metagraph().n).to(get_device())
+
     async def build_rewards_tensor(
         self,
         method: Callable,
@@ -46,7 +52,7 @@ class BaseRewardModel:
         if not callable(method):
             raise NotImplementedError(f"{method.__name__} is not callable!")
 
-        rewards = torch.zeros(get_metagraph().n).to(get_device())
+        rewards = self.zeros()
         for response in responses:
             score = method(response)
             hotkey = response.axon.hotkey

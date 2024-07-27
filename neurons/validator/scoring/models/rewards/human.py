@@ -8,8 +8,6 @@ from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
 from neurons.validator.config import (
     get_backend_client,
-    get_device,
-    get_metagraph,
 )
 
 
@@ -47,7 +45,7 @@ class HumanValidationRewardModel(BaseRewardModel):
 
         except Exception as e:
             logger.error(f"Error while getting votes: {e}")
-            return torch.zeros(get_metagraph().n).to(get_device())
+            return super().zeros()
 
         def get_reward(response: bt.Synapse) -> float:
             return voting_scores.get(

@@ -11,6 +11,8 @@ from loguru import logger
 from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
 from neurons.validator.config import get_metagraph
 
+from tests.fixtures import create_complex_image
+
 
 @pytest.fixture
 def mock_metagraph():
@@ -23,34 +25,6 @@ def mock_metagraph():
 @pytest.fixture
 def duplicate_filter():
     return DuplicateFilter()
-
-
-def create_complex_image(size=(64, 64), num_blobs=3):
-    image = Image.new(
-        "RGB",
-        size,
-        color=(
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255),
-        ),
-    )
-    draw = ImageDraw.Draw(image)
-
-    for _ in range(num_blobs):
-        blob_color = (
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255),
-        )
-        x = random.randint(0, size[0])
-        y = random.randint(0, size[1])
-        radius = random.randint(5, 20)
-        draw.ellipse(
-            [x - radius, y - radius, x + radius, y + radius], fill=blob_color
-        )
-
-    return image
 
 
 def create_synapse(hotkey: str, images):

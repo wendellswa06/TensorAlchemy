@@ -1,6 +1,5 @@
 import os
 import argparse
-import os
 import uuid
 from contextvars import ContextVar
 from typing import Dict, Optional
@@ -206,6 +205,13 @@ def get_metagraph(
     netuid: int = 26, network: str = "finney", **kwargs
 ) -> bt.metagraph:
     global metagraph
+
+    if IS_TEST:
+        raise NotImplementedError(
+            "Connecting to metagraph in test!\n"
+            + "You should mock this instead ^"
+        )
+
     if not metagraph:
         metagraph = bt.metagraph(
             netuid=netuid,

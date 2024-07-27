@@ -7,7 +7,7 @@ import bittensor as bt
 from loguru import logger
 
 from neurons.utils.image import synapse_to_tensors
-from neurons.validator.config import get_device, get_metagraph
+from neurons.validator.config import get_metagraph
 from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
 
@@ -41,8 +41,7 @@ class DuplicateFilter(BaseRewardModel):
     ) -> torch.Tensor:
         logger.info(f"Checking {len(responses)} responses for duplicates...")
 
-        metagraph = get_metagraph()
-        mask = torch.zeros(metagraph.n).to(get_device())
+        mask = super().zeros()
 
         valid_responses = []
         all_hashes = []
@@ -78,6 +77,8 @@ class DuplicateFilter(BaseRewardModel):
                     duplicate_mask[i] = True
                     duplicate_mask[j] = True
                     break
+
+        metagraph = get_metagraph()
 
         for idx, is_duplicate in enumerate(duplicate_mask):
             if is_duplicate:

@@ -74,7 +74,6 @@ async def set_weights(
         logger.info("Posted weights to API")
     except PostWeightsError as e:
         logger.error(f"Error logging weights to the weights API: {e}")
-        return  # Added return to prevent further execution on error
 
     try:
         config: bt.config = get_config()
