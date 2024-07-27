@@ -9,6 +9,7 @@ from neurons.validator.scoring.models.types import RewardModelType
 class ScoringResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    uids: torch.Tensor
     type: RewardModelType
     scores: torch.Tensor
     normalized: torch.Tensor

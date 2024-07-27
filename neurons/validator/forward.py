@@ -60,7 +60,7 @@ def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
 
 async def update_moving_averages(
     previous_ma_scores: torch.FloatTensor,
-    rewards: torch.FloatTensor,
+    scoring_results: ScoringResults,
     hotkey_blacklist: Optional[List[str]] = None,
     coldkey_blacklist: Optional[List[str]] = None,
     alpha: Optional[float] = MOVING_AVERAGE_ALPHA,
@@ -69,10 +69,11 @@ async def update_moving_averages(
         hotkey_blacklist = []
     if not coldkey_blacklist:
         coldkey_blacklist = []
+
     metagraph: bt.metagraph = get_metagraph()
 
     rewards = torch.nan_to_num(
-        rewards,
+        scoring_results.combined_scores,
         nan=0.0,
         posinf=0.0,
         neginf=0.0,
@@ -92,6 +93,8 @@ async def update_moving_averages(
         )
         previous_ma_scores = previous_ma_scores[: rewards.size(0)]
 
+    uids_to_scatter: torch.Tensor = scoring_results.uids
+
     # We merge the new rewards into the moving average using ALPHA
     # Alpha is the rate of integration of a new component into the MA tensor.
     #
@@ -102,12 +105,18 @@ async def update_moving_averages(
     #
     # So the result is:
     # (0.01 * 0.5) + (1.0 - 0.01) * 1.00 = 0.995
-    moving_average_scores: torch.FloatTensor = alpha * rewards + (
+    new_moving_average_scores = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
 
+    # Scatter the scores into the moving average scores
+    updated_ma_scores = previous_ma_scores.clone()
+    updated_ma_scores[uids_to_scatter] = new_moving_average_scores[
+        uids_to_scatter
+    ]
+
     try:
-        log_moving_averages(moving_average_scores)
+        log_moving_averages(updated_ma_scores)
     except Exception:
         pass
 
@@ -115,7 +124,7 @@ async def update_moving_averages(
     try:
         await get_backend_client().post_moving_averages(
             metagraph.hotkeys,
-            moving_average_scores,
+            updated_ma_scores,
         )
     except PostMovingAveragesError as e:
         logger.error(f"failed to post moving averages: {e}")
@@ -125,12 +134,12 @@ async def update_moving_averages(
             zip(metagraph.hotkeys, metagraph.coldkeys)
         ):
             if hotkey in hotkey_blacklist or coldkey in coldkey_blacklist:
-                moving_average_scores[i] = 0
+                updated_ma_scores[i] = 0
 
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
 
-    return moving_average_scores
+    return updated_ma_scores
 
 
 async def query_axons_async(
@@ -379,7 +388,6 @@ async def run_step(
     model_type: str,
     stats: Stats,
 ):
-
     # Get Arguments
     prompt = task.prompt
     task_type = task.task_type
@@ -443,9 +451,6 @@ async def run_step(
         responses,
     )
 
-    # Apply isalive filtering
-    rewards_tensor_adjusted = scoring_results.combined_scores
-
     # TODO: Check and see if miners are getting dropped scores
     #       because the is-alive filter is too strict or broken
     # rewards_tensor_adjusted = filter_rewards(
@@ -458,7 +463,7 @@ async def run_step(
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
         validator.moving_average_scores,
-        rewards_tensor_adjusted,
+        scoring_results,
         hotkey_blacklist=validator.hotkey_blacklist,
         coldkey_blacklist=validator.coldkey_blacklist,
     )

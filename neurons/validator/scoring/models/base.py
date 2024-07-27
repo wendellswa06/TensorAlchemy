@@ -106,8 +106,11 @@ class BaseRewardModel:
 
         from neurons.validator.scoring.types import ScoringResult
 
+        non_zero_uids = torch.nonzero(rewards).squeeze()
+
         return ScoringResult(
             scores=rewards,
             type=self.name,
+            uids=non_zero_uids,
             normalized=normalized_rewards,
         )

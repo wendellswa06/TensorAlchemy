@@ -55,6 +55,9 @@ async def apply_function(
     # Build up a new score instead of re-using the one above
     return ScoringResult(
         type=result.type,
+        # We'll keep track of these to be able
+        # to scatter the rewards across moving_averages later
+        uids=result.uids,
         # Normalization of scores
         # [ 0.0, 0.2, 0.4, 1.0 ]
         normalized=result.normalized,
@@ -111,6 +114,12 @@ async def apply_functions(
         results.combined_scores = combine(
             results.combined_scores,
             reward.scores,
+        )
+
+        # Remove duplicates
+        results.uids = torch.unique(
+            # Concatenate the tensors
+            torch.cat((results.uids, reward.uids))
         )
 
         # And add it to the list for later
