@@ -46,8 +46,8 @@ incoming_synapse_new_base64 = {
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/lK3Q6wAAAABJRU5ErkJggg=="
     ],
     "num_images_per_prompt": 1,
-    "height": 1024,
-    "width": 1024,
+    "height": 64,
+    "width": 64,
     "generation_type": "text_to_image",
     "guidance_scale": 7.5,
     "seed": -1,
@@ -97,8 +97,8 @@ incoming_synapse_old = {
         }
     ],
     "num_images_per_prompt": 1,
-    "height": 1024,
-    "width": 1024,
+    "height": 64,
+    "width": 64,
     "generation_type": "text_to_image",
     "guidance_scale": 7.5,
     "seed": -1,

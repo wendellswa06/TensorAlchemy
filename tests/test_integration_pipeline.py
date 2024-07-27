@@ -24,6 +24,7 @@ class MockMetagraph:
     def __init__(self) -> None:
         self.n = 10
         self.hotkeys = [f"hotkey_{i}" for i in range(self.n)]
+        self.coldkeys = [f"coldkey_{i}" for i in range(self.n)]
 
 
 class MockScoringModel:
@@ -44,11 +45,13 @@ class MockScoringModel:
             "REAL_IMAGE": 1.27,
         }
         image_tensor = image_to_tensor(images[0])
+
         for key, score in image_scores.items():
             if image_tensor.shape == TEST_IMAGES[key].shape and torch.allclose(
                 image_tensor, TEST_IMAGES[key], atol=1e-2
             ):
                 return 1, [score]
+
         raise ValueError(f"Score not set for image {image_tensor}")
 
 
@@ -342,12 +345,13 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
     ):
         for run in range(num_runs):
             logger.info(f"Starting run {run + 1} of {num_runs}")
-            results, filtered_rewards = await run_pipeline_test()
-            all_results.append(results)
+            scoring_results, filtered_rewards = await run_pipeline_test()
+            all_results.append(scoring_results)
             all_filtered_rewards.append(filtered_rewards)
 
             moving_average_scores = await update_moving_averages(
-                moving_average_scores, filtered_rewards
+                moving_average_scores,
+                scoring_results,
             )
             ma_history.append(moving_average_scores.clone())
 

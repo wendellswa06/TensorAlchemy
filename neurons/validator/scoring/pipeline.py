@@ -16,6 +16,7 @@ from neurons.validator.scoring.models import (
 from neurons.validator.scoring.types import (
     ScoringResult,
     ScoringResults,
+    combine_uids,
 )
 
 ResultCombiner = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -114,12 +115,6 @@ async def apply_functions(
         results.combined_scores = combine(
             results.combined_scores,
             reward.scores,
-        )
-
-        # Remove duplicates
-        results.uids = torch.unique(
-            # Concatenate the tensors
-            torch.cat((results.uids, reward.uids))
         )
 
         # And add it to the list for later
@@ -222,6 +217,8 @@ async def get_scoring_results(
         scores=rewards.scores + masks.scores,
         # And the actual result scores
         combined_scores=combined_scores,
+        # And the combined UIDs
+        combined_uids=combine_uids(rewards.combined_uids, masks.combined_uids),
     )
 
 

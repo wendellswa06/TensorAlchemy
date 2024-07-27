@@ -106,7 +106,12 @@ class BaseRewardModel:
 
         from neurons.validator.scoring.types import ScoringResult
 
-        non_zero_uids = torch.nonzero(rewards).squeeze()
+        # Find the indices of values that were touched during
+        # the scoring run. This allows us to scatter the rewards
+        # into the moving averages after all scoring has been completed.
+        non_zero_uids = torch.nonzero(rewards).squeeze().to(torch.long)
+
+        logger.info(f"{rewards=}: {non_zero_uids=}")
 
         return ScoringResult(
             scores=rewards,

@@ -93,7 +93,8 @@ async def update_moving_averages(
         )
         previous_ma_scores = previous_ma_scores[: rewards.size(0)]
 
-    uids_to_scatter: torch.Tensor = scoring_results.uids
+    uids_to_scatter: torch.Tensor = scoring_results.combined_uids.to(torch.long)
+    logger.info(f"Scattering MA deltas over UIDS {uids_to_scatter}")
 
     # We merge the new rewards into the moving average using ALPHA
     # Alpha is the rate of integration of a new component into the MA tensor.
