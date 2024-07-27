@@ -1,24 +1,47 @@
 from typing import List, Optional
 
 import torch
+from loguru import logger
 from pydantic import ConfigDict, BaseModel, Field
 
-from neurons.validator.rewards.models.types import RewardModelType
+from neurons.validator.scoring.models.types import RewardModelType
+
+
+def combine_uids(
+    uids_a: torch.Tensor,
+    uids_b: torch.Tensor,
+) -> torch.Tensor:
+    if uids_a.numel() == 0:
+        return uids_b
+
+    if uids_b.numel() == 0:
+        return uids_a
+
+    # Concatenate and remove duplicates
+    return torch.unique(
+        torch.cat(
+            (
+                uids_a.flatten(),
+                uids_b.flatten(),
+            )
+        )
+    )
 
 
 class ScoringResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    uids: torch.Tensor
     type: RewardModelType
     scores: torch.Tensor
     normalized: torch.Tensor
 
 
 class ScoringResults(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    scores: List[ScoringResult] = Field(default=[])
 
     combined_scores: torch.Tensor
-    scores: List[ScoringResult] = Field(default=[])
+    combined_uids: torch.Tensor = Field(default=torch.Tensor([]))
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -31,6 +54,7 @@ class ScoringResults(BaseModel):
 
     def add_score(self, other: ScoringResult) -> None:
         self.scores.append(other)
+        self.combined_uids = combine_uids(self.combined_uids, other.uids)
 
     def add_scores(self, others: List[ScoringResult]) -> None:
         self.scores += others

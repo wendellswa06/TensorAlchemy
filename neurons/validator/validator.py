@@ -208,12 +208,7 @@ class StableValidator:
         logger.info(f"Loaded dendrite pool: {self.dendrite}")
 
         # Init metagraph.
-        self.metagraph = get_metagraph(
-            netuid=self.config.netuid,
-            # Make sure not to sync without passing subtensor
-            network=self.subtensor.network,
-            sync=False,
-        )
+        self.metagraph = get_metagraph(sync=False)
 
         # Sync metagraph with subtensor.
         self.metagraph.sync(subtensor=self.subtensor)

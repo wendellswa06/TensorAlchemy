@@ -8,14 +8,15 @@ from neurons.protocol import ModelType
 from neurons.utils.log import summarize_rewards
 from neurons.validator.config import get_device, get_metagraph
 
-from neurons.validator.rewards.models.types import PackedRewardModel
-from neurons.validator.rewards.models import (
+from neurons.validator.scoring.models.types import PackedRewardModel
+from neurons.validator.scoring.models import (
     get_reward_functions,
     get_masking_functions,
 )
-from neurons.validator.rewards.types import (
+from neurons.validator.scoring.types import (
     ScoringResult,
     ScoringResults,
+    combine_uids,
 )
 
 ResultCombiner = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -55,6 +56,9 @@ async def apply_function(
     # Build up a new score instead of re-using the one above
     return ScoringResult(
         type=result.type,
+        # We'll keep track of these to be able
+        # to scatter the rewards across moving_averages later
+        uids=result.uids,
         # Normalization of scores
         # [ 0.0, 0.2, 0.4, 1.0 ]
         normalized=result.normalized,
@@ -95,6 +99,9 @@ async def apply_functions(
     results: ScoringResults = ScoringResults(combined_scores=initial_seed)
 
     for function in functions:
+        if not function.should_apply(synapse, responses):
+            continue
+
         reward: ScoringResult = await apply_function(
             initial_seed,
             function,
@@ -210,6 +217,8 @@ async def get_scoring_results(
         scores=rewards.scores + masks.scores,
         # And the actual result scores
         combined_scores=combined_scores,
+        # And the combined UIDs
+        combined_uids=combine_uids(rewards.combined_uids, masks.combined_uids),
     )
 
 

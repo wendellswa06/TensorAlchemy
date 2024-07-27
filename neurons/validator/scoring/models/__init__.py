@@ -1,18 +1,25 @@
-from typing import Dict, List, Tuple
+from typing import List
 
 import torch
+import bittensor as bt
 
 from neurons.protocol import ModelType
 
-from neurons.validator.rewards.models.base import BaseRewardModel
-from neurons.validator.rewards.models.empty import EmptyScoreRewardModel
-from neurons.validator.rewards.models.blacklist import BlacklistFilter
-from neurons.validator.rewards.models.human import HumanValidationRewardModel
-from neurons.validator.rewards.models.image_reward import ImageRewardModel
-from neurons.validator.rewards.models.nsfw import NSFWRewardModel
+from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
 
-from neurons.validator.rewards.models.types import RewardModelType
-from neurons.validator.rewards.models.types import (
+from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
+from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
+from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
+
+from neurons.validator.scoring.models.rewards.human import (
+    HumanValidationRewardModel,
+)
+from neurons.validator.scoring.models.rewards.image_reward import (
+    ImageRewardModel,
+)
+
+from neurons.validator.scoring.models.types import (
+    RewardModelType,
     ModelStorage,
     PackedRewardModel,
 )
@@ -44,6 +51,16 @@ def get_reward_models() -> ModelStorage:
     return REWARD_MODELS
 
 
+def should_check_duplicates(
+    synapse: bt.Synapse,
+    responses: List[bt.Synapse],
+) -> bool:
+    if synapse.seed > -1:
+        return False
+
+    return len(responses) > 1
+
+
 def get_masking_models() -> ModelStorage:
     global MASKING_MODELS
     if not MASKING_MODELS:
@@ -55,6 +72,11 @@ def get_masking_models() -> ModelStorage:
             RewardModelType.BLACKLIST: PackedRewardModel(
                 weight=1.0,
                 model=BlacklistFilter(),
+            ),
+            RewardModelType.DUPLICATE: PackedRewardModel(
+                weight=1.0,
+                model=DuplicateFilter(),
+                should_apply=should_check_duplicates,
             ),
         }
 
@@ -88,4 +110,5 @@ def get_masking_functions(_model_type: ModelType) -> List[PackedRewardModel]:
     return [
         get_function(get_masking_models(), RewardModelType.NSFW),
         get_function(get_masking_models(), RewardModelType.BLACKLIST),
+        get_function(get_masking_models(), RewardModelType.DUPLICATE),
     ]

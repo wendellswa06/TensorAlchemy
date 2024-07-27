@@ -25,18 +25,18 @@ from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
-from neurons.validator.rewards.models.types import RewardModelType
+from neurons.validator.scoring.models.types import RewardModelType
 from neurons.validator.config import (
     get_config,
     get_device,
     get_metagraph,
     get_backend_client,
 )
-from neurons.validator.rewards.types import (
+from neurons.validator.scoring.types import (
     ScoringResult,
     ScoringResults,
 )
-from neurons.validator.rewards.pipeline import (
+from neurons.validator.scoring.pipeline import (
     get_scoring_results,
     apply_masking_functions,
 )
@@ -60,7 +60,7 @@ def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
 
 async def update_moving_averages(
     previous_ma_scores: torch.FloatTensor,
-    rewards: torch.FloatTensor,
+    scoring_results: ScoringResults,
     hotkey_blacklist: Optional[List[str]] = None,
     coldkey_blacklist: Optional[List[str]] = None,
     alpha: Optional[float] = MOVING_AVERAGE_ALPHA,
@@ -69,10 +69,11 @@ async def update_moving_averages(
         hotkey_blacklist = []
     if not coldkey_blacklist:
         coldkey_blacklist = []
+
     metagraph: bt.metagraph = get_metagraph()
 
     rewards = torch.nan_to_num(
-        rewards,
+        scoring_results.combined_scores,
         nan=0.0,
         posinf=0.0,
         neginf=0.0,
@@ -102,12 +103,22 @@ async def update_moving_averages(
     #
     # So the result is:
     # (0.01 * 0.5) + (1.0 - 0.01) * 1.00 = 0.995
-    moving_average_scores: torch.FloatTensor = alpha * rewards + (
+    new_moving_average_scores = alpha * rewards + (
         1 - alpha
     ) * previous_ma_scores.to(get_device())
 
+    # Scatter the scores into the moving average scores
+    updated_ma_scores = previous_ma_scores.clone()
+
+    uids_to_scatter: torch.Tensor = scoring_results.combined_uids.to(torch.long)
+    logger.info(f"Scattering MA deltas over UIDS {uids_to_scatter}")
+
+    updated_ma_scores[uids_to_scatter] = new_moving_average_scores[
+        uids_to_scatter
+    ]
+
     try:
-        log_moving_averages(moving_average_scores)
+        log_moving_averages(updated_ma_scores)
     except Exception:
         pass
 
@@ -115,7 +126,7 @@ async def update_moving_averages(
     try:
         await get_backend_client().post_moving_averages(
             metagraph.hotkeys,
-            moving_average_scores,
+            updated_ma_scores,
         )
     except PostMovingAveragesError as e:
         logger.error(f"failed to post moving averages: {e}")
@@ -125,12 +136,12 @@ async def update_moving_averages(
             zip(metagraph.hotkeys, metagraph.coldkeys)
         ):
             if hotkey in hotkey_blacklist or coldkey in coldkey_blacklist:
-                moving_average_scores[i] = 0
+                updated_ma_scores[i] = 0
 
     except Exception as e:
         logger.error(f"An unexpected error occurred (E1): {e}")
 
-    return moving_average_scores
+    return updated_ma_scores
 
 
 async def query_axons_async(
@@ -379,7 +390,6 @@ async def run_step(
     model_type: str,
     stats: Stats,
 ):
-
     # Get Arguments
     prompt = task.prompt
     task_type = task.task_type
@@ -443,9 +453,6 @@ async def run_step(
         responses,
     )
 
-    # Apply isalive filtering
-    rewards_tensor_adjusted = scoring_results.combined_scores
-
     # TODO: Check and see if miners are getting dropped scores
     #       because the is-alive filter is too strict or broken
     # rewards_tensor_adjusted = filter_rewards(
@@ -458,7 +465,7 @@ async def run_step(
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
         validator.moving_average_scores,
-        rewards_tensor_adjusted,
+        scoring_results,
         hotkey_blacklist=validator.hotkey_blacklist,
         coldkey_blacklist=validator.coldkey_blacklist,
     )

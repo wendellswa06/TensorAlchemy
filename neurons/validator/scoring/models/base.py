@@ -1,3 +1,4 @@
+import inspect
 from abc import abstractmethod
 from typing import Callable, List, TYPE_CHECKING
 
@@ -9,8 +10,8 @@ from loguru import logger
 from neurons.validator.config import get_device, get_metagraph
 
 if TYPE_CHECKING:
-    from neurons.validator.rewards.types import ScoringResult
-    from neurons.validator.rewards.models.types import RewardModelType
+    from neurons.validator.scoring.types import ScoringResult
+    from neurons.validator.scoring.models.types import RewardModelType
 
 
 class BaseRewardModel:
@@ -36,6 +37,12 @@ class BaseRewardModel:
                 + "must implement reward method"
             )
 
+    def zeros(self) -> torch.Tensor:
+        return torch.zeros(get_metagraph().n).to(get_device())
+
+    def ones(self) -> torch.Tensor:
+        return torch.ones(get_metagraph().n).to(get_device())
+
     async def build_rewards_tensor(
         self,
         method: Callable,
@@ -45,7 +52,7 @@ class BaseRewardModel:
         if not callable(method):
             raise NotImplementedError(f"{method.__name__} is not callable!")
 
-        rewards = torch.zeros(get_metagraph().n).to(get_device())
+        rewards = self.zeros()
         for response in responses:
             score = method(response)
             hotkey = response.axon.hotkey
@@ -89,15 +96,24 @@ class BaseRewardModel:
         responses: List[bt.Synapse],
     ) -> "ScoringResult":
         # Get rewards for the responses
-        rewards = await self.get_rewards(synapse, responses)
+        if inspect.iscoroutinefunction(self.get_rewards):
+            rewards = await self.get_rewards(synapse, responses)
+        else:
+            rewards = self.get_rewards(synapse, responses)
 
         # Normalize rewards
         normalized_rewards = self.normalize_rewards(rewards)
 
-        from neurons.validator.rewards.types import ScoringResult
+        from neurons.validator.scoring.types import ScoringResult
+
+        # Find the indices of values that were touched during
+        # the scoring run. This allows us to scatter the rewards
+        # into the moving averages after all scoring has been completed.
+        non_zero_uids = torch.nonzero(rewards).squeeze().to(torch.long)
 
         return ScoringResult(
             scores=rewards,
             type=self.name,
+            uids=non_zero_uids,
             normalized=normalized_rewards,
         )

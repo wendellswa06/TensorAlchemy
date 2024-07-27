@@ -74,32 +74,33 @@ async def set_weights(
         logger.info("Posted weights to API")
     except PostWeightsError as e:
         logger.error(f"Error logging weights to the weights API: {e}")
-        return  # Added return to prevent further execution on error
 
     try:
         config: bt.config = get_config()
         metagraph: bt.metagraph = get_metagraph()
 
-        uids: List[int] = []
+        valid_uids: List[int] = []
 
         # New list to store weights for valid hotkeys
         valid_weights: List[float] = []
 
         for hotkey, weight in zip(hotkeys, raw_weights):
             try:
-                uid = metagraph.hotkeys.index(hotkey)
-                uids.append(uid)
                 # Only add weight if hotkey is found
+                valid_uids.append(metagraph.hotkeys.index(hotkey))
                 valid_weights.append(weight)
             except ValueError:
-                logger.error(f"Hotkey {hotkey} not found in metagraph")
+                logger.warning(
+                    f"Hotkey {hotkey} not found in metagraph,"
+                    + " no weight will be set"
+                )
 
         # Now uids and valid_weights have the same length
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
-            uids=torch.tensor(uids).cpu(),
+            uids=torch.tensor(valid_uids).cpu(),
             # Use valid_weights instead of raw_weights
             weights=torch.tensor(valid_weights).cpu(),
             netuid=config.netuid,
