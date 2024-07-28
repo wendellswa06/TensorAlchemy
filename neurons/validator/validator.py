@@ -558,6 +558,8 @@ class StableValidator:
                     weights=tensor_to_list(self.moving_average_scores),
                 )
             )
+            logger.info("Added a weight setting task to the queue")
+
             self.prev_block = ttl_get_block()
 
     def get_validator_index(self):
