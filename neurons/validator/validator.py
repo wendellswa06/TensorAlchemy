@@ -1,7 +1,6 @@
 import asyncio
 import copy
 import os
-import subprocess
 import sys
 import time
 import traceback
@@ -10,7 +9,7 @@ import queue
 from math import ceil
 from threading import Thread
 from multiprocessing import Manager, Queue, Process, set_start_method
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import bittensor as bt
 import sentry_sdk
@@ -299,29 +298,11 @@ class StableValidator:
         # Start the generic background loop
         self.storage_client = None
         self.background_steps = 1
-        self.background_timer = BackgroundTimer(
-            60,
-            background_loop,
-            [self, True],
-        )
-        self.background_timer.daemon = True
 
         # Start the batch streaming background loop
         manager = Manager()
         self.set_weights_queue: Queue = manager.Queue(maxsize=128)
         self.batches_upload_queue: Queue = manager.Queue(maxsize=2048)
-
-        self.upload_images_process = MultiprocessBackgroundTimer(
-            0.2,
-            upload_images_loop,
-            args=[self.batches_upload_queue],
-        )
-
-        self.set_weights_process = MultiprocessBackgroundTimer(
-            0.2,
-            set_weights_loop,
-            args=[self.set_weights_queue],
-        )
 
         # Create a Dict for storing miner query history
         try:
@@ -348,27 +329,66 @@ class StableValidator:
 
         self.model_type = ModelType.CUSTOM
 
+        self.background_timer: BackgroundTimer = None
+        self.set_weights_process: MultiprocessBackgroundTimer = None
+        self.upload_images_process: MultiprocessBackgroundTimer = None
+
         # Start all background threads
         self.start_threads()
 
     def start_thread(self, thread: ThreadLike, is_startup: bool = True) -> None:
-        thread_name = thread.__class__.__name__
-        if not thread.is_alive():
-            thread.start()
-            if is_startup:
-                logger.info(f"Started {thread_name}")
-            else:
-                logger.info(f"{thread_name} had segfault, restarted")
+        if thread.is_alive():
+            return
+
+        thread.start()
+        if is_startup:
+            logger.info(f"Started {thread}")
+        else:
+            logger.info(f"{thread} had segfault, restarted")
 
     def start_threads(self, is_startup: bool = True) -> None:
-        threads: list[ThreadLike] = [
-            self.background_timer,
-            self.set_weights_process,
-            self.upload_images_process,
+        thread_configs: List[Tuple[str, object, float, callable, list]] = [
+            (
+                "background_timer",
+                BackgroundTimer,
+                60,
+                background_loop,
+                [self, True],
+            ),
+            (
+                "upload_images_process",
+                MultiprocessBackgroundTimer,
+                0.2,
+                upload_images_loop,
+                [self.batches_upload_queue],
+            ),
+            (
+                "set_weights_process",
+                MultiprocessBackgroundTimer,
+                0.2,
+                set_weights_loop,
+                [self.set_weights_queue],
+            ),
         ]
 
-        for thread in threads:
-            self.start_thread(thread, is_startup)
+        for (
+            attr_name,
+            thread_class,
+            interval,
+            target_func,
+            args,
+        ) in thread_configs:
+            thread = getattr(self, attr_name)
+            if thread and thread.is_alive():
+                continue
+
+            new_thread = thread_class(interval, target_func, args)
+
+            if attr_name == "background_timer":
+                new_thread.daemon = True
+
+            setattr(self, attr_name, new_thread)
+            self.start_thread(new_thread, is_startup)
 
     async def check_uid(self, uid, response_times):
         try:

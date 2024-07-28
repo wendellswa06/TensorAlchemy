@@ -1,10 +1,9 @@
 import os
-import pathlib
 import sys
-
-
+import pathlib
 import subprocess
-import logging
+
+from loguru import logger
 
 
 project_root = str(pathlib.Path(__file__).parent.parent.parent.resolve())
@@ -19,6 +18,7 @@ def is_validator() -> bool:
 def log_dependencies() -> None:
     # Log dependencies versions specified in requirements.txt
     requirements_path = os.path.join(project_root, "requirements.txt")
+
     try:
         with open(requirements_path, "r") as req_file:
             required_packages = [
@@ -37,6 +37,6 @@ def log_dependencies() -> None:
                 dependencies.append(package)
 
         dependencies_str = " ".join(dependencies)
-        logging.info(f"dependencies: {dependencies_str}")
+        logger.info(f"dependencies: {dependencies_str}")
     except Exception as e:
-        logging.error(f"error logging dependencies: {str(e)}")
+        logger.error(f"error logger dependencies: {str(e)}")
