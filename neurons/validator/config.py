@@ -216,7 +216,7 @@ def get_metagraph(**kwargs) -> bt.metagraph:
 
         logger.info(
             #
-            "Creating connection to metagraph"
+            "Creating connection to metagraph: "
             + f"{netuid=}: {network=}",
         )
 

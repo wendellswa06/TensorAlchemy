@@ -1,7 +1,9 @@
 import queue
+import traceback
 import bittensor as bt
 from typing import List
 from multiprocessing import Queue
+
 import torch
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
@@ -111,7 +113,11 @@ async def set_weights(
             weights=torch.tensor(valid_weights).cpu(),
         )
     except Exception as e:
-        logger.error(f"Could not process weights: {e}")
+        logger.error(
+            #
+            "Could not process weights: "
+            + traceback.format_exc()
+        )
         return
 
     logger.info(f"Processed weights: {processed_weights}")
