@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import os
+import subprocess
 import sys
 import time
 import traceback
@@ -30,6 +31,7 @@ from neurons.protocol import (
     denormalize_image_model,
     ImageGenerationTaskModel,
 )
+from neurons.utils.common import log_dependencies
 from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
@@ -166,6 +168,8 @@ class StableValidator:
         )
 
         configure_logging()
+
+        log_dependencies()
 
         # Init device.
         self.device = get_device(torch.device(self.config.alchemy.device))
@@ -364,9 +368,9 @@ class StableValidator:
                     # If miner doesn't respond for 3 iterations rest it's count to
                     # the average to avoid spamming
                     if self.miner_query_history_fail_count[key] >= 3:
-                        self.miner_query_history_duration[
-                            key
-                        ] = time.perf_counter()
+                        self.miner_query_history_duration[key] = (
+                            time.perf_counter()
+                        )
                         self.miner_query_history_count[key] = int(
                             np.array(
                                 list(self.miner_query_history_count.values())
@@ -419,9 +423,9 @@ class StableValidator:
                     )
                     continue
 
-                task: Optional[
-                    ImageGenerationTaskModel
-                ] = await self.get_image_generation_task()
+                task: Optional[ImageGenerationTaskModel] = (
+                    await self.get_image_generation_task()
+                )
 
                 if task is None:
                     logger.warning(
@@ -739,9 +743,9 @@ class StableValidator:
                     + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
-                self.moving_average_scores[
-                    : len(neuron_weights)
-                ] = neuron_weights.to(self.device)
+                self.moving_average_scores[: len(neuron_weights)] = (
+                    neuron_weights.to(self.device)
+                )
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict
