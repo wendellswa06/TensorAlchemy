@@ -32,7 +32,8 @@ def log_dependencies() -> None:
         dependencies = []
         for package in installed_packages:
             name = package.split("==")[0]
-            if name in required_packages:
+            # Make sure bittensor dependency is logged
+            if name in required_packages or "bittensor" in name:
                 dependencies.append(package)
 
         dependencies_str = " ".join(dependencies)
