@@ -75,49 +75,52 @@ async def set_weights(
     except PostWeightsError as e:
         logger.error(f"Error logging weights to the weights API: {e}")
 
+    config: bt.config = get_config()
+    subtensor: bt.subtensor = get_subtensor()
+    metagraph: bt.metagraph = get_metagraph()
+
+    valid_uids: List[int] = []
+
+    # New list to store weights for valid hotkeys
+    valid_weights: List[float] = []
+
+    for hotkey, weight in zip(hotkeys, raw_weights):
+        try:
+            # Only add weight if hotkey is found
+            valid_uids.append(metagraph.hotkeys.index(hotkey))
+            valid_weights.append(weight)
+        except ValueError:
+            logger.warning(
+                f"Hotkey {hotkey} not found in metagraph,"
+                + " no weight will be set"
+            )
+
     try:
-        config: bt.config = get_config()
-        metagraph: bt.metagraph = get_metagraph()
-
-        valid_uids: List[int] = []
-
-        # New list to store weights for valid hotkeys
-        valid_weights: List[float] = []
-
-        for hotkey, weight in zip(hotkeys, raw_weights):
-            try:
-                # Only add weight if hotkey is found
-                valid_uids.append(metagraph.hotkeys.index(hotkey))
-                valid_weights.append(weight)
-            except ValueError:
-                logger.warning(
-                    f"Hotkey {hotkey} not found in metagraph,"
-                    + " no weight will be set"
-                )
-
         # Now uids and valid_weights have the same length
         (
             processed_weight_uids,
             processed_weights,
         ) = bt.utils.weight_utils.process_weights_for_netuid(
+            metagraph=metagraph,
+            subtensor=subtensor,
+            netuid=config.netuid,
+            #
+            # Which uids should be updated
             uids=torch.tensor(valid_uids).cpu(),
             # Use valid_weights instead of raw_weights
             weights=torch.tensor(valid_weights).cpu(),
-            netuid=config.netuid,
-            metagraph=metagraph,
-            subtensor=get_subtensor(),
         )
     except Exception as e:
-        logger.error(f"Could not process weights for netuid: {e}")
+        logger.error(f"Could not process weights: {e}")
         return
 
     logger.info(f"Processed weights: {processed_weights}")
     logger.info(f"Processed weight UIDs: {processed_weight_uids}")
 
     try:
-        get_subtensor().set_weights(
+        subtensor.set_weights(
             wallet=get_wallet(),
-            netuid=get_config().netuid,
+            netuid=config.netuid,
             uids=processed_weight_uids,
             weights=processed_weights,
             wait_for_finalization=True,
