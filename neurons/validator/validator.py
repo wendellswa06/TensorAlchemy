@@ -8,8 +8,9 @@ import traceback
 import uuid
 import queue
 from math import ceil
-from multiprocessing import Manager, Queue, set_start_method
-from typing import Optional
+from threading import Thread
+from multiprocessing import Manager, Queue, Process, set_start_method
+from typing import Optional, Union
 
 import bittensor as bt
 import sentry_sdk
@@ -70,6 +71,9 @@ from neurons.validator.weights import (
 
 # Set the start method for multiprocessing
 set_start_method("spawn", force=True)
+
+# Define a type alias for our thread-like objects
+ThreadLike = Union[Thread, Process]
 
 
 def is_valid_current_directory() -> bool:
@@ -301,7 +305,6 @@ class StableValidator:
             [self, True],
         )
         self.background_timer.daemon = True
-        self.background_timer.start()
 
         # Start the batch streaming background loop
         manager = Manager()
@@ -313,14 +316,12 @@ class StableValidator:
             upload_images_loop,
             args=[self.batches_upload_queue],
         )
-        self.upload_images_process.start()
 
         self.set_weights_process = MultiprocessBackgroundTimer(
             0.2,
             set_weights_loop,
             args=[self.set_weights_queue],
         )
-        self.set_weights_process.start()
 
         # Create a Dict for storing miner query history
         try:
@@ -347,6 +348,28 @@ class StableValidator:
 
         self.model_type = ModelType.CUSTOM
 
+        # Start all background threads
+        self.start_threads()
+
+    def start_thread(self, thread: ThreadLike, is_startup: bool = True) -> None:
+        thread_name = thread.__class__.__name__
+        if not thread.is_alive():
+            thread.start()
+            if is_startup:
+                logger.info(f"Started {thread_name}")
+            else:
+                logger.info(f"{thread_name} had segfault, restarted")
+
+    def start_threads(self, is_startup: bool = True) -> None:
+        threads: list[ThreadLike] = [
+            self.background_timer,
+            self.set_weights_process,
+            self.upload_images_process,
+        ]
+
+        for thread in threads:
+            self.start_thread(thread, is_startup)
+
     async def check_uid(self, uid, response_times):
         try:
             t1 = time.perf_counter()
@@ -368,9 +391,9 @@ class StableValidator:
                     # If miner doesn't respond for 3 iterations rest it's count to
                     # the average to avoid spamming
                     if self.miner_query_history_fail_count[key] >= 3:
-                        self.miner_query_history_duration[key] = (
-                            time.perf_counter()
-                        )
+                        self.miner_query_history_duration[
+                            key
+                        ] = time.perf_counter()
                         self.miner_query_history_count[key] = int(
                             np.array(
                                 list(self.miner_query_history_count.values())
@@ -423,9 +446,9 @@ class StableValidator:
                     )
                     continue
 
-                task: Optional[ImageGenerationTaskModel] = (
-                    await self.get_image_generation_task()
-                )
+                task: Optional[
+                    ImageGenerationTaskModel
+                ] = await self.get_image_generation_task()
 
                 if task is None:
                     logger.warning(
@@ -460,6 +483,11 @@ class StableValidator:
 
                 # Load any new settings from gcloud
                 self.reload_settings()
+
+                # (Restart) all background threads
+                # This can happen sometimes rarely
+                # because of a segfault
+                self.start_threads(is_startup=False)
 
                 # End the current step and prepare for the next iteration.
                 self.step += 1
@@ -743,9 +771,9 @@ class StableValidator:
                     + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
-                self.moving_average_scores[: len(neuron_weights)] = (
-                    neuron_weights.to(self.device)
-                )
+                self.moving_average_scores[
+                    : len(neuron_weights)
+                ] = neuron_weights.to(self.device)
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict

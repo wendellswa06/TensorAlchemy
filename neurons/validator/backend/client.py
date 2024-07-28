@@ -105,7 +105,6 @@ class TensorAlchemyBackendClient:
         except Exception as ex:
             raise GetTaskError("/tasks unknown error") from ex
 
-        json: Dict = {}
         try:
             task: Dict = response.json()
         except Exception:
@@ -120,8 +119,7 @@ class TensorAlchemyBackendClient:
                 return None
 
         if response.status_code == 404:
-            if task.get("code") == "NO_TASKS_FOUND":
-                return None
+            return None
 
         if response.status_code == 401:
             if task.get("code") == "VALIDATOR_NOT_FOUND_YET":

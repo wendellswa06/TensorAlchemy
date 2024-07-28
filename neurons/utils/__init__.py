@@ -34,6 +34,9 @@ from neurons.utils.log import configure_logging
 
 # Background Loop
 class BackgroundTimer(Timer):
+    def __str__(self) -> str:
+        return self.function.__name__
+
     def run(self):
         configure_logging()
         self.function(*self.args, **self.kwargs)
@@ -42,6 +45,9 @@ class BackgroundTimer(Timer):
 
 
 class MultiprocessBackgroundTimer(multiprocessing.Process):
+    def __str__(self) -> str:
+        return self.function.__name__
+
     def __init__(self, interval, function, args=None, kwargs=None):
         super().__init__()
         self.interval = interval
