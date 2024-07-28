@@ -7,8 +7,9 @@ import traceback
 import uuid
 import queue
 from math import ceil
-from multiprocessing import Manager, Queue, set_start_method
-from typing import Optional
+from threading import Thread
+from multiprocessing import Manager, Queue, Process, set_start_method
+from typing import List, Optional, Tuple, Union
 
 import bittensor as bt
 import sentry_sdk
@@ -30,6 +31,7 @@ from neurons.protocol import (
     denormalize_image_model,
     ImageGenerationTaskModel,
 )
+from neurons.utils.common import log_dependencies
 from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
@@ -68,6 +70,9 @@ from neurons.validator.weights import (
 
 # Set the start method for multiprocessing
 set_start_method("spawn", force=True)
+
+# Define a type alias for our thread-like objects
+ThreadLike = Union[Thread, Process]
 
 
 def is_valid_current_directory() -> bool:
@@ -166,6 +171,8 @@ class StableValidator:
         )
 
         configure_logging()
+
+        log_dependencies()
 
         # Init device.
         self.device = get_device(torch.device(self.config.alchemy.device))
@@ -291,32 +298,11 @@ class StableValidator:
         # Start the generic background loop
         self.storage_client = None
         self.background_steps = 1
-        self.background_timer = BackgroundTimer(
-            60,
-            background_loop,
-            [self, True],
-        )
-        self.background_timer.daemon = True
-        self.background_timer.start()
 
         # Start the batch streaming background loop
         manager = Manager()
         self.set_weights_queue: Queue = manager.Queue(maxsize=128)
         self.batches_upload_queue: Queue = manager.Queue(maxsize=2048)
-
-        self.upload_images_process = MultiprocessBackgroundTimer(
-            0.2,
-            upload_images_loop,
-            args=[self.batches_upload_queue],
-        )
-        self.upload_images_process.start()
-
-        self.set_weights_process = MultiprocessBackgroundTimer(
-            0.2,
-            set_weights_loop,
-            args=[self.set_weights_queue],
-        )
-        self.set_weights_process.start()
 
         # Create a Dict for storing miner query history
         try:
@@ -342,6 +328,67 @@ class StableValidator:
             pass
 
         self.model_type = ModelType.CUSTOM
+
+        self.background_timer: BackgroundTimer = None
+        self.set_weights_process: MultiprocessBackgroundTimer = None
+        self.upload_images_process: MultiprocessBackgroundTimer = None
+
+        # Start all background threads
+        self.start_threads()
+
+    def start_thread(self, thread: ThreadLike, is_startup: bool = True) -> None:
+        if thread.is_alive():
+            return
+
+        thread.start()
+        if is_startup:
+            logger.info(f"Started {thread}")
+        else:
+            logger.info(f"{thread} had segfault, restarted")
+
+    def start_threads(self, is_startup: bool = True) -> None:
+        thread_configs: List[Tuple[str, object, float, callable, list]] = [
+            (
+                "background_timer",
+                BackgroundTimer,
+                60,
+                background_loop,
+                [self, True],
+            ),
+            (
+                "upload_images_process",
+                MultiprocessBackgroundTimer,
+                0.2,
+                upload_images_loop,
+                [self.batches_upload_queue],
+            ),
+            (
+                "set_weights_process",
+                MultiprocessBackgroundTimer,
+                0.2,
+                set_weights_loop,
+                [self.set_weights_queue],
+            ),
+        ]
+
+        for (
+            attr_name,
+            thread_class,
+            interval,
+            target_func,
+            args,
+        ) in thread_configs:
+            thread = getattr(self, attr_name)
+            if thread and thread.is_alive():
+                continue
+
+            new_thread = thread_class(interval, target_func, args)
+
+            if attr_name == "background_timer":
+                new_thread.daemon = True
+
+            setattr(self, attr_name, new_thread)
+            self.start_thread(new_thread, is_startup)
 
     async def check_uid(self, uid, response_times):
         try:
@@ -457,6 +504,11 @@ class StableValidator:
                 # Load any new settings from gcloud
                 self.reload_settings()
 
+                # (Restart) all background threads
+                # This can happen sometimes rarely
+                # because of a segfault
+                self.start_threads(is_startup=False)
+
                 # End the current step and prepare for the next iteration.
                 self.step += 1
 
@@ -558,6 +610,8 @@ class StableValidator:
                     weights=tensor_to_list(self.moving_average_scores),
                 )
             )
+            logger.info("Added a weight setting task to the queue")
+
             self.prev_block = ttl_get_block()
 
     def get_validator_index(self):
