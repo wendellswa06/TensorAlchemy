@@ -75,9 +75,8 @@ class EnhancedClipRewardModel(BaseRewardModel):
                 )
 
                 for element in prompt_elements["elements"]:
-                    logger.info(
-                        f"EnhancedCLIP testing against: {element['description']}"
-                    )
+                    importance: float = element["importance"]
+
                     text_input = self.processor(
                         text=[element["description"]],
                         return_tensors="pt",
@@ -105,6 +104,12 @@ class EnhancedClipRewardModel(BaseRewardModel):
                         )
                     else:
                         element_score = 1.0
+
+                    logger.info(
+                        f"EnhancedCLIP tested against: {element['description']}, "
+                        + f"{element_score=}, "
+                        + f"{importance=}"
+                    )
 
                     # Apply importance weighting
                     weighted_score = element_score ** element["importance"]
