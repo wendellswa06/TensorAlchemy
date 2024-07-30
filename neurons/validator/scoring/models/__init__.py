@@ -5,21 +5,6 @@ import bittensor as bt
 
 from neurons.protocol import ModelType
 
-from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
-
-from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
-from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
-from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
-
-from neurons.validator.scoring.models.rewards.human import (
-    HumanValidationRewardModel,
-)
-from neurons.validator.scoring.models.rewards.image_reward import (
-    ImageRewardModel,
-)
-from neurons.validator.scoring.models.rewards.clip_enhanced import (
-    EnhancedClipRewardModel,
-)
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,
@@ -34,6 +19,17 @@ MASKING_MODELS: ModelStorage = None
 
 
 def get_reward_models() -> ModelStorage:
+    from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
+    from neurons.validator.scoring.models.rewards.human import (
+        HumanValidationRewardModel,
+    )
+    from neurons.validator.scoring.models.rewards.image_reward import (
+        ImageRewardModel,
+    )
+    from neurons.validator.scoring.models.rewards.clip_enhanced import (
+        EnhancedClipRewardModel,
+    )
+
     global REWARD_MODELS
     if not REWARD_MODELS:
         REWARD_MODELS = {
@@ -69,6 +65,10 @@ def should_check_duplicates(
 
 
 def get_masking_models() -> ModelStorage:
+    from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
+    from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
+    from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
+
     global MASKING_MODELS
     if not MASKING_MODELS:
         MASKING_MODELS = {
