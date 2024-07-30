@@ -2,7 +2,8 @@ import bittensor as bt
 import torch
 from loguru import logger
 from transformers import CLIPProcessor, CLIPModel
-from typing import List, Dict
+from typing import List
+import math
 
 from neurons.utils.image import synapse_to_tensors
 from neurons.validator.config import get_device
@@ -10,6 +11,7 @@ from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
 from neurons.validator.scoring.models.rewards.enhanced_clip.utils import (
     break_down_prompt,
+    PromptBreakdown,
 )
 
 
@@ -28,34 +30,47 @@ class EnhancedClipRewardModel(BaseRewardModel):
             "openai/clip-vit-base-patch32"
         )
         self.prompt_elements = None
+        self.threshold = 25.0  # Set a baseline threshold
+        self.exponent = 3.0  # Set an exponent for more aggressive scaling
 
     async def prepare_prompt_elements(self, prompt: str):
         self.prompt_elements = await break_down_prompt(prompt)
 
     async def get_rewards(
-        self, synapse: bt.Synapse, responses: List[bt.Synapse]
+        self,
+        synapse: bt.Synapse,
+        responses: List[bt.Synapse],
     ) -> torch.Tensor:
-        if not self.prompt_elements:
-            await self.prepare_prompt_elements(synapse.prompt)
-
-        def get_reward(response: bt.Synapse) -> float:
-            return self.compute_clip_score(response)
-
-        return await super().build_rewards_tensor(
-            get_reward, synapse, responses
+        prompt_elements: PromptBreakdown = await break_down_prompt(
+            synapse.prompt
         )
 
-    def compute_clip_score(self, response: bt.Synapse) -> float:
-        if not response.images or any(
-            image is None for image in response.images
-        ):
+        def get_reward(response: bt.Synapse) -> float:
+            return self.compute_clip_score(prompt_elements, response)
+
+        return await super().build_rewards_tensor(
+            get_reward,
+            synapse,
+            responses,
+        )
+
+    def compute_clip_score(
+        self,
+        prompt_elements: PromptBreakdown,
+        response: bt.Synapse,
+    ) -> float:
+        if not response.images:
+            return 0.0
+
+        if any(image is None for image in response.images):
             return 0.0
 
         try:
             image = synapse_to_tensors(response)[0]
-            image_input = self.processor(images=image, return_tensors="pt").to(
-                self.device
-            )
+            image_input = self.processor(
+                images=image,
+                return_tensors="pt",
+            ).to(self.device)
 
             total_score = 0
             total_importance = 0
@@ -66,7 +81,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
                     dim=-1, keepdim=True
                 )
 
-                for element in self.prompt_elements["elements"]:
+                for element in prompt_elements["elements"]:
                     logger.info(
                         f"EnhancedCLIP testing against: {element['description']}"
                     )
@@ -86,7 +101,17 @@ class EnhancedClipRewardModel(BaseRewardModel):
                         .squeeze()
                         .item()
                     )
-                    weighted_score = similarity * element["importance"]
+
+                    # Apply a more aggressive scaling to the similarity score
+                    scaled_similarity = max(
+                        0,
+                        (similarity - self.threshold) / (100 - self.threshold),
+                    )
+                    scaled_similarity = math.pow(
+                        scaled_similarity, self.exponent
+                    )
+
+                    weighted_score = scaled_similarity * element["importance"]
                     total_score += weighted_score
                     total_importance += element["importance"]
 
