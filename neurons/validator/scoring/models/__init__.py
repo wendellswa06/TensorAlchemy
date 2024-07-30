@@ -37,7 +37,7 @@ def get_reward_models() -> ModelStorage:
                 weight=0.0,
                 model=EmptyScoreRewardModel(),
             ),
-            RewardModelType.CLIP: PackedRewardModel(
+            RewardModelType.ENHANCED_CLIP: PackedRewardModel(
                 weight=0.1,
                 model=EnhancedClipRewardModel(),
             ),
@@ -103,7 +103,7 @@ def get_reward_functions(model_type: ModelType) -> List[PackedRewardModel]:
         raise NotImplementedError("Alchemy model not yet imlepmented")
 
     return [
-        get_function(get_reward_models(), RewardModelType.CLIP),
+        get_function(get_reward_models(), RewardModelType.ENHANCED_CLIP),
         get_function(get_reward_models(), RewardModelType.IMAGE),
         get_function(get_reward_models(), RewardModelType.HUMAN),
     ]

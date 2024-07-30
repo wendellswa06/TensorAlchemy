@@ -454,7 +454,7 @@ async def run_step(
         responses,
     )
     # Log CLIP and IMAGE rewards
-    clip_rewards = scoring_results.get_score(RewardModelType.CLIP)
+    clip_rewards = scoring_results.get_score(RewardModelType.ENHANCED_CLIP)
     image_rewards = scoring_results.get_score(RewardModelType.IMAGE)
 
     if clip_rewards is not None and image_rewards is not None:
