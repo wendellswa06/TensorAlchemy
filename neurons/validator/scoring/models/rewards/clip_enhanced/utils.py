@@ -20,14 +20,10 @@ class PromptBreakdown(TypedDict):
     elements: List[ElementDict]
 
 
-MessageDict = Dict[str, str]
 BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
 
-# Configuration functions (to be implemented in config.py)
-from neurons.validator.config import (
-    get_openai_client,
-    get_corcel_api_key,
-)
+# Configuration functions
+from neurons.validator.config import get_openai_client, get_corcel_api_key
 
 
 def get_prompt_breakdown_function() -> ChatCompletionToolParam:
@@ -74,17 +70,28 @@ def get_query_messages(
     return [
         ChatCompletionSystemMessageParam(
             role="system",
-            content=(
-                "Break down image prompts into key elements. "
-                "Each element should be concise and evaluatable. "
-                "Assign importance based on significance to the image."
-            ),
+            content="Break down image prompts into key elements."
+            + " Each element should be concise and evaluatable."
+            + " Assign importance based on significance to the image.",
         ),
         ChatCompletionUserMessageParam(
             role="user",
             content=f"Break down this image prompt: {prompt}",
         ),
     ]
+
+
+async def process_api_response(response_data: Dict) -> PromptBreakdown:
+    if "choices" in response_data and response_data["choices"]:
+        choice = response_data["choices"][0]
+
+        if "message" in choice and "tool_calls" in choice["message"]:
+            tool_call = choice["message"]["tool_calls"][0]
+
+            if isinstance(tool_call, dict) and "function" in tool_call:
+                return json.loads(tool_call["function"]["arguments"])
+
+    raise ValueError("Unexpected response structure from API")
 
 
 async def openai_breakdown(prompt: str) -> PromptBreakdown:
@@ -103,9 +110,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
         messages=messages,
     )
 
-    return json.loads(
-        response.choices[0].message.tool_calls[0].function.arguments
-    )
+    return await process_api_response(response.model_dump())
 
 
 async def corcel_breakdown(prompt: str) -> PromptBreakdown:
@@ -137,11 +142,7 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
         ) as response:
             if response.status == 200:
                 result = await response.json()
-                return json.loads(
-                    result["choices"][0]["message"]["tool_calls"][0][
-                        "function"
-                    ]["arguments"]
-                )
+                return await process_api_response(result)
             else:
                 raise Exception(
                     f"Corcel API request failed with status {response.status}"
@@ -159,4 +160,7 @@ async def break_down_prompt(
     if service not in services:
         raise ValueError(f"Invalid service specified: {service}")
 
-    return await services[service](prompt)
+    try:
+        return await services[service](prompt)
+    except Exception as e:
+        raise ValueError(f"Error in prompt breakdown: {str(e)}")
