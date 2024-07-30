@@ -26,7 +26,7 @@ def get_reward_models() -> ModelStorage:
     from neurons.validator.scoring.models.rewards.image_reward import (
         ImageRewardModel,
     )
-    from neurons.validator.scoring.models.rewards.clip_enhanced import (
+    from neurons.validator.scoring.models.rewards.enhanced_clip import (
         EnhancedClipRewardModel,
     )
 
