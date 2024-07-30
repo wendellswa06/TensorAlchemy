@@ -27,7 +27,6 @@ BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
 from neurons.validator.config import (
     get_openai_client,
     get_corcel_api_key,
-    get_corcel_endpoint,
 )
 
 
@@ -111,7 +110,6 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
 
 async def corcel_breakdown(prompt: str) -> PromptBreakdown:
     api_key = get_corcel_api_key()
-    endpoint = get_corcel_endpoint()
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
@@ -133,7 +131,9 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            endpoint, headers=headers, json=payload
+            "https://api.corcel.io/cortext/text",
+            headers=headers,
+            json=payload,
         ) as response:
             if response.status == 200:
                 result = await response.json()
