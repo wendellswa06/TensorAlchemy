@@ -17,7 +17,9 @@ from neurons.validator.scoring.models.rewards.human import (
 from neurons.validator.scoring.models.rewards.image_reward import (
     ImageRewardModel,
 )
-from neurons.validator.scoring.models.rewards.clip import ClipRewardModel
+from neurons.validator.scoring.models.rewards.clip_enhanced import (
+    EnhancedClipRewardModel,
+)
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,
@@ -41,7 +43,7 @@ def get_reward_models() -> ModelStorage:
             ),
             RewardModelType.CLIP: PackedRewardModel(
                 weight=0.1,
-                model=ClipRewardModel(),
+                model=EnhancedClipRewardModel(),
             ),
             RewardModelType.HUMAN: PackedRewardModel(
                 weight=0.2,

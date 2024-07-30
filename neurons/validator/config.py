@@ -4,6 +4,7 @@ import uuid
 from contextvars import ContextVar
 from typing import Dict, Optional
 
+from openai import AsyncOpenAI
 import bittensor as bt
 import torch
 from loguru import logger
@@ -118,6 +119,7 @@ wallet: bt.wallet = None
 device: torch.device = None
 metagraph: bt.metagraph = None
 subtensor: bt.subtensor = None
+openai_client: AsyncOpenAI = None
 backend_client: "TensorAlchemyBackendClient" = None
 validator_run_id: ContextVar[str] = ContextVar(
     "validator_run_id", default=uuid.uuid4().hex[:8]
@@ -183,6 +185,20 @@ def get_config():
     check_config(config)
 
     return config
+
+
+def get_openai_client(
+    config: Optional[bt.config] = get_config(),
+) -> AsyncOpenAI:
+    global openai_client
+    if not openai_client:
+        openai_api_key = os.environ.get("OPENAI_API_KEY", None)
+        if not openai_api_key:
+            raise ValueError("Please set OPENAI_API_KEY")
+
+        openai_client = AsyncOpenAI(config=config)
+
+    return openai_client
 
 
 def get_wallet(config: Optional[bt.config] = get_config()) -> bt.wallet:
