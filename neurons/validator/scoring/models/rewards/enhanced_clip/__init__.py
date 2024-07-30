@@ -8,7 +8,7 @@ from neurons.utils.image import synapse_to_tensors
 from neurons.validator.config import get_device
 from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
-from neurons.validator.scoring.models.rewards.clip_enhanced.utils import (
+from neurons.validator.scoring.models.rewards.enhanced_clip.utils import (
     break_down_prompt,
 )
 
