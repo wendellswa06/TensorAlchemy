@@ -419,7 +419,9 @@ class BaseMiner(ABC):
 
         else:
             images = model(
-                **self.without_keys(model_args, ["denoising_end", "output_type"])
+                **self.without_keys(
+                    model_args, ["denoising_end", "output_type"]
+                )
             ).images
         return images
 
