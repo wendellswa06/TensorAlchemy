@@ -105,17 +105,20 @@ class EnhancedClipRewardModel(BaseRewardModel):
                     else:
                         element_score = 1.0
 
-                    logger.info(
-                        f"EnhancedCLIP tested against: {element['description']}, "
-                        + f"{element_score=}, "
-                        + f"{importance=}"
-                    )
-
                     # Apply importance weighting
                     weighted_score = element_score ** element["importance"]
 
                     # Multiply the final score
                     final_score *= weighted_score
+
+                    logger.info(
+                        "EnhancedClip:"
+                        + f"\n\t{element['description']}, "
+                        + f"\n\t{element_score=}, "
+                        + f"\n\t{importance=},"
+                        + f"\n\t{weighted_score=},"
+                        + f"\n\t{final_score=}"
+                    )
 
             logger.info(f"Enhanced CLIP similarity score: {final_score:.4f}")
             return final_score
