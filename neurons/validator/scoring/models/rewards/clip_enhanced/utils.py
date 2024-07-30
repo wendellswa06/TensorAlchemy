@@ -1,26 +1,37 @@
+from typing import List, Dict, Union, TypedDict, Callable, Awaitable
 import json
-from typing import List, Dict, Union
-
-from openai.types.shared_params import FunctionDefinition
-from openai.types.chat.chat_completion_named_tool_choice_param import (
-    ChatCompletionNamedToolChoiceParam,
-    Function,
-)
-from openai.types.chat.chat_completion_tool_param import (
+import aiohttp
+from openai import AsyncOpenAI
+from openai.types.chat import (
     ChatCompletionToolParam,
-)
-from openai.types.chat.chat_completion_user_message_param import (
     ChatCompletionUserMessageParam,
-)
-from openai.types.chat.chat_completion_system_message_param import (
     ChatCompletionSystemMessageParam,
 )
+from openai.types.shared_params import FunctionDefinition
 
 
-from neurons.validator.config import get_openai_client
+# Type definitions
+class ElementDict(TypedDict):
+    description: str
+    importance: float
 
 
-def get_prompt_breakdown_function():
+class PromptBreakdown(TypedDict):
+    elements: List[ElementDict]
+
+
+MessageDict = Dict[str, str]
+BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
+
+# Configuration functions (to be implemented in config.py)
+from neurons.validator.config import (
+    get_openai_client,
+    get_corcel_api_key,
+    get_corcel_endpoint,
+)
+
+
+def get_prompt_breakdown_function() -> ChatCompletionToolParam:
     return ChatCompletionToolParam(
         type="function",
         function=FunctionDefinition(
@@ -56,10 +67,12 @@ def get_prompt_breakdown_function():
     )
 
 
-async def break_down_prompt(
-    prompt: str, service: str = "openai"
-) -> Dict[str, List[Dict[str, Union[str, float]]]]:
-    query = [
+def get_query_messages(
+    prompt: str,
+) -> List[
+    Union[ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam]
+]:
+    return [
         ChatCompletionSystemMessageParam(
             role="system",
             content=(
@@ -74,24 +87,76 @@ async def break_down_prompt(
         ),
     ]
 
+
+async def openai_breakdown(prompt: str) -> PromptBreakdown:
+    client: AsyncOpenAI = get_openai_client()
+    messages = get_query_messages(prompt)
     tool = get_prompt_breakdown_function()
 
-    if service == "openai":
-        response = await get_openai_client().chat.completions.create(
-            model="gpt-4o",
-            temperature=0,
-            tool_choice=ChatCompletionNamedToolChoiceParam(
-                type="function",
-                function=Function(name=tool.function.name),
-            ),
-            tools=[tool],
-            messages=query,
-        )
-        return json.loads(
-            response.choices[0].message.tool_calls[0].function.arguments
-        )
-    elif service == "corcel":
-        # Implement Corcel API call here
-        pass
-    else:
-        raise ValueError("Invalid service specified")
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        temperature=0,
+        tool_choice={
+            "type": "function",
+            "function": {"name": tool.function.name},
+        },
+        tools=[tool],
+        messages=messages,
+    )
+
+    return json.loads(
+        response.choices[0].message.tool_calls[0].function.arguments
+    )
+
+
+async def corcel_breakdown(prompt: str) -> PromptBreakdown:
+    api_key = get_corcel_api_key()
+    endpoint = get_corcel_endpoint()
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    messages = get_query_messages(prompt)
+    tool = get_prompt_breakdown_function()
+
+    payload = {
+        "model": "corcel/text-davinci-003",
+        "messages": [{"role": m.role, "content": m.content} for m in messages],
+        "temperature": 0,
+        "tools": [tool.dict()],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": tool.function.name},
+        },
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            endpoint, headers=headers, json=payload
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                return json.loads(
+                    result["choices"][0]["message"]["tool_calls"][0][
+                        "function"
+                    ]["arguments"]
+                )
+            else:
+                raise Exception(
+                    f"Corcel API request failed with status {response.status}"
+                )
+
+
+async def break_down_prompt(
+    prompt: str, service: str = "openai"
+) -> PromptBreakdown:
+    services: Dict[str, BreakdownFunction] = {
+        "openai": openai_breakdown,
+        "corcel": corcel_breakdown,
+    }
+
+    if service not in services:
+        raise ValueError(f"Invalid service specified: {service}")
+
+    return await services[service](prompt)
