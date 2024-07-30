@@ -54,7 +54,11 @@ class BaseRewardModel:
 
         rewards = self.zeros()
         for response in responses:
-            score = method(response)
+            if inspect.iscoroutinefunction(method):
+                score = await method(response)
+            else:
+                score = method(response)
+
             hotkey = response.axon.hotkey
             try:
                 index = get_metagraph().hotkeys.index(hotkey)
