@@ -16,10 +16,10 @@ class RewardModelType(str, Enum):
     BLACKLIST = "BLACKLIST"
 
     # Reward models
-    CLIP = "CLIP"
     EMPTY = "EMPTY"
     HUMAN = "HUMAN"
     IMAGE = "IMAGE"
+    ENHANCED_CLIP = "ENHANCED_CLIP"
 
 
 def default_should_apply(

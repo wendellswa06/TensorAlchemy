@@ -7,18 +7,19 @@ from neurons.utils.image import synapse_to_tensors
 from neurons.validator.config import get_device
 from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
-from neurons.validator.scoring.models.rewards.clip_enhanced import (
+from neurons.validator.scoring.models.rewards.clip_enhanced.utils import (
     break_down_prompt,
 )
 
 
 # Enhanced CLIP Reward Model
-# This model extends the base CLIP model to provide more nuanced scoring
-# based on breaking down prompts into key elements and evaluating them individually.
+# This model extends the base CLIP model
+# to provide more nuanced scoring based on breaking
+# down prompts into key elements and evaluating them individually.
 class EnhancedClipRewardModel(BaseRewardModel):
     @property
     def name(self) -> RewardModelType:
-        return RewardModelType.CLIP
+        return RewardModelType.ENHANCED_CLIP
 
     def __init__(self):
         super().__init__()
@@ -45,9 +46,10 @@ class EnhancedClipRewardModel(BaseRewardModel):
 
             # Process the image
             image = synapse_to_tensors(response)[0]
-            image_input = self.processor(images=image, return_tensors="pt").to(
-                self.device
-            )
+            image_input = self.processor(
+                images=image,
+                return_tensors="pt",
+            ).to(self.device)
 
             total_score = 0
             total_importance = 0
@@ -70,10 +72,12 @@ class EnhancedClipRewardModel(BaseRewardModel):
 
                 # Normalize features
                 image_features = image_features / image_features.norm(
-                    dim=-1, keepdim=True
+                    dim=-1,
+                    keepdim=True,
                 )
                 text_features = text_features / text_features.norm(
-                    dim=-1, keepdim=True
+                    dim=-1,
+                    keepdim=True,
                 )
 
                 # Calculate similarity score
