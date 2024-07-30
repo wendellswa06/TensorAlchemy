@@ -292,7 +292,7 @@ def corcel_parse_response(text):
     return split
 
 
-def call_corcel(self, prompt):
+def call_corcel(prompt):
     HEADERS = {
         "Content-Type": "application/json",
         "Authorization": f"{get_corcel_api_key()}",
@@ -612,9 +612,8 @@ async def generate_random_prompt_gpt(
             logger.error("Falling back to OpenAI if available...")
 
     if not response:
-        openai_service = get_openai_service()
         try:
-            response = await openai_service.create_completion_request(
+            response = await get_openai_service().create_completion_request(
                 model,
                 prompt,
             )
