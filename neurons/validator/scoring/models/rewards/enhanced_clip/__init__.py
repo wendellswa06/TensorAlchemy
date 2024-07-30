@@ -28,7 +28,13 @@ class EnhancedClipRewardModel(BaseRewardModel):
         self.processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-base-patch32"
         )
-        self.penalty_factor = 0.7  # Penalty factor for imperfect matches
+
+        # Penalty factor for imperfect matches
+        # Lowering this will weight the imperfect
+        # images more.
+        #
+        # NOTE: Left at 1.0 to be less punishing
+        self.penalty_factor = 1.0
 
     async def get_rewards(
         self,
@@ -106,7 +112,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
                         element_score = 1.0
 
                     # Apply importance weighting
-                    weighted_score = element_score ** element["importance"]
+                    weighted_score = element_score * (importance**2)
 
                     # Multiply the final score
                     final_score *= weighted_score
