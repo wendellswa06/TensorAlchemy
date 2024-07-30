@@ -56,6 +56,11 @@ class EnhancedClipRewardModel(BaseRewardModel):
 
             # Evaluate each prompt element
             for element in prompt_elements["elements"]:
+                logger.info(
+                    #
+                    "EnhancedCLIP testing against: "
+                    + element["description"]
+                )
                 # Process the text description of the element
                 text_input = self.processor(
                     text=[element["description"]],
