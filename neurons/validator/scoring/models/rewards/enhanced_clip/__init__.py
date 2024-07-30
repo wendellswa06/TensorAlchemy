@@ -3,7 +3,6 @@ import torch
 from loguru import logger
 from transformers import CLIPProcessor, CLIPModel
 from typing import List
-import math
 
 from neurons.utils.image import synapse_to_tensors
 from neurons.validator.config import get_device
@@ -29,12 +28,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
         self.processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-base-patch32"
         )
-        self.prompt_elements = None
-        self.threshold = 25.0  # Set a baseline threshold
-        self.exponent = 3.0  # Set an exponent for more aggressive scaling
-
-    async def prepare_prompt_elements(self, prompt: str):
-        self.prompt_elements = await break_down_prompt(prompt)
+        self.penalty_factor = 0.7  # Penalty factor for imperfect matches
 
     async def get_rewards(
         self,
@@ -59,10 +53,9 @@ class EnhancedClipRewardModel(BaseRewardModel):
         prompt_elements: PromptBreakdown,
         response: bt.Synapse,
     ) -> float:
-        if not response.images:
-            return 0.0
-
-        if any(image is None for image in response.images):
+        if not response.images or any(
+            image is None for image in response.images
+        ):
             return 0.0
 
         try:
@@ -72,8 +65,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
                 return_tensors="pt",
             ).to(self.device)
 
-            total_score = 0
-            total_importance = 0
+            final_score = 1.0  # Start with a perfect score
 
             with torch.no_grad():
                 image_features = self.model.get_image_features(**image_input)
@@ -102,22 +94,23 @@ class EnhancedClipRewardModel(BaseRewardModel):
                         .item()
                     )
 
-                    # Apply a more aggressive scaling to the similarity score
-                    scaled_similarity = max(
-                        0,
-                        (similarity - self.threshold) / (100 - self.threshold),
-                    )
-                    scaled_similarity = math.pow(
-                        scaled_similarity, self.exponent
-                    )
+                    # Normalize similarity to [0, 1] range
+                    normalized_similarity = similarity / 100.0
 
-                    weighted_score = scaled_similarity * element["importance"]
-                    total_score += weighted_score
-                    total_importance += element["importance"]
+                    # Apply penalty for imperfect match
+                    if normalized_similarity < 1.0:
+                        element_score = (
+                            normalized_similarity * self.penalty_factor
+                        )
+                    else:
+                        element_score = 1.0
 
-            final_score = (
-                total_score / total_importance if total_importance > 0 else 0
-            )
+                    # Apply importance weighting
+                    weighted_score = element_score ** element["importance"]
+
+                    # Multiply the final score
+                    final_score *= weighted_score
+
             logger.info(f"Enhanced CLIP similarity score: {final_score:.4f}")
             return final_score
 
