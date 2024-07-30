@@ -621,45 +621,6 @@ async def generate_random_prompt_gpt(
     return response
 
 
-def generate_followup_prompt_gpt(
-    self,
-    prompt,
-    model="gpt-4",
-    followup_prompt="An image has now been generated from your first prompt."
-    + " What is a second instruction that can be applied to this generated image?",
-):
-    # Update this for next week. Combine this and the method above.
-    messages = [
-        {"role": "system", "content": "You are an image prompt generator."},
-        {"role": "assistant", "content": f"{prompt}"},
-        {
-            "role": "user",
-            "content": f"{followup_prompt}",
-        },
-    ]
-
-    for _ in range(2):
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=1,
-                max_tokens=256,
-                top_p=1,
-                frequency_penalty=0,
-                presence_penalty=0,
-            )
-            new_prompt = response.choices[0].message.content
-            logger.info(f"I2I prompt is {new_prompt}")
-            return new_prompt
-
-        except Exception as e:
-            logger.error(f"Error when calling OpenAI: {e}")
-            time.sleep(0.5)
-
-    return None
-
-
 def measure_time(func):
     """This decorator logs time of function execution"""
 
