@@ -187,6 +187,10 @@ def get_config():
     return config
 
 
+def get_corcel_api_key() -> str:
+    return os.environ.get("CORCEL_API_KEY")
+
+
 def get_openai_client(
     config: Optional[bt.config] = get_config(),
 ) -> AsyncOpenAI:
@@ -196,7 +200,7 @@ def get_openai_client(
         if not openai_api_key:
             raise ValueError("Please set OPENAI_API_KEY")
 
-        openai_client = AsyncOpenAI(config=config)
+        openai_client = AsyncOpenAI(api_key=openai_api_key)
 
     return openai_client
 

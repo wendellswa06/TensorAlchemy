@@ -2,7 +2,6 @@
 import asyncio
 import random
 import time
-import traceback
 from functools import lru_cache, update_wrapper, wraps
 from math import floor
 from typing import Any, Callable, List, Optional
@@ -19,7 +18,11 @@ from neurons.constants import (
     N_NEURONS_TO_QUERY,
     VPERMIT_TAO,
 )
-from neurons.validator.config import get_config, get_metagraph, get_subtensor
+from neurons.validator.config import (
+    get_metagraph,
+    get_subtensor,
+    get_corcel_api_key,
+)
 from neurons.validator.services.openai.service import (
     get_openai_service,
     OpenAIRequestFailed,
@@ -292,7 +295,7 @@ def corcel_parse_response(text):
 def call_corcel(self, prompt):
     HEADERS = {
         "Content-Type": "application/json",
-        "Authorization": f"{self.corcel_api_key}",
+        "Authorization": f"{get_corcel_api_key()}",
     }
     JSON = {
         "miners_to_query": 1,
@@ -582,7 +585,6 @@ def generate_story_prompt() -> str:
 
 
 async def generate_random_prompt_gpt(
-    self,
     model: str = "gpt-4",
     prompt: Optional[str] = None,
 ):
@@ -596,9 +598,9 @@ async def generate_random_prompt_gpt(
         prompt = generate_story_prompt()
 
     # Generate the prompt from corcel if we have an API key
-    if self.corcel_api_key:
+    if get_corcel_api_key():
         try:
-            response = call_corcel(self, prompt)
+            response = call_corcel(prompt)
             if response:
                 # Parse response to remove quotes and also adapt
                 # the bug with corcel where the output is repeated N times
