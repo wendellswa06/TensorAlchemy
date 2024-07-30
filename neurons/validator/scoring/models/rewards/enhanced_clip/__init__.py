@@ -53,9 +53,10 @@ class EnhancedClipRewardModel(BaseRewardModel):
         prompt_elements: PromptBreakdown,
         response: bt.Synapse,
     ) -> float:
-        if not response.images or any(
-            image is None for image in response.images
-        ):
+        if not response.images:
+            return 0.0
+
+        if any(image is None for image in response.images):
             return 0.0
 
         try:
