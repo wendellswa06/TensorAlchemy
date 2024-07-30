@@ -104,7 +104,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
         temperature=0,
         tool_choice={
             "type": "function",
-            "function": {"name": tool.function.name},
+            "function": {"name": tool["function"]["name"]},
         },
         tools=[tool],
         messages=messages,
@@ -160,7 +160,4 @@ async def break_down_prompt(
     if service not in services:
         raise ValueError(f"Invalid service specified: {service}")
 
-    try:
-        return await services[service](prompt)
-    except Exception as e:
-        raise ValueError(f"Error in prompt breakdown: {str(e)}")
+    return await services[service](prompt)
