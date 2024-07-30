@@ -181,8 +181,6 @@ class StableValidator:
         # Init device.
         self.device = get_device(torch.device(self.config.alchemy.device))
 
-        self.corcel_api_key = os.environ.get("CORCEL_API_KEY")
-
         # Init external API services
         self.openai_service = get_openai_service()
 
