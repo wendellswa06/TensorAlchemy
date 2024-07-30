@@ -591,7 +591,7 @@ class StableValidator:
         # No organic task found
         if task is None:
             self.model_type = ModelType.CUSTOM
-            prompt = await generate_random_prompt_gpt(self)
+            prompt = await generate_random_prompt_gpt()
             if not prompt:
                 logger.error("failed to generate prompt for synthetic task")
                 return None

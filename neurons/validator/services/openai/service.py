@@ -44,7 +44,7 @@ class OpenAIService:
                 presence_penalty=0,
             )
         except Exception as e:
-            logger.error(f"openai completion request failed: {e}")
+            logger.error(e)
             raise OpenAIRequestFailed(str(e)) from e
 
         logger.info(f"OpenAI response object: {response}")
