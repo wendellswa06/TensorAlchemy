@@ -334,7 +334,7 @@ class StableValidator:
 
         self.model_type = ModelType.CUSTOM
 
-        self.background_timer: BackgroundTimer = None
+        self.background_loop: BackgroundTimer = None
         self.set_weights_process: MultiprocessBackgroundTimer = None
         self.upload_images_process: MultiprocessBackgroundTimer = None
 
@@ -351,11 +351,19 @@ class StableValidator:
         else:
             logger.error(f"{thread} had segfault, restarted")
 
+    def stop_threads(self) -> None:
+        for thread in [
+            "background_loop",
+            "upload_images_process",
+            "set_weights_process",
+        ]:
+            getattr(self, thread).cancel()
+
     def start_threads(self, is_startup: bool = True) -> None:
         logger.info(f"[start_threads] is_startup={is_startup}")
         thread_configs: List[Tuple[str, object, float, callable, list]] = [
             (
-                "background_timer",
+                "background_loop",
                 BackgroundTimer,
                 60,
                 background_loop,
@@ -390,7 +398,7 @@ class StableValidator:
 
             new_thread = thread_class(interval, target_func, args)
 
-            if attr_name == "background_timer":
+            if attr_name == "background_loop":
                 new_thread.daemon = True
 
             setattr(self, attr_name, new_thread)

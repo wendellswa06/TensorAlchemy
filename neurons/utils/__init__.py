@@ -121,7 +121,7 @@ def get_coldkey_for_hotkey(self, hotkey):
     return None
 
 
-def background_loop(self, is_validator):
+def background_loop(self, is_validator: bool):
     """
     Handles terminating the miner after deregistration and
     updating the blacklist and whitelist.
