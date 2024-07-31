@@ -463,8 +463,12 @@ class StableValidator:
                     )
 
                     if uids.numel() == 0:
-                        logger.info("No miners found, retry in 10 seconds...")
-                        await asyncio.sleep(10)
+                        seconds_to_wait: int = 20
+                        logger.info(
+                            "No miners found, retry in "
+                            + f"{seconds_to_wait} seconds..."
+                        )
+                        await asyncio.sleep(seconds_to_wait)
                         continue
 
                     logger.info(f"Found miners {uids=}")
