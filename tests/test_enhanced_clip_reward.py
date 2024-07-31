@@ -1,11 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
+
 import torch
-import bittensor as bt
+from loguru import logger
+
 from neurons.validator.scoring.models.rewards.enhanced_clip import (
     EnhancedClipRewardModel,
 )
-from neurons.protocol import ImageGeneration
 
 # Import the mock functions and fixtures
 from tests.fixtures import mock_get_metagraph, TEST_IMAGES, generate_synapse
@@ -129,26 +130,32 @@ class TestEnhancedClipRewardModel:
 
     @pytest.mark.asyncio
     async def test_eagle_fish_umbrella(self, patched_model):
-        eagle_amulet_synapse = generate_synapse(
-            "hotkey_1", TEST_IMAGES["EAGLE_FISH"]
+        right_synapse = generate_synapse(
+            "hotkey_1", TEST_IMAGES["EAGLE_UMBRELLA"]
         )
-        eagle_amulet_synapse.prompt = (
+        wrong_synapse = generate_synapse(
+            "hotkey_0", TEST_IMAGES["ELEPHANT_BASKET"]
+        )
+
+        prompt = (
             "A majestic eagle, "
             + "carrying an purple umbrella in its talons, "
             + "soars over a bustling stadium filled with awestruck spectators."
         )
-        eagle_umbrella_synapse = generate_synapse(
-            "hotkey_2", TEST_IMAGES["EAGLE_UMBRELLA"]
-        )
-        eagle_umbrella_synapse.prompt = eagle_amulet_synapse.prompt
+        right_synapse.prompt = prompt
+        wrong_synapse.prompt = prompt
 
         rewards = await patched_model.get_rewards(
-            eagle_amulet_synapse,
-            [eagle_amulet_synapse, eagle_umbrella_synapse],
+            right_synapse,
+            [wrong_synapse, right_synapse],
         )
+
+        logger.info(f"Basket reward: {rewards[0].item()}")
+        logger.info(f"Umbrella reward: {rewards[1].item()}")
 
         assert isinstance(rewards, torch.Tensor)
         assert rewards.shape == (10,)
-        assert (
-            rewards[0] < rewards[1]
-        ), f"Eagle umbrella reward ({rewards[0].item()}) should be higher than eagle fish reward ({rewards[1].item()})"
+        assert rewards[0] < rewards[1], (
+            f"Wrong image reward ({rewards[0].item()}) "
+            + f"should be less than right image reward ({rewards[1].item()})"
+        )
