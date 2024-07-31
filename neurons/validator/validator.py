@@ -468,6 +468,14 @@ class StableValidator:
                         self,
                         k=N_NEURONS,
                     )
+
+                    if uids.numel() == 0:
+                        logger.info("No miners found, retry in 10 seconds...")
+                        await asyncio.sleep(10)
+                        continue
+
+                    logger.info(f"Found miners {uids=}")
+
                     uids = uids.to(self.device)
                     axons = [self.metagraph.axons[uid] for uid in uids]
 
