@@ -19,6 +19,7 @@ class RewardModelType(str, Enum):
     EMPTY = "EMPTY"
     HUMAN = "HUMAN"
     IMAGE = "IMAGE"
+    ENHANCED_CLIP = "ENHANCED_CLIP"
 
 
 def default_should_apply(

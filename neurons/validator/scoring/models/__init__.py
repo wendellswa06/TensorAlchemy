@@ -5,18 +5,6 @@ import bittensor as bt
 
 from neurons.protocol import ModelType
 
-from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
-
-from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
-from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
-from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
-
-from neurons.validator.scoring.models.rewards.human import (
-    HumanValidationRewardModel,
-)
-from neurons.validator.scoring.models.rewards.image_reward import (
-    ImageRewardModel,
-)
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,
@@ -31,6 +19,17 @@ MASKING_MODELS: ModelStorage = None
 
 
 def get_reward_models() -> ModelStorage:
+    from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
+    from neurons.validator.scoring.models.rewards.human import (
+        HumanValidationRewardModel,
+    )
+    from neurons.validator.scoring.models.rewards.image_reward import (
+        ImageRewardModel,
+    )
+    from neurons.validator.scoring.models.rewards.enhanced_clip import (
+        EnhancedClipRewardModel,
+    )
+
     global REWARD_MODELS
     if not REWARD_MODELS:
         REWARD_MODELS = {
@@ -38,13 +37,17 @@ def get_reward_models() -> ModelStorage:
                 weight=0.0,
                 model=EmptyScoreRewardModel(),
             ),
-            RewardModelType.IMAGE: PackedRewardModel(
-                weight=0.8,
-                model=ImageRewardModel(),
+            RewardModelType.ENHANCED_CLIP: PackedRewardModel(
+                weight=0.02,
+                model=EnhancedClipRewardModel(),
             ),
             RewardModelType.HUMAN: PackedRewardModel(
                 weight=0.2,
                 model=HumanValidationRewardModel(),
+            ),
+            RewardModelType.IMAGE: PackedRewardModel(
+                weight=0.78,
+                model=ImageRewardModel(),
             ),
         }
 
@@ -62,6 +65,10 @@ def should_check_duplicates(
 
 
 def get_masking_models() -> ModelStorage:
+    from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
+    from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
+    from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
+
     global MASKING_MODELS
     if not MASKING_MODELS:
         MASKING_MODELS = {
@@ -92,15 +99,11 @@ def get_function(
 
 
 def get_reward_functions(model_type: ModelType) -> List[PackedRewardModel]:
-    if model_type != ModelType.ALCHEMY:
-        return [
-            get_function(get_reward_models(), RewardModelType.IMAGE),
-            get_function(get_reward_models(), RewardModelType.HUMAN),
-        ]
-
-    raise NotImplementedError("Alchemy model not yet imlepmented")
+    if model_type == ModelType.ALCHEMY:
+        raise NotImplementedError("Alchemy model not yet imlepmented")
 
     return [
+        get_function(get_reward_models(), RewardModelType.ENHANCED_CLIP),
         get_function(get_reward_models(), RewardModelType.IMAGE),
         get_function(get_reward_models(), RewardModelType.HUMAN),
     ]

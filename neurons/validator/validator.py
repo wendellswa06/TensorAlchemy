@@ -177,8 +177,6 @@ class StableValidator:
         # Init device.
         self.device = get_device(torch.device(self.config.alchemy.device))
 
-        self.corcel_api_key = os.environ.get("CORCEL_API_KEY")
-
         # Init external API services
         self.openai_service = get_openai_service()
 
@@ -463,6 +461,18 @@ class StableValidator:
                         self,
                         k=N_NEURONS,
                     )
+
+                    if uids.numel() == 0:
+                        seconds_to_wait: int = 20
+                        logger.info(
+                            "No miners found, retry in "
+                            + f"{seconds_to_wait} seconds..."
+                        )
+                        await asyncio.sleep(seconds_to_wait)
+                        continue
+
+                    logger.info(f"Found miners {uids=}")
+
                     uids = uids.to(self.device)
                     axons = [self.metagraph.axons[uid] for uid in uids]
 
@@ -559,7 +569,7 @@ class StableValidator:
         # No organic task found
         if task is None:
             self.model_type = ModelType.CUSTOM
-            prompt = await generate_random_prompt_gpt(self)
+            prompt = await generate_random_prompt_gpt()
             if not prompt:
                 logger.error("failed to generate prompt for synthetic task")
                 return None
