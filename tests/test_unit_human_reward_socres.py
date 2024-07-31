@@ -78,15 +78,15 @@ def patch_all_dependencies(func):
 @patch_all_dependencies
 async def test_apply_human_voting_weight(*args):
     # Import here to ensure patches are applied first
-    from neurons.validator.config import get_metagraph
+    from neurons.validator.config import get_metagraph, get_device
     from neurons.validator.scoring.pipeline import (
         apply_function,
-        apply_reward_functions,
+        apply_functions,
     )
     from neurons.validator.scoring.models.types import PackedRewardModel
-    from neurons.validator.scoring.models import (
-        RewardModelType,
-        EmptyScoreRewardModel,
+    from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
+    from neurons.validator.scoring.models.types import RewardModelType
+    from neurons.validator.scoring.models.rewards.human import (
         HumanValidationRewardModel,
     )
     from neurons.validator.scoring.types import (
@@ -130,7 +130,10 @@ async def test_apply_human_voting_weight(*args):
     assert torch.all(empty_rewards.scores == 0)
 
     # Now, apply HumanValidationRewardModel
-    rewards: ScoringResults = await apply_reward_functions(
+    rewards: ScoringResults = await apply_functions(
+        torch.ones(
+            get_metagraph().n,
+        ).to(get_device()),
         [
             PackedRewardModel(
                 weight=1.0,
@@ -139,6 +142,7 @@ async def test_apply_human_voting_weight(*args):
         ],
         generate_synapse(),
         responses,
+        combine=lambda results, rewards: results * rewards,
     )
 
     human_rewards: torch.Tensor = rewards.get_score(
