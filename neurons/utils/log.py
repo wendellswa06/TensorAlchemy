@@ -96,7 +96,6 @@ def configure_loki_logger():
 
     class JSONFormatter(logging.Formatter):
         def format(self, record):
-
             try:
                 # Extract real message noisy msg line emitted by bittensor
                 # might exist better solution here
@@ -172,7 +171,7 @@ def configure_logging():
     logger.add(
         sys.stdout,
         colorize=True,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {function}:{line} - {message}",
     )
     loki_logger_enabled = "--alchemy.disable_loki_logging" not in sys.argv
     if loki_logger_enabled:
