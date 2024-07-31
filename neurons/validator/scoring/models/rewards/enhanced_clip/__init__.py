@@ -31,7 +31,9 @@ class EnhancedClipRewardModel(BaseRewardModel):
         self.processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-base-patch32"
         )
-        self.model.eval()  # Set the model to evaluation mode
+
+        # What is the lower cutoff for scoring
+        self.threshold_min = 0.0
 
     def compute_clip_score(
         self,
@@ -77,9 +79,8 @@ class EnhancedClipRewardModel(BaseRewardModel):
             )
 
             # Apply a stricter threshold
-            threshold = 0.4
             adjusted_similarities = torch.where(
-                similarities > threshold,
+                similarities > self.threshold_min,
                 similarities,
                 torch.zeros_like(similarities),
             )
