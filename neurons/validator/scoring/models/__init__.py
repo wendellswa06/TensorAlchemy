@@ -38,7 +38,7 @@ def get_reward_models() -> ModelStorage:
                 model=EmptyScoreRewardModel(),
             ),
             RewardModelType.ENHANCED_CLIP: PackedRewardModel(
-                weight=0.1,
+                weight=0.02,
                 model=EnhancedClipRewardModel(),
             ),
             RewardModelType.HUMAN: PackedRewardModel(
@@ -46,7 +46,7 @@ def get_reward_models() -> ModelStorage:
                 model=HumanValidationRewardModel(),
             ),
             RewardModelType.IMAGE: PackedRewardModel(
-                weight=0.7,
+                weight=0.78,
                 model=ImageRewardModel(),
             ),
         }
