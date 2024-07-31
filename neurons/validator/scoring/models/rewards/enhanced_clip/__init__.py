@@ -26,10 +26,10 @@ class EnhancedClipRewardModel(BaseRewardModel):
         super().__init__()
         self.device = get_device()
         self.model = CLIPModel.from_pretrained(
-            "openai/clip-vit-base-patch32"
+            "openai/clip-vit-large-patch14"
         ).to(self.device)
         self.processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-base-patch32"
+            "openai/clip-vit-large-patch14"
         )
 
         # Penalty factor for imperfect matches
@@ -122,6 +122,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
                         + f"\n\t{element_score=}, "
                         + f"\n\t{final_score=}"
                     )
+
             logger.info(f"Enhanced CLIP similarity score: {final_score:.4f}")
             return final_score
 
