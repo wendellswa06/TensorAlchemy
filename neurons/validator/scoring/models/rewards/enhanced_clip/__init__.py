@@ -1,14 +1,13 @@
 import traceback
 
 import torch
-import torch.nn.functional as F
 import bittensor as bt
 
 from loguru import logger
 from transformers import CLIPProcessor, CLIPModel
 from typing import List
 
-from neurons.utils.image import synapse_to_tensor
+from neurons.utils.image import synapse_to_image
 from neurons.validator.config import get_device
 from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
@@ -32,85 +31,74 @@ class EnhancedClipRewardModel(BaseRewardModel):
         self.processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-base-patch32"
         )
+        self.model.eval()  # Set the model to evaluation mode
 
     def compute_clip_score(
         self,
         prompt_elements: PromptBreakdown,
         response: bt.Synapse,
     ) -> float:
-        if not response.images or any(
-            image is None for image in response.images
-        ):
+        if not response.images:
+            return 0.0
+
+        if any(image is None for image in response.images):
             return 0.0
 
         try:
-            image = synapse_to_tensor(response)
+            # Convert synapse image to PIL Image
+            image = synapse_to_image(response)
 
             descriptions = [
                 element["description"]
                 for element in prompt_elements["elements"]
             ]
 
-            # Process image once
-            image_input = self.processor(images=image, return_tensors="pt").to(
-                self.device
+            # Process inputs
+            inputs = self.processor(
+                text=descriptions,
+                images=image,
+                return_tensors="pt",
+                padding=True,
+            )
+            inputs = {
+                k: v.to(self.device) for k, v in inputs.items()
+            }  # Move inputs to the same device as the model
+
+            # Get model outputs
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+
+            # Use raw logits
+            logits_per_image = outputs.logits_per_image.squeeze()
+
+            # Normalize logits to [0, 1] range
+            similarities = (logits_per_image - logits_per_image.min()) / (
+                logits_per_image.max() - logits_per_image.min()
             )
 
-            with torch.no_grad():
-                image_features = self.model.get_image_features(**image_input)
-                image_features = F.normalize(image_features, dim=-1)
+            # Apply a stricter threshold
+            threshold = 0.4
+            adjusted_similarities = torch.where(
+                similarities > threshold,
+                similarities,
+                torch.zeros_like(similarities),
+            )
 
-                # Process all text descriptions at once
-                text_inputs = self.processor(
-                    text=descriptions,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                ).to(self.device)
+            # Add 1 to each adjusted similarity before taking the product
+            final_result = (adjusted_similarities + 1).prod().item() - 1
 
-                text_features = self.model.get_text_features(**text_inputs)
-                text_features = F.normalize(text_features, dim=-1)
-
-                # Compute cosine similarities for all descriptions
-                similarities = F.cosine_similarity(
-                    image_features.unsqueeze(1), text_features, dim=-1
-                )
-
-                # Apply softmax to get a distribution of scores
-                # Adjust this value to control the "peakiness" of the distribution
-                temperature = 0.1
-                softmax_scores = F.softmax(similarities / temperature, dim=-1)
-
-                # Compute weighted similarity score
-                weighted_similarity = (
-                    (softmax_scores * similarities).sum().item()
-                )
-
-                # Apply a non-linear transformation to amplify differences
-                final_score = torch.tanh(
-                    torch.tensor(weighted_similarity) * 5
-                ).item()
-
-                # Scale to [0, 1] range
-                normalized_score = (final_score + 1) / 2
-
+            for i, desc in enumerate(descriptions):
                 logger.info(
-                    f"Enhanced CLIP similarity score: {normalized_score:.4f}"
+                    f"Element: {desc}, "
+                    f"Similarity: {similarities[i].item():.4f}, "
+                    f"Adjusted: {adjusted_similarities[i].item():.4f}"
                 )
-                logger.info(
-                    f"Raw weighted similarity: {weighted_similarity:.4f}"
-                )
 
-                for i, desc in enumerate(descriptions):
-                    logger.info(
-                        f"Element: {desc}, "
-                        + f"Similarity: {similarities[0][i]}, "
-                        + f"Softmax Score: {softmax_scores[0][i]}"
-                    )
+            logger.info(f"Enhanced CLIP similarity score: {final_result:.4f}")
 
-                return normalized_score
+            return final_result
 
-        except Exception:
+        except Exception as e:
             logger.error(traceback.format_exc())
             return 0.0
 

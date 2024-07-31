@@ -42,7 +42,8 @@ def get_prompt_breakdown_function() -> ChatCompletionToolParam:
                             "properties": {
                                 "description": {
                                     "type": "string",
-                                    "description": "A key element in the image",
+                                    "description": "A key element in the image, "
+                                    + "single CLIP parseable word response",
                                 },
                             },
                             "required": ["description"],
