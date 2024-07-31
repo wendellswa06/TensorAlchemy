@@ -1,7 +1,7 @@
 import pytest
 import torch
 from loguru import logger
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 import bittensor as bt
 from neurons.protocol import ImageGeneration, ModelType
@@ -73,6 +73,16 @@ def mock_get_backend_client():
     return MockBackendClient()
 
 
+def mock_openai_response():
+    return AsyncMock(
+        return_value={
+            "elements": [
+                {"description": "Any Image"},
+            ]
+        }
+    )
+
+
 # Patch configuration
 mock_configs = {
     "neurons.validator.config": {
@@ -90,6 +100,9 @@ mock_configs = {
     "neurons.validator.scoring.models.rewards.image_reward": {"RM": mock_rm()},
     "neurons.validator.scoring.models.masks.duplicate": {
         "get_metagraph": mock_get_metagraph,
+    },
+    "neurons.validator.scoring.models.rewards.enhanced_clip.utils": {
+        "openai_breakdown": mock_openai_response()
     },
 }
 
