@@ -1,6 +1,6 @@
 from typing import List, Dict, Union, TypedDict, Callable, Awaitable
 import json
-import aiohttp
+import httpx
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionToolParam,
@@ -95,7 +95,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
     tool = get_prompt_breakdown_function()
 
     response = await client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         temperature=0,
         tool_choice={
             "type": "function",
@@ -129,19 +129,19 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
         },
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
             "https://api.corcel.io/cortext/text",
             headers=headers,
             json=payload,
-        ) as response:
-            if response.status == 200:
-                result = await response.json()
-                return await process_api_response(result)
-            else:
-                raise Exception(
-                    f"Corcel API request failed with status {response.status}"
-                )
+        )
+        if response.status_code == 200:
+            result = response.json()
+            return await process_api_response(result)
+        else:
+            raise Exception(
+                f"Corcel API request failed with status {response.status_code}"
+            )
 
 
 async def break_down_prompt(
