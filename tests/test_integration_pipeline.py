@@ -17,14 +17,7 @@ from neurons.validator.scoring.types import ScoringResults
 from neurons.validator.scoring.models.rewards.image_reward import (
     ImageRewardModel,
 )
-from tests.fixtures import TEST_IMAGES
-
-
-class MockMetagraph:
-    def __init__(self) -> None:
-        self.n = 10
-        self.hotkeys = [f"hotkey_{i}" for i in range(self.n)]
-        self.coldkeys = [f"coldkey_{i}" for i in range(self.n)]
+from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
 
 class MockScoringModel:
@@ -74,10 +67,6 @@ class MockBackendClient:
             "round_1": {"hotkey_0": 1, "hotkey_1": 2},
             "round_2": {"hotkey_2": 3, "hotkey_3": 4},
         }
-
-
-def mock_get_metagraph():
-    return MockMetagraph()
 
 
 def mock_get_backend_client():
