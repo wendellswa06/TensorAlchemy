@@ -120,8 +120,4 @@ class EnhancedClipRewardModel(BaseRewardModel):
             responses,
         )
 
-        # Log the rewards for each response
-        for i, reward in enumerate(rewards):
-            logger.info(f"Reward for response {i}: {reward.item():.4f}")
-
         return rewards
