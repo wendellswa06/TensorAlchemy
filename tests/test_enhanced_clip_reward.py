@@ -38,13 +38,32 @@ def apply_patches(func):
 def mock_openai_response():
     return {
         "elements": [
-            {"description": "Majestic eagle"},
-            {"description": "Purple umbrella"},
-            {"description": "Eagle carrying umbrella in talons"},
-            {"description": "Soaring eagle"},
-            {"description": "Bustling stadium"},
-            {"description": "Awestruck spectators"},
-            {"description": "Eagle flying over stadium"},
+            {"description": "Something"},
+        ]
+    }
+
+
+@pytest.fixture
+def mock_openai_response_sparrow():
+    return {
+        "elements": [
+            {"description": "Sparrow"},
+            {"description": "Fish"},
+            {"description": "Soaring"},
+            {"description": "Ocean"},
+            {"description": "Bird"},
+        ]
+    }
+
+
+@pytest.fixture
+def mock_openai_response_elephant():
+    return {
+        "elements": [
+            {"description": "Basket"},
+            {"description": "Elephant"},
+            {"description": "Desert"},
+            {"description": "Elephant"},
         ]
     }
 
@@ -67,6 +86,67 @@ def mock_synapse():
 
 @apply_patches
 class TestEnhancedClipRewardModel:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "image_a_key, image_b_key, prompt, mock_response_fixture",
+        [
+            (
+                "SPARROW_FISH",
+                "ELEPHANT_BASKET",
+                "A tiny sparrow, carrying a fish in its beak, soars over a wide ocean.",
+                "mock_openai_response_sparrow",
+            ),
+            (
+                "ELEPHANT_BASKET",
+                "SPARROW_FISH",
+                "A huge elephant, carrying a basket in its trunk, walks the a wide desert.",
+                "mock_openai_response_elephant",
+            ),
+        ],
+    )
+    async def test_correct_incorrect(
+        self,
+        patched_model,
+        image_a_key,
+        image_b_key,
+        prompt,
+        mock_response_fixture,
+        request,
+    ):
+        # Get the appropriate mock response
+        mock_openai_response = request.getfixturevalue(mock_response_fixture)
+
+        mock_configs[
+            "neurons.validator.scoring.models.rewards.enhanced_clip.utils"
+        ]["openai_breakdown"].return_value = mock_openai_response
+
+        right_synapse = generate_synapse(
+            "hotkey_0",
+            TEST_IMAGES[image_a_key],
+            prompt=prompt,
+        )
+
+        wrong_synapse = generate_synapse(
+            "hotkey_1",
+            TEST_IMAGES[image_b_key],
+            prompt=prompt,
+        )
+
+        rewards = await patched_model.get_rewards(
+            right_synapse,
+            [right_synapse, wrong_synapse],
+        )
+
+        logger.info(f"Right reward: {rewards[0].item()}")
+        logger.info(f"Wrong reward: {rewards[1].item()}")
+
+        assert isinstance(rewards, torch.Tensor)
+        assert rewards.shape == (10,)
+        assert rewards[0] > rewards[1], (
+            f"Correct image reward ({rewards[0].item()}) "
+            + f"should be higher than Incorrect image reward ({rewards[1].item()})"
+        )
+
     @pytest.mark.asyncio
     async def test_valid_image(self, patched_model, mock_synapse):
         with patch.object(
@@ -127,35 +207,3 @@ class TestEnhancedClipRewardModel:
         assert isinstance(reward, torch.Tensor)
         assert reward.shape == (10,)
         assert all(0 <= r <= 1 for r in reward)
-
-    @pytest.mark.asyncio
-    async def test_eagle_fish_umbrella(self, patched_model):
-        right_synapse = generate_synapse(
-            "hotkey_1", TEST_IMAGES["EAGLE_UMBRELLA"]
-        )
-        wrong_synapse = generate_synapse(
-            "hotkey_0", TEST_IMAGES["ELEPHANT_BASKET"]
-        )
-
-        prompt = (
-            "A majestic eagle, "
-            + "carrying an purple umbrella in its talons, "
-            + "soars over a bustling stadium filled with awestruck spectators."
-        )
-        right_synapse.prompt = prompt
-        wrong_synapse.prompt = prompt
-
-        rewards = await patched_model.get_rewards(
-            right_synapse,
-            [wrong_synapse, right_synapse],
-        )
-
-        logger.info(f"Basket reward: {rewards[0].item()}")
-        logger.info(f"Umbrella reward: {rewards[1].item()}")
-
-        assert isinstance(rewards, torch.Tensor)
-        assert rewards.shape == (10,)
-        assert rewards[0] < rewards[1], (
-            f"Wrong image reward ({rewards[0].item()}) "
-            + f"should be less than right image reward ({rewards[1].item()})"
-        )
