@@ -73,6 +73,7 @@ TEST_IMAGES = {
     "COMPLEX_E": image_to_tensor(create_complex_image()),
     "COMPLEX_F": image_to_tensor(create_complex_image()),
     "COMPLEX_G": image_to_tensor(create_complex_image()),
+    "EAGLE_FISH": image_to_tensor(Image.open(r"tests/images/eagle_fish.png")),
     "EAGLE_AMULET": image_to_tensor(
         Image.open(r"tests/images/eagle_amulet.png")
     ),
