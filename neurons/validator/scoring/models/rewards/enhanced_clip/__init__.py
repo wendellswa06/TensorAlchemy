@@ -1,13 +1,14 @@
 import traceback
 
 import torch
+import torch.nn.functional as F
 import bittensor as bt
 
 from loguru import logger
 from transformers import CLIPProcessor, CLIPModel
 from typing import List
 
-from neurons.utils.image import synapse_to_tensors
+from neurons.utils.image import synapse_to_tensor
 from neurons.validator.config import get_device
 from neurons.validator.scoring.models.base import BaseRewardModel
 from neurons.validator.scoring.models.types import RewardModelType
@@ -26,18 +27,92 @@ class EnhancedClipRewardModel(BaseRewardModel):
         super().__init__()
         self.device = get_device()
         self.model = CLIPModel.from_pretrained(
-            "openai/clip-vit-large-patch14"
+            "openai/clip-vit-base-patch32"
         ).to(self.device)
         self.processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-large-patch14"
+            "openai/clip-vit-base-patch32"
         )
 
-        # Penalty factor for imperfect matches
-        # Lowering this will weight the imperfect
-        # images more.
-        #
-        # NOTE: Left at 1.0 to be less punishing
-        self.penalty_factor = 1.0
+    def compute_clip_score(
+        self,
+        prompt_elements: PromptBreakdown,
+        response: bt.Synapse,
+    ) -> float:
+        if not response.images or any(
+            image is None for image in response.images
+        ):
+            return 0.0
+
+        try:
+            image = synapse_to_tensor(response)
+
+            descriptions = [
+                element["description"]
+                for element in prompt_elements["elements"]
+            ]
+
+            # Process image once
+            image_input = self.processor(images=image, return_tensors="pt").to(
+                self.device
+            )
+
+            with torch.no_grad():
+                image_features = self.model.get_image_features(**image_input)
+                image_features = F.normalize(image_features, dim=-1)
+
+                # Process all text descriptions at once
+                text_inputs = self.processor(
+                    text=descriptions,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                ).to(self.device)
+
+                text_features = self.model.get_text_features(**text_inputs)
+                text_features = F.normalize(text_features, dim=-1)
+
+                # Compute cosine similarities for all descriptions
+                similarities = F.cosine_similarity(
+                    image_features.unsqueeze(1), text_features, dim=-1
+                )
+
+                # Apply softmax to get a distribution of scores
+                # Adjust this value to control the "peakiness" of the distribution
+                temperature = 0.1
+                softmax_scores = F.softmax(similarities / temperature, dim=-1)
+
+                # Compute weighted similarity score
+                weighted_similarity = (
+                    (softmax_scores * similarities).sum().item()
+                )
+
+                # Apply a non-linear transformation to amplify differences
+                final_score = torch.tanh(
+                    torch.tensor(weighted_similarity) * 5
+                ).item()
+
+                # Scale to [0, 1] range
+                normalized_score = (final_score + 1) / 2
+
+                logger.info(
+                    f"Enhanced CLIP similarity score: {normalized_score:.4f}"
+                )
+                logger.info(
+                    f"Raw weighted similarity: {weighted_similarity:.4f}"
+                )
+
+                for i, desc in enumerate(descriptions):
+                    logger.info(
+                        f"Element: {desc}, "
+                        + f"Similarity: {similarities[0][i]}, "
+                        + f"Softmax Score: {softmax_scores[0][i]}"
+                    )
+
+                return normalized_score
+
+        except Exception:
+            logger.error(traceback.format_exc())
+            return 0.0
 
     async def get_rewards(
         self,
@@ -48,84 +123,17 @@ class EnhancedClipRewardModel(BaseRewardModel):
             synapse.prompt
         )
 
-        print(prompt_elements)
-
         def get_reward(response: bt.Synapse) -> float:
             return self.compute_clip_score(prompt_elements, response)
 
-        return await super().build_rewards_tensor(
+        rewards = await super().build_rewards_tensor(
             get_reward,
             synapse,
             responses,
         )
 
-    def compute_clip_score(
-        self,
-        prompt_elements: PromptBreakdown,
-        response: bt.Synapse,
-    ) -> float:
-        if not response.images:
-            return 0.0
+        # Log the rewards for each response
+        for i, reward in enumerate(rewards):
+            logger.info(f"Reward for response {i}: {reward.item():.4f}")
 
-        if any(image is None for image in response.images):
-            return 0.0
-
-        try:
-            image = synapse_to_tensors(response)[0]
-            image_input = self.processor(
-                images=image,
-                return_tensors="pt",
-            ).to(self.device)
-
-            final_score = 1.0  # Start with a perfect score
-
-            with torch.no_grad():
-                image_features = self.model.get_image_features(**image_input)
-                image_features = image_features / image_features.norm(
-                    dim=-1, keepdim=True
-                )
-
-                for element in prompt_elements["elements"]:
-                    text_input = self.processor(
-                        text=[element["description"]],
-                        return_tensors="pt",
-                        padding=True,
-                    ).to(self.device)
-
-                    text_features = self.model.get_text_features(**text_input)
-                    text_features = text_features / text_features.norm(
-                        dim=-1, keepdim=True
-                    )
-
-                    similarity = (
-                        (100.0 * image_features @ text_features.T)
-                        .squeeze()
-                        .item()
-                    )
-
-                    # Normalize similarity to [0, 1] range
-                    normalized_similarity = similarity / 100.0
-
-                    # Apply penalty for imperfect match
-                    element_score = 1.0
-                    if normalized_similarity < 1.0:
-                        element_score = (
-                            normalized_similarity * self.penalty_factor
-                        )
-
-                    # Multiply the final score
-                    final_score += element_score**2
-
-                    logger.info(
-                        "EnhancedClip:"
-                        + f"\n\t{element['description']}, "
-                        + f"\n\t{element_score=}, "
-                        + f"\n\t{final_score=}"
-                    )
-
-            logger.info(f"Enhanced CLIP similarity score: {final_score:.4f}")
-            return final_score
-
-        except Exception:
-            logger.error(traceback.format_exc())
-            return 0.0
+        return rewards
