@@ -1,7 +1,9 @@
+import pytest
 import torch
 import random
 from PIL import Image, ImageDraw
 
+from loguru import logger
 import bittensor as bt
 
 from neurons.protocol import ImageGeneration, ModelType
@@ -73,6 +75,12 @@ TEST_IMAGES = {
     "COMPLEX_E": image_to_tensor(create_complex_image()),
     "COMPLEX_F": image_to_tensor(create_complex_image()),
     "COMPLEX_G": image_to_tensor(create_complex_image()),
+    "ELEPHANT_BASKET": image_to_tensor(
+        Image.open(r"tests/images/elephant_basket.png")
+    ),
+    "SPARROW_FISH": image_to_tensor(
+        Image.open(r"tests/images/sparrow_fish.png")
+    ),
     "EAGLE_FISH": image_to_tensor(Image.open(r"tests/images/eagle_fish.png")),
     "EAGLE_AMULET": image_to_tensor(
         Image.open(r"tests/images/eagle_amulet.png")
