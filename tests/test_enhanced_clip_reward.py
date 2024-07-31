@@ -128,9 +128,9 @@ class TestEnhancedClipRewardModel:
         assert all(0 <= r <= 1 for r in reward)
 
     @pytest.mark.asyncio
-    async def test_eagle_amulet_umbrella(self, patched_model):
+    async def test_eagle_fish_umbrella(self, patched_model):
         eagle_amulet_synapse = generate_synapse(
-            "hotkey_1", TEST_IMAGES["EAGLE_AMULET"]
+            "hotkey_1", TEST_IMAGES["EAGLE_FISH"]
         )
         eagle_amulet_synapse.prompt = (
             "A majestic eagle, "
@@ -151,4 +151,4 @@ class TestEnhancedClipRewardModel:
         assert rewards.shape == (10,)
         assert (
             rewards[0] < rewards[1]
-        ), f"Eagle umbrella reward ({rewards[0].item()}) should be higher than eagle amulet reward ({rewards[1].item()})"
+        ), f"Eagle umbrella reward ({rewards[0].item()}) should be higher than eagle fish reward ({rewards[1].item()})"
