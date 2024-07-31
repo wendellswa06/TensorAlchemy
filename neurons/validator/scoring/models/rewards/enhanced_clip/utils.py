@@ -44,14 +44,8 @@ def get_prompt_breakdown_function() -> ChatCompletionToolParam:
                                     "type": "string",
                                     "description": "A key element in the image",
                                 },
-                                "importance": {
-                                    "type": "number",
-                                    "minimum": 0,
-                                    "maximum": 1,
-                                    "description": "Importance between 0..1 of this element",
-                                },
                             },
-                            "required": ["description", "importance"],
+                            "required": ["description"],
                         },
                         "description": "Key elements from the prompt",
                     }

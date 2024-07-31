@@ -1,5 +1,8 @@
-import bittensor as bt
+import traceback
+
 import torch
+import bittensor as bt
+
 from loguru import logger
 from transformers import CLIPProcessor, CLIPModel
 from typing import List
@@ -45,6 +48,8 @@ class EnhancedClipRewardModel(BaseRewardModel):
             synapse.prompt
         )
 
+        print(prompt_elements)
+
         def get_reward(response: bt.Synapse) -> float:
             return self.compute_clip_score(prompt_elements, response)
 
@@ -81,8 +86,6 @@ class EnhancedClipRewardModel(BaseRewardModel):
                 )
 
                 for element in prompt_elements["elements"]:
-                    importance: float = element["importance"]
-
                     text_input = self.processor(
                         text=[element["description"]],
                         return_tensors="pt",
@@ -104,31 +107,24 @@ class EnhancedClipRewardModel(BaseRewardModel):
                     normalized_similarity = similarity / 100.0
 
                     # Apply penalty for imperfect match
+                    element_score = 1.0
                     if normalized_similarity < 1.0:
                         element_score = (
                             normalized_similarity * self.penalty_factor
                         )
-                    else:
-                        element_score = 1.0
-
-                    # Apply importance weighting
-                    weighted_score = element_score * (importance**2)
 
                     # Multiply the final score
-                    final_score *= weighted_score
+                    final_score += element_score**2
 
                     logger.info(
                         "EnhancedClip:"
                         + f"\n\t{element['description']}, "
                         + f"\n\t{element_score=}, "
-                        + f"\n\t{importance=},"
-                        + f"\n\t{weighted_score=},"
                         + f"\n\t{final_score=}"
                     )
-
             logger.info(f"Enhanced CLIP similarity score: {final_score:.4f}")
             return final_score
 
-        except Exception as e:
-            logger.error(f"Error in Enhanced CLIP scoring: {e}")
+        except Exception:
+            logger.error(traceback.format_exc())
             return 0.0
