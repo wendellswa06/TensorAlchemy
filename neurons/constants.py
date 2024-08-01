@@ -27,13 +27,12 @@ IA_VALIDATOR_WEIGHT_FILES = "weights.json"
 IA_VALIDATOR_SETTINGS_FILE = "validator_settings.json"
 IA_MINER_WARNINGLIST = "warninglist_for_miners.json"
 
-PROD_URL = "https://api.tensoralchemy.ai/api"
-DEV_URL = "https://api-develop.tensoralchemy.ai/api"
+MAINNET_URL = "https://api.tensoralchemy.ai/api"
+TESTNET_URL = "https://api-testnet.tensoralchemy.ai/api"
+DEVELOP_URL = "https://api-develop.tensoralchemy.ai/api"
 
 
-VALIDATOR_SENTRY_DSN = (
-    "https://740dd9e25d6e278889a1b9046c1f5e20@sentry.tensoralchemy.ai/4507287153737728"
-)
+VALIDATOR_SENTRY_DSN = "https://740dd9e25d6e278889a1b9046c1f5e20@sentry.tensoralchemy.ai/4507287153737728"
 
 NSFW_WORDLIST_URL = "https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en"
 NSFW_WORDLIST_DEFAULT = [

@@ -1,6 +1,7 @@
 import os
 import argparse
 import uuid
+from enum import Enum
 from contextvars import ContextVar
 from typing import Dict, Optional
 
@@ -48,6 +49,12 @@ def check_config(to_check: bt.config):
         os.makedirs(to_check.alchemy.full_path, exist_ok=True)
 
 
+class AlchemyHost(str, Enum):
+    MAINNET = "mainnet"
+    TESTNET = "testnet"
+    DEVELOP = "develop"
+
+
 def add_args(parser):
     # Netuid Arg
     parser.add_argument(
@@ -76,9 +83,10 @@ def add_args(parser):
         help="Device to run the validator on.",
     )
     parser.add_argument(
-        "--alchemy.force_prod",
-        action="store_true",
-        default=False,
+        "--alchemy.host",
+        type=AlchemyHost,
+        choices=list(AlchemyHost),
+        help="Choose the Alchemy host: mainnet, testnet, or develop",
     )
     parser.add_argument(
         "--alchemy.streamlit_port",
