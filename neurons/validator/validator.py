@@ -219,6 +219,9 @@ class StableValidator:
         self.metagraph.sync(subtensor=self.subtensor)
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
+        # Keep track of latest active miners
+        self.active_uids: List[int] = []
+
         if "mock" not in self.config.wallet.name:
             # Wait until the miner is registered
             self.loop_until_registered()
@@ -443,122 +446,6 @@ class StableValidator:
                 IA_VALIDATOR_SETTINGS_FILE,
             )
         )
-
-
-async def run(self):
-    logger.info("Starting validator loop.")
-    self.load_state()
-    self.step = 0
-
-    exit_code: int = 1
-    while not self.should_quit.is_set():
-        try:
-            logger.info(
-                f"Started new validator run ({validator_run_id.get()})."
-            )
-
-            # First, get all active UIDs
-            try:
-                all_active_uids = await get_all_active_uids(
-                    self, self.metagraph
-                )
-                logger.info(f"Found {len(all_active_uids)} active miners")
-
-                if len(all_active_uids) == 0:
-                    logger.info(
-                        "No active miners found, retrying in 20 seconds..."
-                    )
-                    await asyncio.sleep(20)
-                    continue
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to get active uids from metagraph: {str(e)}"
-                )
-                await asyncio.sleep(10)
-                continue
-
-            # Fetch or generate a task (this may take up to 60 seconds)
-            task: Optional[
-                ImageGenerationTaskModel
-            ] = await self.get_image_generation_task()
-
-            if task is None:
-                logger.warning(
-                    "Image generation task was not generated successfully."
-                )
-                if self.step == 0:
-                    self.step += 1
-                continue
-
-            # Now that we have a task, select random UIDs from the active ones
-            try:
-                selected_uids = await get_random_uids(
-                    self, self.metagraph, k=N_NEURONS, exclude=None
-                )
-                if selected_uids.numel() == 0:
-                    logger.info("No miners selected, retrying...")
-                    continue
-
-                logger.info(f"Selected miners: {selected_uids.tolist()}")
-                selected_uids = selected_uids.to(self.device)
-                axons = [self.metagraph.axons[uid] for uid in selected_uids]
-
-            except Exception as e:
-                logger.error(f"Failed to select random uids: {str(e)}")
-                continue
-
-            # Run the main step
-            await run_step(
-                validator=self,
-                task=task,
-                axons=axons,
-                uids=selected_uids,
-                model_type=self.model_type,
-                stats=self.stats,
-            )
-
-            # Post-step operations
-            try:
-                await self.sync()
-            except Exception as e:
-                logger.error(f"Failed to sync the metagraph: {e}")
-
-            self.save_state()
-            await self.reload_settings()
-            self.start_threads(is_startup=False)
-
-            self.step += 1
-
-        except KeyboardInterrupt:
-            logger.success("Keyboard interrupt detected. Exiting validator.")
-            self.axon.stop()
-            self.stop_threads()
-            sys.exit(0)
-
-        except Exception as e:
-            logger.error(traceback.format_exc())
-            sentry_sdk.capture_exception(e)
-
-        self.axon.stop()
-
-        threads: List = [
-            self.background_timer,
-            self.set_weights_process,
-            self.upload_images_process,
-        ]
-
-        try:
-            for thread in threads:
-                if thread.is_alive():
-                    thread.cancel()
-        except Exception:
-            pass
-
-        if exit_code == 1:
-            broken_pipe_message()
-
-        sys.exit(exit_code)
 
     async def get_image_generation_task(
         self,
@@ -876,3 +763,81 @@ async def run(self):
             logger.error(
                 f"Failed to create Axon initialize with exception: {e}"
             )
+
+    async def run(self):
+        logger.info("Starting validator loop.")
+        self.load_state()
+        self.step = 0
+
+        while not self.should_quit.is_set():
+            try:
+                logger.info(
+                    f"Started new validator run ({validator_run_id.get()})."
+                )
+
+                if await self.pre_step():
+                    if await self.mid_step():
+                        await self.post_step()
+
+                self.step += 1
+
+            except KeyboardInterrupt:
+                logger.success(
+                    "Keyboard interrupt detected. Exiting validator."
+                )
+            except Exception as e:
+                logger.error(traceback.format_exc())
+                sentry_sdk.capture_exception(e)
+
+    async def pre_step(self):
+        try:
+            self.active_uids = await get_all_active_uids()
+            logger.info(f"Found {len(self.active_uids)} active miners")
+
+            if not self.active_uids:
+                logger.info("No active miners found, retrying in 20 seconds...")
+                await asyncio.sleep(20)
+                return False
+
+            self.task = await self.get_image_generation_task()
+            if not self.task:
+                logger.warning(
+                    "Image generation task was not generated successfully."
+                )
+                return False
+
+            return True
+        except Exception as e:
+            logger.error(f"Pre-step failed: {str(e)}")
+            await asyncio.sleep(10)
+            return False
+
+    async def mid_step(self):
+        try:
+            selected_uids = torch.tensor(
+                self.active_uids[:N_NEURONS], dtype=torch.long
+            ).to(self.device)
+            logger.info(f"Selected miners: {selected_uids.tolist()}")
+            axons = [self.metagraph.axons[uid] for uid in selected_uids]
+
+            await run_step(
+                validator=self,
+                task=self.task,
+                axons=axons,
+                uids=selected_uids,
+                model_type=self.model_type,
+                stats=self.stats,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Mid-step failed: {str(e)}")
+            return False
+
+    async def post_step(self):
+        try:
+            await self.sync()
+            self.save_state()
+            await self.reload_settings()
+            self.start_threads(is_startup=False)
+        except Exception as e:
+            logger.error(f"Post-step failed: {str(e)}")
