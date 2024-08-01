@@ -6,9 +6,8 @@ from enum import Enum
 from contextvars import ContextVar
 import uuid
 
-IS_TEST: bool = (
-    False  # Replace with actual logic to determine if it's a test environment
-)
+# Will be set by conftest.py
+IS_TEST: bool = False
 
 
 class AlchemyHost(str, Enum):
