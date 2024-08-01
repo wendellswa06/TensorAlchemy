@@ -715,7 +715,7 @@ class StableValidator:
             self.active_uids = await get_all_active_uids()
             logger.info(
                 f"Found {len(self.active_uids)} active miners: "
-                + self.active_uids
+                + ", ".join([str(i) for i in self.active_uids])
             )
 
             if not self.active_uids:
