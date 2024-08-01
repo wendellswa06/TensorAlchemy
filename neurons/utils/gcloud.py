@@ -18,10 +18,20 @@ def get_bucket_name() -> str:
     return IA_BUCKET_NAME
 
 
+async def get_storage_client() -> storage.Client:
+    """
+    Create and return an anonymous storage client.
+
+    Returns:
+        storage.Client: An anonymous storage client.
+    """
+    return storage.Client.create_anonymous_client()
+
+
 def retrieve_public_file(
-    client: storage.Client,
     source_name: str,
     bucket_name: str = get_bucket_name(),
+    client: storage.Client = get_storage_client(),
 ) -> Dict:
     downloaded: Dict = None
 
