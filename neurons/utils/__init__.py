@@ -131,16 +131,11 @@ def background_loop(self, is_validator: bool):
     # Update the whitelists and blacklists
     if self.background_steps % 5 == 0:
         try:
-            # Create client if needed
-            if not self.storage_client:
-                self.storage_client = storage.Client.create_anonymous_client()
-                logger.info("Created anonymous storage client.")
-
             # Validator only
             if is_validator:
                 # Update weights
                 validator_weights = retrieve_public_file(
-                    self.storage_client, IA_VALIDATOR_WEIGHT_FILES
+                    IA_VALIDATOR_WEIGHT_FILES
                 )
 
                 if "human_reward_model" in validator_weights:
