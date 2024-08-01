@@ -438,110 +438,100 @@ class StableValidator:
             )
         )
 
-    async def run(self):
-        # Main Validation Loop
-        logger.info("Starting validator loop.")
-        # Load Previous Sates
-        self.load_state()
-        self.step = 0
-        while True:
+
+async def run(self):
+    logger.info("Starting validator loop.")
+    self.load_state()
+    self.step = 0
+
+    while True:
+        try:
+            logger.info(
+                f"Started new validator run ({validator_run_id.get()})."
+            )
+
+            # First, get all active UIDs
             try:
-                logger.info(
-                    f"Started new validator run ({validator_run_id.get()})."
+                all_active_uids = await get_all_active_uids(
+                    self, self.metagraph
                 )
+                logger.info(f"Found {len(all_active_uids)} active miners")
 
-                # Get a random number of uids
-                try:
-                    uids = await get_random_uids(
-                        self,
-                        k=N_NEURONS,
+                if len(all_active_uids) == 0:
+                    logger.info(
+                        "No active miners found, retrying in 20 seconds..."
                     )
-
-                    if uids.numel() == 0:
-                        seconds_to_wait: int = 20
-                        logger.info(
-                            "No miners found, retry in "
-                            + f"{seconds_to_wait} seconds..."
-                        )
-                        await asyncio.sleep(seconds_to_wait)
-                        continue
-
-                    logger.info(f"Found miners {uids=}")
-
-                    uids = uids.to(self.device)
-                    axons = [self.metagraph.axons[uid] for uid in uids]
-
-                except Exception as e:
-                    logger.error(
-                        #
-                        "Failed to get random uids from metagraph: "
-                        + str(e)
-                    )
+                    await asyncio.sleep(20)
                     continue
 
-                task: Optional[
-                    ImageGenerationTaskModel
-                ] = await self.get_image_generation_task()
-
-                if task is None:
-                    logger.warning(
-                        "image generation task was not generated successfully."
-                    )
-
-                    # Prevent loop from forming if the task
-                    # error occurs on the first step
-                    if self.step == 0:
-                        self.step += 1
-
-                    continue
-
-                # Text to Image Run
-                await run_step(
-                    validator=self,
-                    task=task,
-                    axons=axons,
-                    uids=uids,
-                    model_type=self.model_type,
-                    stats=self.stats,
-                )
-
-                try:
-                    # Re-sync with the network. Updates the metagraph.
-                    await self.sync()
-                except Exception as e:
-                    logger.error(f"Failed to sync the metagraph: {e}")
-
-                # Save Previous Sates
-                self.save_state()
-
-                # Load any new settings from gcloud
-                self.reload_settings()
-
-                # (Restart) all background threads
-                # This can happen sometimes rarely
-                # because of a segfault
-                self.start_threads(is_startup=False)
-
-                # End the current step and prepare for the next iteration.
-                self.step += 1
-
-            # If the user interrupts the program, gracefully exit.
-            except KeyboardInterrupt:
-                logger.success(
-                    "Keyboard interrupt detected. Exiting validator."
-                )
-
-                self.axon.stop()
-                self.stop_threads()
-
-                self.upload_images_process.cancel()
-                self.upload_images_process.join()
-                sys.exit(0)
-
-            # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
-                logger.error(traceback.format_exc())
-                sentry_sdk.capture_exception(e)
+                logger.error(
+                    f"Failed to get active uids from metagraph: {str(e)}"
+                )
+                await asyncio.sleep(10)
+                continue
+
+            # Fetch or generate a task (this may take up to 60 seconds)
+            task: Optional[
+                ImageGenerationTaskModel
+            ] = await self.get_image_generation_task()
+
+            if task is None:
+                logger.warning(
+                    "Image generation task was not generated successfully."
+                )
+                if self.step == 0:
+                    self.step += 1
+                continue
+
+            # Now that we have a task, select random UIDs from the active ones
+            try:
+                selected_uids = await get_random_uids(
+                    self, self.metagraph, k=N_NEURONS, exclude=None
+                )
+                if selected_uids.numel() == 0:
+                    logger.info("No miners selected, retrying...")
+                    continue
+
+                logger.info(f"Selected miners: {selected_uids.tolist()}")
+                selected_uids = selected_uids.to(self.device)
+                axons = [self.metagraph.axons[uid] for uid in selected_uids]
+
+            except Exception as e:
+                logger.error(f"Failed to select random uids: {str(e)}")
+                continue
+
+            # Run the main step
+            await run_step(
+                validator=self,
+                task=task,
+                axons=axons,
+                uids=selected_uids,
+                model_type=self.model_type,
+                stats=self.stats,
+            )
+
+            # Post-step operations
+            try:
+                await self.sync()
+            except Exception as e:
+                logger.error(f"Failed to sync the metagraph: {e}")
+
+            self.save_state()
+            await self.reload_settings()
+            self.start_threads(is_startup=False)
+
+            self.step += 1
+
+        except KeyboardInterrupt:
+            logger.success("Keyboard interrupt detected. Exiting validator.")
+            self.axon.stop()
+            self.stop_threads()
+            sys.exit(0)
+
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            sentry_sdk.capture_exception(e)
 
     async def get_image_generation_task(
         self,
