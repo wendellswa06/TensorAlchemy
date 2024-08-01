@@ -127,6 +127,9 @@ async def get_all_active_uids(self, metagraph: bt.metagraph) -> List[int]:
     logger.info("Fetching all active UIDs")
     available_uids = filter_available_uids(metagraph)
 
+    # Shuffle to avoid always checking the same UIDs first
+    random.shuffle(available_uids)
+
     all_active_uids = []
     for i in range(0, len(available_uids), N_NEURONS_TO_QUERY):
         batch = available_uids[i : i + N_NEURONS_TO_QUERY]
