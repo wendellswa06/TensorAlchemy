@@ -222,28 +222,6 @@ async def query_axons_and_process_responses(
     return responses
 
 
-def log_query_to_history(validator: "StableValidator", uids: torch.Tensor):
-    try:
-        for uid in uids:
-            validator.miner_query_history_duration[
-                validator.metagraph.axons[uid].hotkey
-            ] = time.perf_counter()
-        for uid in uids:
-            validator.miner_query_history_count[
-                validator.metagraph.axons[uid].hotkey
-            ] += 1
-    except Exception as e:
-        logger.error(
-            f"Failed to log miner counts and histories due to the following error: {e}"
-        )
-
-    logger.info(
-        f"Miner Counts -> Max: {max(validator.miner_query_history_count.values()):.2f} "
-        + f"| Min: {min(validator.miner_query_history_count.values()):.2f} "
-        + f"| Mean: {sum(validator.miner_query_history_count.values()) / len(validator.miner_query_history_count.values()):.2f}",
-    )
-
-
 def log_responses(responses: List[ImageGeneration], prompt: str):
     try:
         logger.info(
@@ -416,8 +394,6 @@ async def run_step(
         axons,
         synapse,
     )
-
-    log_query_to_history(validator, uids)
 
     uids = get_uids(responses)
 

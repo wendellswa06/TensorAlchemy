@@ -1,4 +1,6 @@
 import json
+import asyncio
+import traceback
 from typing import Dict
 
 from loguru import logger
@@ -18,7 +20,7 @@ def get_bucket_name() -> str:
     return IA_BUCKET_NAME
 
 
-async def get_storage_client() -> storage.Client:
+def get_storage_client() -> storage.Client:
     """
     Create and return an anonymous storage client.
 
@@ -28,31 +30,32 @@ async def get_storage_client() -> storage.Client:
     return storage.Client.create_anonymous_client()
 
 
-def retrieve_public_file(
+async def retrieve_public_file(
     source_name: str,
     bucket_name: str = get_bucket_name(),
     client: storage.Client = get_storage_client(),
 ) -> Dict:
     downloaded: Dict = None
-
     try:
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(source_name)
+
         try:
-            downloaded = json.loads(blob.download_as_text())
+            # Use asyncio.to_thread to run the
+            # synchronous download_as_text method in a separate thread
+            content = await asyncio.to_thread(blob.download_as_text)
+            downloaded = json.loads(content)
             logger.info(
-                #
-                f"Successfully downloaded {source_name} "
-                + f"from {bucket_name}"
+                f"Successfully downloaded {source_name} from {bucket_name}"
             )
         except Exception as e:
             logger.info(
-                #
-                f"Failed to download {source_name} from "
-                + f"{bucket_name}: {e}"
+                f"Failed to download {source_name} from {bucket_name}: {e}"
             )
-
     except Exception as e:
-        logger.info(f"An error occurred downloading from Google Cloud: {e}")
+        logger.info(
+            "An error occurred downloading from Google Cloud: "
+            + traceback.format_exc()
+        )
 
     return downloaded
