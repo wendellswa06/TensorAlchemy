@@ -276,12 +276,6 @@ class StableValidator:
         # Init sync with the network. Updates the metagraph.
         asyncio.run(self.sync())
 
-        # Init blacklists and whitelists
-        self.hotkey_blacklist = set()
-        self.coldkey_blacklist = set()
-        self.hotkey_whitelist = set()
-        self.coldkey_whitelist = set()
-
         # Init stats
         self.stats = get_defaults(self)
 
