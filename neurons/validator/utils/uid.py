@@ -24,14 +24,8 @@ from neurons.validator.config import (
 isalive_threshold = 8
 isalive_dict: Dict[int, int] = {}
 
-miner_query_history_count: Dict[str, int] = {}
-miner_query_history_duration: Dict[str, float] = {}
-miner_query_history_fail_count: Dict[str, int] = {}
 
-
-async def check_uid(uid) -> List[float]:
-    response_times: List[float] = []
-
+async def check_uid(uid) -> Tuple[bool, float]:
     try:
         t1 = time.perf_counter()
         metagraph: bt.metagraph = get_metagraph()
@@ -40,32 +34,17 @@ async def check_uid(uid) -> List[float]:
             axons=metagraph.axons[uid],
             timeout=get_config().alchemy.async_timeout,
         )
-        if response.is_success:
-            response_times.append(time.perf_counter() - t1)
-            isalive_dict[uid] = 0
-            return True
-        else:
-            try:
-                isalive_dict[uid] += 1
-                key = metagraph.axons[uid].hotkey
-                miner_query_history_fail_count[key] += 1
-                # If miner doesn't respond for 3 iterations rest it's count to
-                # the average to avoid spamming
-                if miner_query_history_fail_count[key] >= 3:
-                    miner_query_history_duration[key] = time.perf_counter()
-                    miner_query_history_count[key] = int(
-                        np.array(
-                            list(miner_query_history_count.values())
-                        ).mean()
-                    )
-            except Exception:
-                pass
-            return False
-    except Exception as e:
-        logger.error(f"Error checking UID {uid}: {e}\n{traceback.format_exc()}")
-        return False
 
-    return response_times
+        if response.is_success:
+            isalive_dict[uid] = 0
+            return True, time.perf_counter() - t1
+
+        isalive_dict[uid] += 1
+
+        return False, -1
+    except Exception:
+        logger.error(f"Error checking UID {uid}: {traceback.format_exc()}")
+        return False, -1
 
 
 def memoize_with_expiration(expiration_time: int):
@@ -152,8 +131,13 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     Returns:
         Tuple[List[int], List[float]]: A tuple containing the list of alive UIDs and their response times.
     """
-    tasks = [check_uid(uid) for uid in uids]
-    responses = await asyncio.gather(*tasks)
+    responses = await asyncio.gather(
+        *[
+            #
+            check_uid(uid)
+            for uid in uids
+        ]
+    )
 
     alive_uids = []
     response_times = []
