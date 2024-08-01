@@ -124,7 +124,6 @@ class TensorAlchemyBackendClient:
 
         if response.status_code == 401:
             if task.get("code") == "VALIDATOR_NOT_FOUND_YET":
-                logger.info("Validator not yet in-sync with backend...")
                 return None
 
         raise GetTaskError(

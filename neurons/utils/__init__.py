@@ -24,7 +24,6 @@ from neurons.constants import (
     N_NEURONS,
 )
 from neurons.utils.common import is_validator
-from neurons.utils.gcloud import retrieve_public_file
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,
@@ -131,101 +130,13 @@ def background_loop(self, is_validator: bool):
     # Update the whitelists and blacklists
     if self.background_steps % 5 == 0:
         try:
-            # Create client if needed
-            if not self.storage_client:
-                self.storage_client = storage.Client.create_anonymous_client()
-                logger.info("Created anonymous storage client.")
-
-            # Update the blacklists
-            blacklist_for_neuron = retrieve_public_file(
-                self.storage_client, blacklist_type
-            )
-            if blacklist_for_neuron:
-                self.hotkey_blacklist = set(
-                    [
-                        k
-                        for k, v in blacklist_for_neuron.items()
-                        if v["type"] == "hotkey"
-                    ]
-                )
-                self.coldkey_blacklist = set(
-                    [
-                        k
-                        for k, v in blacklist_for_neuron.items()
-                        if v["type"] == "coldkey"
-                    ]
-                )
-                logger.info("Retrieved the latest blacklists.")
-
-            # Update the whitelists
-            whitelist_for_neuron = retrieve_public_file(
-                self.storage_client, whitelist_type
-            )
-            if whitelist_for_neuron:
-                self.hotkey_whitelist = set(
-                    [
-                        k
-                        for k, v in whitelist_for_neuron.items()
-                        if v["type"] == "hotkey"
-                    ]
-                )
-                self.coldkey_whitelist = set(
-                    [
-                        k
-                        for k, v in whitelist_for_neuron.items()
-                        if v["type"] == "coldkey"
-                    ]
-                )
-                logger.info("Retrieved the latest whitelists.")
-
-            # Update the warning list
-            warninglist_for_neuron = retrieve_public_file(
-                self.storage_client, warninglist_type
-            )
-            if warninglist_for_neuron:
-                self.hotkey_warninglist = {
-                    k: [v["reason"], v["resolve_by"]]
-                    for k, v in warninglist_for_neuron.items()
-                    if v["type"] == "hotkey"
-                }
-                self.coldkey_warninglist = {
-                    k: [v["reason"], v["resolve_by"]]
-                    for k, v in warninglist_for_neuron.items()
-                    if v["type"] == "coldkey"
-                }
-                logger.info("Retrieved the latest warninglists.")
-                if (
-                    self.wallet.hotkey.ss58_address
-                    in self.hotkey_warninglist.keys()
-                ):
-                    hotkey_address: str = self.hotkey_warninglist[
-                        self.wallet.hotkey.ss58_address
-                    ][0]
-                    hotkey_warning: str = self.hotkey_warninglist[
-                        self.wallet.hotkey.ss58_address
-                    ][1]
-
-                    logger.info(
-                        f"This hotkey is on the warning list: {hotkey_address}"
-                        + f" | Date for rectification: {hotkey_warning}",
-                    )
-
-                coldkey = get_coldkey_for_hotkey(
-                    self, self.wallet.hotkey.ss58_address
-                )
-                if coldkey in self.coldkey_warninglist.keys():
-                    coldkey_address: str = self.coldkey_warninglist[coldkey][0]
-                    coldkey_warning: str = self.coldkey_warninglist[coldkey][1]
-                    logger.info(
-                        f"This coldkey is on the warning list: {coldkey_address}"
-                        + f" | Date for rectification: {coldkey_warning}",
-                    )
-
             # Validator only
             if is_validator:
                 # Update weights
-                validator_weights = retrieve_public_file(
-                    self.storage_client, IA_VALIDATOR_WEIGHT_FILES
+                from neurons.utils.gcloud import retrieve_public_file
+
+                validator_weights = asyncio.run(
+                    retrieve_public_file(IA_VALIDATOR_WEIGHT_FILES)
                 )
 
                 if "human_reward_model" in validator_weights:
