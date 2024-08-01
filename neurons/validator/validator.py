@@ -282,10 +282,6 @@ class StableValidator:
         self.hotkey_whitelist = set()
         self.coldkey_whitelist = set()
 
-        # Init IsAlive counter
-        self.isalive_threshold = 8
-        self.isalive_dict = {i: 0 for i in range(self.metagraph.n.item())}
-
         # Init stats
         self.stats = get_defaults(self)
 
@@ -394,44 +390,6 @@ class StableValidator:
 
             setattr(self, attr_name, new_thread)
             self.start_thread(new_thread, is_startup)
-
-    async def check_uid(self, uid, response_times):
-        try:
-            t1 = time.perf_counter()
-            metagraph: bt.metagraph = get_metagraph()
-            response = await self.dendrite.forward(
-                synapse=IsAlive(),
-                axons=metagraph.axons[uid],
-                timeout=get_config().alchemy.async_timeout,
-            )
-            if response.is_success:
-                response_times.append(time.perf_counter() - t1)
-                self.isalive_dict[uid] = 0
-                return True
-            else:
-                try:
-                    self.isalive_dict[uid] += 1
-                    key = self.metagraph.axons[uid].hotkey
-                    self.miner_query_history_fail_count[key] += 1
-                    # If miner doesn't respond for 3 iterations rest it's count to
-                    # the average to avoid spamming
-                    if self.miner_query_history_fail_count[key] >= 3:
-                        self.miner_query_history_duration[
-                            key
-                        ] = time.perf_counter()
-                        self.miner_query_history_count[key] = int(
-                            np.array(
-                                list(self.miner_query_history_count.values())
-                            ).mean()
-                        )
-                except Exception:
-                    pass
-                return False
-        except Exception as e:
-            logger.error(
-                f"Error checking UID {uid}: {e}\n{traceback.format_exc()}"
-            )
-            return False
 
     async def reload_settings(self) -> None:
         # Update settings from google cloud
@@ -582,11 +540,6 @@ class StableValidator:
             min_len = min(len(self.hotkeys), len(self.scores))
             new_moving_average[:min_len] = self.scores[:min_len]
             self.scores = new_moving_average
-
-            # Start following this UID
-            for uid in self.metagraph.n.item():
-                if uid not in self.isalive_dict:
-                    self.isalive_dict[uid] = 0
 
         # Update the hotkeys.
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
@@ -806,7 +759,7 @@ class StableValidator:
 
             return True
         except Exception as e:
-            logger.error(f"Pre-step failed: {str(e)}")
+            logger.error(traceback.format_exc())
             await asyncio.sleep(10)
             return False
 
