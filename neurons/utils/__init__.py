@@ -24,7 +24,6 @@ from neurons.constants import (
     N_NEURONS,
 )
 from neurons.utils.common import is_validator
-from neurons.utils.gcloud import retrieve_public_file
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,
@@ -134,6 +133,8 @@ def background_loop(self, is_validator: bool):
             # Validator only
             if is_validator:
                 # Update weights
+                from neurons.utils.gcloud import retrieve_public_file
+
                 validator_weights = retrieve_public_file(
                     IA_VALIDATOR_WEIGHT_FILES
                 )

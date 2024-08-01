@@ -18,8 +18,7 @@ from neurons.validator.config import (
     get_metagraph,
     get_subtensor,
     get_wallet,
-    get_hotkey_blacklist,
-    get_coldkey_blacklist,
+    get_blacklist,
 )
 
 isalive_threshold = 8
@@ -131,9 +130,7 @@ async def filter_available_uids(exclude: List[int] = None) -> List[int]:
     exclude = exclude or []
     metagraph = get_metagraph()
 
-    hotkey_blacklist, coldkey_blacklist = await asyncio.gather(
-        get_hotkey_blacklist(), get_coldkey_blacklist()
-    )
+    hotkey_blacklist, coldkey_blacklist = await get_blacklist()
 
     return [
         uid
