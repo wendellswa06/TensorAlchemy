@@ -32,6 +32,8 @@ from neurons.validator.config import (
     get_device,
     get_metagraph,
     get_backend_client,
+    get_hotkey_blacklist,
+    get_coldkey_blacklist,
 )
 from neurons.validator.scoring.types import (
     ScoringResult,
@@ -62,15 +64,8 @@ def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
 async def update_moving_averages(
     previous_ma_scores: torch.FloatTensor,
     scoring_results: ScoringResults,
-    hotkey_blacklist: Optional[List[str]] = None,
-    coldkey_blacklist: Optional[List[str]] = None,
     alpha: Optional[float] = MOVING_AVERAGE_ALPHA,
 ) -> torch.FloatTensor:
-    if not hotkey_blacklist:
-        hotkey_blacklist = []
-    if not coldkey_blacklist:
-        coldkey_blacklist = []
-
     metagraph: bt.metagraph = get_metagraph()
 
     rewards = torch.nan_to_num(
@@ -133,6 +128,10 @@ async def update_moving_averages(
         logger.error(f"failed to post moving averages: {e}")
 
     try:
+        hotkey_blacklist, coldkey_blacklist = await asyncio.gather(
+            get_hotkey_blacklist(), get_coldkey_blacklist()
+        )
+
         for i, (hotkey, coldkey) in enumerate(
             zip(metagraph.hotkeys, metagraph.coldkeys)
         ):
@@ -483,8 +482,6 @@ async def run_step(
     validator.moving_average_scores = await update_moving_averages(
         validator.moving_average_scores,
         scoring_results,
-        hotkey_blacklist=validator.hotkey_blacklist,
-        coldkey_blacklist=validator.coldkey_blacklist,
     )
 
     # Create event for logging

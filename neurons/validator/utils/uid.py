@@ -18,6 +18,8 @@ from neurons.validator.config import (
     get_metagraph,
     get_subtensor,
     get_wallet,
+    get_hotkey_blacklist,
+    get_coldkey_blacklist,
 )
 
 isalive_threshold = 8
@@ -116,7 +118,7 @@ def is_uid_available(uid: int, vpermit_tao_limit: int) -> bool:
     return True
 
 
-def filter_available_uids(exclude: List[int] = None) -> List[int]:
+async def filter_available_uids(exclude: List[int] = None) -> List[int]:
     """
     Filter available UIDs based on availability and exclusion list.
 
@@ -129,12 +131,16 @@ def filter_available_uids(exclude: List[int] = None) -> List[int]:
     exclude = exclude or []
     metagraph = get_metagraph()
 
+    hotkey_blacklist, coldkey_blacklist = await asyncio.gather(
+        get_hotkey_blacklist(), get_coldkey_blacklist()
+    )
+
     return [
         uid
         for uid in range(metagraph.n.item())
         if is_uid_available(uid, VPERMIT_TAO)
-        and metagraph.axons[uid].hotkey not in validator.hotkey_blacklist
-        and metagraph.axons[uid].coldkey not in validator.coldkey_blacklist
+        and metagraph.axons[uid].hotkey not in hotkey_blacklist
+        and metagraph.axons[uid].coldkey not in coldkey_blacklist
         and uid not in exclude
     ]
 
@@ -183,7 +189,7 @@ async def get_all_active_uids() -> List[int]:
     logger.info("Fetching all active UIDs")
     update_isalive_dict()
 
-    available_uids = filter_available_uids()
+    available_uids = await filter_available_uids()
 
     # Shuffle to avoid always checking the same UIDs first
     random.shuffle(available_uids)
