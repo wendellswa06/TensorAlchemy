@@ -6,9 +6,6 @@ from enum import Enum
 from contextvars import ContextVar
 import uuid
 
-# Will be set by conftest.py
-IS_TEST: bool = False
-
 
 class AlchemyHost(str, Enum):
     """Enum representing different Alchemy hosting environments."""

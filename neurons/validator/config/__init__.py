@@ -2,7 +2,7 @@
 Main configuration module for the Alchemy project.
 This module initializes and manages global configuration objects and utilities.
 """
-from .constants import IS_TEST, AlchemyHost, validator_run_id
+from .constants import AlchemyHost, validator_run_id
 from .device import get_default_device, get_device
 from .parser import (
     add_args,
@@ -22,7 +22,6 @@ from .clients import (
 from .lists import get_blacklist, get_whitelist, get_warninglist
 
 __all__ = [
-    "IS_TEST",
     "AlchemyHost",
     "get_default_device",
     "get_device",
