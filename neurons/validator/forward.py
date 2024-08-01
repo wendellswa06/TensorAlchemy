@@ -32,8 +32,7 @@ from neurons.validator.config import (
     get_device,
     get_metagraph,
     get_backend_client,
-    get_hotkey_blacklist,
-    get_coldkey_blacklist,
+    get_blacklist,
 )
 from neurons.validator.scoring.types import (
     ScoringResult,
@@ -128,9 +127,7 @@ async def update_moving_averages(
         logger.error(f"failed to post moving averages: {e}")
 
     try:
-        hotkey_blacklist, coldkey_blacklist = await asyncio.gather(
-            get_hotkey_blacklist(), get_coldkey_blacklist()
-        )
+        hotkey_blacklist, coldkey_blacklist = await get_blacklist()
 
         for i, (hotkey, coldkey) in enumerate(
             zip(metagraph.hotkeys, metagraph.coldkeys)
