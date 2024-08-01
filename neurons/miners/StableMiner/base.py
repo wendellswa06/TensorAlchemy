@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import multiprocessing
 import sys
 import time
 import traceback
@@ -10,11 +11,13 @@ import torch
 import torchvision.transforms as transforms
 from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
+
+from neurons.common_schema import NeuronAttributes
 from neurons.constants import VPERMIT_TAO
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 from neurons.miners.config import get_bt_miner_config
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
-from neurons.utils import BackgroundTimer, background_loop
+from neurons.utils import BackgroundTimer, miner_background_loop
 from neurons.utils.defaults import Stats, get_defaults
 from neurons.utils.image import (
     image_to_base64,
@@ -26,16 +29,21 @@ from neurons.miners.StableMiner.utils import (
     get_caller_stake,
     get_coldkey_for_hotkey,
 )
-from neurons.miners.StableMiner.utils.log import do_logs
 
 import bittensor as bt
 
-from neurons.utils.log import configure_logging
 
 
 class BaseMiner(ABC):
     def __init__(self) -> None:
-        self.storage_client: Any = None
+        self.background_loop_command_queue = multiprocessing.Queue()
+        self.neuron_attributes = NeuronAttributes(
+            background_steps=1,
+            storage_client=None,
+            total_number_of_neurons=0,
+            wallet_hotkey_ss58_address=None,
+            device=None,
+        )
         self.bt_config = get_bt_miner_config()
 
         if self.bt_config.logging.debug:
@@ -53,6 +61,11 @@ class BaseMiner(ABC):
 
         self.initialize_components()
         self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
+
+    def metagraph_sync(self):
+        self.metagraph.sync(subtensor=self.subtensor)
+        self.neuron_attributes.total_number_of_neurons = self.metagraph.n.item()
+        self.neuron_attributes.hotkeys = self.metagraph.hotkeys
 
     def initialize_components(self) -> None:
         self.initialize_args()
@@ -103,6 +116,9 @@ class BaseMiner(ABC):
 
     def initialize_wallet(self) -> None:
         self.wallet: bt.wallet = bt.wallet(config=self.bt_config)
+        self.neuron_attributes.wallet_hotkey_ss58_address = (
+            self.wallet.hotkey.ss58_address
+        )
 
     def initialize_defaults(self) -> None:
         self.stats: Stats = get_defaults(self)
@@ -114,11 +130,15 @@ class BaseMiner(ABC):
 
     def start_background_loop(self) -> None:
         # Start the generic background loop
-        self.background_steps: int = 1
+        manager = multiprocessing.Manager()
+        shared_data = manager.dict()
+        shared_data["neuron_attributes"] = self.neuron_attributes
+        shared_data["command_queue"] = self.background_loop_command_queue
+        self.neuron_attributes.background_steps = 1
         self.background_timer: BackgroundTimer = BackgroundTimer(
             300,
-            background_loop,
-            [self, False],
+            miner_background_loop,
+            {"shared_data": shared_data},
         )
         self.background_timer.daemon = True
         self.background_timer.start()
@@ -203,7 +223,7 @@ class BaseMiner(ABC):
             "Sleeping for 120 seconds..."
         )
         time.sleep(120)
-        self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph_sync()
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> List[bool]:
         clip_input = self.processor(
@@ -638,7 +658,7 @@ class BaseMiner(ABC):
 
                     # Ensure the metagraph is synced
                     # before the next registration check
-                    self.metagraph.sync(subtensor=self.subtensor)
+                    self.metagraph_sync()
                     continue
 
                 # Output current statistics and set weights
@@ -691,19 +711,37 @@ class BaseMiner(ABC):
                             )
                     except Exception as e:
                         logger.error(f"Error processing top requestors: {e}")
-
+                self.process_background_command()
                 step += 1
                 time.sleep(60)
 
             # If someone intentionally stops the miner,
             # it'll safely terminate operations.
             except KeyboardInterrupt:
-                self.axon.stop()
                 logger.success("Miner killed by keyboard interrupt.")
-                sys.exit(0)
+                self.die()
 
             # In case of unforeseen errors,
             # the miner will log the error and continue operations.
             except Exception:
                 logger.error(f"Unexpected error: {traceback.format_exc()}")
                 continue
+
+
+    def die(self) -> None:
+        """
+        Terminate the current process.
+        """
+        logger.info("Terminating the process...")
+        self.axon.stop()
+        sys.exit(0)
+
+    def process_background_command(self):
+        if self.background_loop_command_queue.empty():
+            return
+        command, data = self.background_loop_command_queue.get()
+        logger.info(
+            f"Main process: Received command: {command} with data: {data}"
+        )
+        if command == "die":
+            self.die()

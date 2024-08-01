@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import multiprocessing
 import os
 import sys
 import time
@@ -17,6 +18,7 @@ import torch
 import numpy as np
 from loguru import logger
 
+from neurons.common_schema import NeuronAttributes
 from neurons.constants import (
     DEVELOP_URL,
     TESTNET_URL,
@@ -37,8 +39,7 @@ from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
     BackgroundTimer,
-    MultiprocessBackgroundTimer,
-    background_loop,
+    MultiprocessBackgroundTimer, validator_background_loop,
 )
 from neurons.utils.log import configure_logging
 from neurons.validator.schemas import Batch
@@ -129,6 +130,9 @@ def upload_images_loop(batches_upload_queue: Queue) -> None:
 
 
 class StableValidator:
+    def metagraph_sync(self):
+        self.metagraph_sync()
+        self.neuron_attributes.total_number_of_neurons = self.metagraph.n.item()
     def loop_until_registered(self):
         index = None
         while True:
@@ -150,9 +154,17 @@ class StableValidator:
                 + "Sleeping for 120 seconds...",
             )
             time.sleep(120)
-            self.metagraph.sync(subtensor=self.subtensor)
+            self.metagraph_sync()
 
     def __init__(self):
+        self.background_loop_command_queue = multiprocessing.Queue()
+        self.neuron_attributes = NeuronAttributes(
+            background_steps=1,
+            total_number_of_neurons=0,
+            wallet_hotkey_ss58_address=None,
+            hotkeys=None,
+            device=None,
+        )
         # Init config
         self.config = get_config()
 
@@ -177,7 +189,7 @@ class StableValidator:
         log_dependencies()
 
         # Init device.
-        self.device = get_device(torch.device(self.config.alchemy.device))
+        self.neuron_attributes.device = get_device(torch.device(self.config.alchemy.device))
 
         # Init external API services
         self.openai_service = get_openai_service()
@@ -195,7 +207,7 @@ class StableValidator:
                 "bittensor", {"network": str(self.subtensor.network)}
             )
             sentry_sdk.set_context(
-                "cuda_device", {"name": get_device_name(self.device)}
+                "cuda_device", {"name": get_device_name(self.neuron_attributes.device)}
             )
         except Exception:
             logger.error("Failed to set sentry context")
@@ -203,6 +215,9 @@ class StableValidator:
         # Init wallet.
         self.wallet = get_wallet(config=self.config)
         self.wallet.create_if_non_existent()
+        self.neuron_attributes.wallet_hotkey_ss58_address = (
+            self.wallet.hotkey.ss58_address
+        )
 
         # Dendrite pool for querying the network during training.
         self.dendrite = bt.dendrite(wallet=self.wallet)
@@ -212,8 +227,8 @@ class StableValidator:
         self.metagraph = get_metagraph(sync=False)
 
         # Sync metagraph with subtensor.
-        self.metagraph.sync(subtensor=self.subtensor)
-        self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
+        self.metagraph_sync()
+        self.neuron_attributes.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
         # Keep track of latest active miners
         self.active_uids: List[int] = []
@@ -242,7 +257,7 @@ class StableValidator:
         # Init Weights.
         self.moving_average_scores = torch.zeros(
             (self.metagraph.n),
-        ).to(self.device)
+        ).to(self.neuron_attributes.device)
 
         # Each validator gets a unique identity (UID)
         # in the network for differentiation.
@@ -258,7 +273,7 @@ class StableValidator:
         # Init weights
         self.weights = torch.ones_like(
             self.metagraph.uids, dtype=torch.float32
-        ).to(self.device)
+        ).to(self.neuron_attributes.device)
 
         # Init prev_block and step
         self.prev_block = ttl_get_block()
@@ -283,7 +298,6 @@ class StableValidator:
         self.validator_index = self.get_validator_index()
 
         # Start the generic background loop
-        self.storage_client = None
         self.background_steps = 1
 
         # Start the batch streaming background loop
@@ -293,7 +307,7 @@ class StableValidator:
 
         self.model_type = ModelType.CUSTOM
 
-        self.background_loop: BackgroundTimer = None
+        self.validator_background_loop: MultiprocessBackgroundTimer = None
         self.set_weights_process: MultiprocessBackgroundTimer = None
         self.upload_images_process: MultiprocessBackgroundTimer = None
 
@@ -312,20 +326,24 @@ class StableValidator:
 
     def stop_threads(self) -> None:
         for thread in [
-            "background_loop",
+            "validator_background_loop",
             "upload_images_process",
             "set_weights_process",
         ]:
             getattr(self, thread).cancel()
 
     def start_threads(self, is_startup: bool = True) -> None:
+        manager = multiprocessing.Manager()
+        shared_data = manager.dict()
+        shared_data["neuron_attributes"] = self.neuron_attributes
+        shared_data["command_queue"] = self.background_loop_command_queue
         thread_configs: List[Tuple[str, object, float, callable, list]] = [
             (
-                "background_loop",
-                BackgroundTimer,
+                "validator_background_loop",
+                MultiprocessBackgroundTimer,
                 60,
-                background_loop,
-                [self, True],
+                validator_background_loop,
+                {"shared_data": shared_data},
             ),
             (
                 "upload_images_process",
@@ -355,9 +373,6 @@ class StableValidator:
                 continue
 
             new_thread = thread_class(interval, target_func, args)
-
-            if attr_name == "background_loop":
-                new_thread.daemon = True
 
             setattr(self, attr_name, new_thread)
             self.start_thread(new_thread, is_startup)
@@ -447,7 +462,7 @@ class StableValidator:
             self.set_weights_queue.put_nowait(
                 SetWeightsTask(
                     epoch=ttl_get_block(),
-                    hotkeys=copy.deepcopy(self.hotkeys),
+                    hotkeys=copy.deepcopy(self.neuron_attributes.hotkeys),
                     weights=tensor_to_list(self.moving_average_scores),
                 )
             )
@@ -486,7 +501,7 @@ class StableValidator:
         previous_metagraph = copy.deepcopy(self.metagraph)
 
         # Sync the metagraph.
-        self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph_sync()
 
         # Check if the metagraph axon info has changed.
         if previous_metagraph.axons == self.metagraph.axons:
@@ -498,21 +513,21 @@ class StableValidator:
         )
 
         # Zero out all hotkeys that have been replaced.
-        for uid, hotkey in enumerate(self.hotkeys):
+        for uid, hotkey in enumerate(self.neuron_attributes.hotkeys):
             if hotkey != self.metagraph.hotkeys[uid]:
                 self.scores[uid] = 0  # hotkey has been replaced
 
         # Check to see if the metagraph has changed size.
         # If so, we need to add new hotkeys and moving averages.
-        if len(self.hotkeys) < len(self.metagraph.hotkeys):
+        if len(self.neuron_attributes.hotkeys) < len(self.metagraph.hotkeys):
             # Update the size of the moving average scores.
-            new_moving_average = torch.zeros((self.metagraph.n)).to(self.device)
-            min_len = min(len(self.hotkeys), len(self.scores))
+            new_moving_average = torch.zeros((self.metagraph.n)).to(self.neuron_attributes.device)
+            min_len = min(len(self.neuron_attributes.hotkeys), len(self.scores))
             new_moving_average[:min_len] = self.scores[:min_len]
             self.scores = new_moving_average
 
         # Update the hotkeys.
-        self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
+        self.neuron_attributes.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
     def check_registered(self):
         # --- Check for registration.
@@ -629,12 +644,12 @@ class StableValidator:
                 )
                 self.moving_average_scores[
                     : len(neuron_weights)
-                ] = neuron_weights.to(self.device)
+                ] = neuron_weights.to(self.neuron_attributes.device)
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict
             elif not any([has_nans, has_infs]):
-                self.moving_average_scores = neuron_weights.to(self.device)
+                self.moving_average_scores = neuron_weights.to(self.neuron_attributes.device)
                 logger.info(f"MA scores: {self.moving_average_scores}")
                 # self.update_hotkeys()
             else:
@@ -697,15 +712,14 @@ class StableValidator:
                     if await self.mid_step():
                         await self.post_step()
 
+                self.process_background_command()
                 self.step += 1
 
             except KeyboardInterrupt:
                 logger.success(
                     "Keyboard interrupt detected. Exiting validator."
                 )
-                self.axon.stop()
-                self.stop_threads()
-                sys.exit(0)
+                self.die()
             except Exception as e:
                 logger.error(traceback.format_exc())
                 sentry_sdk.capture_exception(e)
@@ -740,7 +754,7 @@ class StableValidator:
         try:
             selected_uids = torch.tensor(
                 self.active_uids[:N_NEURONS], dtype=torch.long
-            ).to(self.device)
+            ).to(self.neuron_attributes.device)
             logger.info(f"Selected miners: {selected_uids.tolist()}")
             axons = [self.metagraph.axons[uid] for uid in selected_uids]
 
@@ -765,3 +779,38 @@ class StableValidator:
             self.start_threads(is_startup=False)
         except Exception as e:
             logger.error(f"Post-step failed: {str(e)}")
+
+    def process_background_command(self):
+        if self.background_loop_command_queue.empty():
+            return
+        command, data = self.background_loop_command_queue.get()
+        logger.info(
+            f"Main process: Received command: {command} with data: {data}"
+        )
+        if command == "update_validator_weights":
+            self.update_validator_weights(data)
+        if command == "die":
+            self.die()
+
+    def update_validator_weights(self, validator_weights) -> None:
+        if validator_weights.get("human_voting_weight"):
+            self.human_voting_weight = validator_weights["human_voting_weight"]
+
+        if validator_weights.get("reward_weights"):
+            self.reward_weights = validator_weights.get("reward_weights")
+
+            logger.info(
+                f"Retrieved the latest validator weights: {self.reward_weights}"
+            )
+
+    def die(self) -> None:
+        """
+        Terminate the current process.
+        """
+        logger.info("Terminating the process...")
+        self.axon.stop()
+        self.stop_threads()
+
+        self.upload_images_process.cancel()
+        self.upload_images_process.join()
+        sys.exit(0)
