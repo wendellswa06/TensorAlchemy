@@ -715,7 +715,10 @@ class StableValidator:
     async def pre_step(self):
         try:
             self.active_uids = await get_all_active_uids()
-            logger.info(f"Found {len(self.active_uids)} active miners")
+            logger.info(
+                f"Found {len(self.active_uids)} active miners: "
+                + self.active_uids
+            )
 
             if not self.active_uids:
                 logger.info("No active miners found, retrying in 20 seconds...")
