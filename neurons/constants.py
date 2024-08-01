@@ -1,6 +1,12 @@
 import os
+import sys
 
-IS_TEST: bool = False
+
+def is_test() -> bool:
+    # Check if pytest is in the command line arguments
+    return any("pytest" in arg for arg in sys.argv)
+
+
 IS_CI_ENV: bool = os.environ.get("CI") == "true"
 
 IA_BUCKET_NAME = "image-alchemy"

@@ -69,7 +69,7 @@ def configure_loki_logger():
 
     """Configure sending logs to loki server"""
 
-    if constants.IS_TEST:
+    if constants.is_test():
         # Don't use loki for test runs
         return
 
