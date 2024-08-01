@@ -135,8 +135,8 @@ def background_loop(self, is_validator: bool):
                 # Update weights
                 from neurons.utils.gcloud import retrieve_public_file
 
-                validator_weights = retrieve_public_file(
-                    IA_VALIDATOR_WEIGHT_FILES
+                validator_weights = asyncio.run(
+                    retrieve_public_file(IA_VALIDATOR_WEIGHT_FILES)
                 )
 
                 if "human_reward_model" in validator_weights:
