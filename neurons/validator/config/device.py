@@ -5,7 +5,7 @@ Device management utilities for the Alchemy project.
 from typing import Optional
 import torch
 from loguru import logger
-from .constants import IS_TEST
+from neurons.constants import is_test
 
 
 def get_default_device() -> torch.device:
@@ -15,7 +15,7 @@ def get_default_device() -> torch.device:
     Returns:
         torch.device: The default device (CPU for test environment, CUDA otherwise).
     """
-    if IS_TEST:
+    if is_test():
         logger.info("Using CPU for test environment (CI)")
         return torch.device("cpu:0")
     return torch.device("cuda:0")
