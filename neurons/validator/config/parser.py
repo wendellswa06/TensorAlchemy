@@ -81,14 +81,12 @@ def check_config(to_check: bt.config) -> None:
     """
     bt.logging.check_config(to_check)
 
-    if to_check.mock:
-        to_check.neuron.mock_reward_models = True
-        to_check.neuron.mock_gating_model = True
-        to_check.neuron.mock_dataset = True
-        to_check.wallet._mock = True
-
     full_path = os.path.expanduser(
-        f"{to_check.logging.logging_dir}/{to_check.wallet.name}/{to_check.wallet.hotkey}/netuid{to_check.netuid}/{to_check.alchemy.name}"
+        to_check.logging.logging_dir
+        + f"/{to_check.wallet.name}"
+        + f"/{to_check.wallet.hotkey}"
+        + f"/netuid{to_check.netuid}"
+        + f"/{to_check.alchemy.name}"
     )
     to_check.alchemy.full_path = os.path.expanduser(full_path)
     os.makedirs(to_check.alchemy.full_path, exist_ok=True)
