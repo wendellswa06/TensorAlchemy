@@ -18,9 +18,10 @@ import numpy as np
 from loguru import logger
 
 from neurons.constants import (
-    DEV_URL,
+    DEVELOP_URL,
+    TESTNET_URL,
+    MAINNET_URL,
     N_NEURONS,
-    PROD_URL,
     VALIDATOR_SENTRY_DSN,
     IA_VALIDATOR_SETTINGS_FILE,
 )
@@ -197,12 +198,6 @@ class StableValidator:
             )
         except Exception:
             logger.error("Failed to set sentry context")
-
-        self.api_url = DEV_URL if self.subtensor.network == "test" else PROD_URL
-        if self.config.alchemy.force_prod:
-            self.api_url = PROD_URL
-
-        logger.info(f"Using server {self.api_url}")
 
         # Init wallet.
         self.wallet = get_wallet(config=self.config)

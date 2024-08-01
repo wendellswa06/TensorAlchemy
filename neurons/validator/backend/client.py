@@ -15,7 +15,7 @@ from tenacity import (
 )
 
 
-from neurons.constants import DEV_URL, PROD_URL
+from neurons.constants import DEVELOP_URL, TESTNET_URL, MAINNET_URL
 from neurons.protocol import denormalize_image_model, ImageGenerationTaskModel
 from neurons.validator.backend.exceptions import (
     GetVotesError,
@@ -24,7 +24,7 @@ from neurons.validator.backend.exceptions import (
     PostWeightsError,
     UpdateTaskError,
 )
-from neurons.validator.config import get_config, add_args
+from neurons.validator.config import get_config
 from neurons.validator.backend.models import TaskState
 from neurons.validator.schemas import Batch
 
@@ -38,12 +38,13 @@ class TensorAlchemyBackendClient:
         else:
             self.hotkey = bt.wallet(config=self.config).hotkey
 
-        self.api_url = DEV_URL
-        if self.config.subtensor.network != "test":
-            self.api_url = PROD_URL
+        self.api_url = MAINNET_URL
 
-        if self.config.alchemy.force_prod:
-            self.api_url = PROD_URL
+        if self.config.alchemy.host == "develop":
+            self.api_url = DEVELOP_URL
+
+        elif self.config.alchemy.host == "testnet":
+            self.api_url = TESTNET_URL
 
         logger.info(f"Using backend server {self.api_url}")
 
