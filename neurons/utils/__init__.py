@@ -97,7 +97,7 @@ def send_run_command(command_queue, command, data):
 
 def kill_main_process_if_deregistered(
     command_queue,
-    neurom_attributes:NeuronAttributes,
+    neurom_attributes: NeuronAttributes,
 ):
     # Terminate the miner / validator after deregistration
     if (
@@ -232,13 +232,16 @@ def validator_background_loop(shared_data):
     kill_main_process_if_deregistered(command_queue, neuron_attributes)
     if neuron_attributes.background_steps % 5 == 0:
         try:
-            update_and_normalize_validator_weights(command_queue, neuron_attributes)
+            update_and_normalize_validator_weights(
+                command_queue, neuron_attributes
+            )
         except Exception as e:
             logger.error(
                 f"An error occurred trying to update settings from the cloud: {e}."
             )
 
     neuron_attributes.background_steps += 1
+
 
 def miner_background_loop(shared_data):
     """
@@ -250,6 +253,7 @@ def miner_background_loop(shared_data):
         command_queue,
         neuron_attributes,
     )
+
 
 def normalize_weights(weights):
     sum_weights = float(sum(weights))

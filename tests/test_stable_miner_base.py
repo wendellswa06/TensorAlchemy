@@ -17,8 +17,13 @@ class TestStableMinerAsBase:
     @patch("bittensor.wallet")
     @patch("bittensor.metagraph")
     @patch("bittensor.axon")
+    @patch(
+        "neurons.miners.StableMiner.base.BaseMiner.start_background_loop",
+        return_value=None,
+    )
     def stable_miner(
         self,
+        mock_start_background_loop,
         mock_axon,
         mock_metagraph,
         mock_wallet,

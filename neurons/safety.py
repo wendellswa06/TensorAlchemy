@@ -48,7 +48,10 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
             .numpy()
         )
         cos_dist = (
-            cosine_distance(image_embeds, self.concept_embeds).cpu().float().numpy()
+            cosine_distance(image_embeds, self.concept_embeds)
+            .cpu()
+            .float()
+            .numpy()
         )
         result = []
         batch_size = image_embeds.shape[0]
@@ -66,7 +69,9 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
             adjustment = 1.0
             for concept_idx in range(len(special_cos_dist[0])):
                 concept_cos = special_cos_dist[i][concept_idx]
-                concept_threshold = self.special_care_embeds_weights[concept_idx].item()
+                concept_threshold = self.special_care_embeds_weights[
+                    concept_idx
+                ].item()
                 result_img["special_scores"][concept_idx] = round(
                     concept_cos - (concept_threshold * adjustment), 3
                 )
@@ -76,16 +81,21 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
                     )
             for concept_idx in range(len(cos_dist[0])):
                 concept_cos = cos_dist[i][concept_idx]
-                concept_threshold = self.concept_embeds_weights[concept_idx].item()
+                concept_threshold = self.concept_embeds_weights[
+                    concept_idx
+                ].item()
                 result_img["concept_scores"][concept_idx] = round(
                     concept_cos - (concept_threshold * adjustment), 3
                 )
                 if result_img["concept_scores"][concept_idx] > 0:
                     result_img["bad_concepts"].append(concept_idx)
-                    result_img["bad_score"] += result_img["concept_scores"][concept_idx]
+                    result_img["bad_score"] += result_img["concept_scores"][
+                        concept_idx
+                    ]
             result.append(result_img)
         has_nsfw_concepts = [
-            len(res["bad_concepts"]) > 0 and res["bad_score"] > 0.01 for res in result
+            len(res["bad_concepts"]) > 0 and res["bad_score"] > 0.01
+            for res in result
         ]
         if any(has_nsfw_concepts):
             logger.warning(

@@ -39,7 +39,8 @@ from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
     BackgroundTimer,
-    MultiprocessBackgroundTimer, validator_background_loop,
+    MultiprocessBackgroundTimer,
+    validator_background_loop,
 )
 from neurons.utils.log import configure_logging
 from neurons.validator.schemas import Batch
@@ -133,6 +134,7 @@ class StableValidator:
     def metagraph_sync(self):
         self.metagraph_sync()
         self.neuron_attributes.total_number_of_neurons = self.metagraph.n.item()
+
     def loop_until_registered(self):
         index = None
         while True:
@@ -189,7 +191,9 @@ class StableValidator:
         log_dependencies()
 
         # Init device.
-        self.neuron_attributes.device = get_device(torch.device(self.config.alchemy.device))
+        self.neuron_attributes.device = get_device(
+            torch.device(self.config.alchemy.device)
+        )
 
         # Init external API services
         self.openai_service = get_openai_service()
@@ -207,7 +211,8 @@ class StableValidator:
                 "bittensor", {"network": str(self.subtensor.network)}
             )
             sentry_sdk.set_context(
-                "cuda_device", {"name": get_device_name(self.neuron_attributes.device)}
+                "cuda_device",
+                {"name": get_device_name(self.neuron_attributes.device)},
             )
         except Exception:
             logger.error("Failed to set sentry context")
@@ -521,7 +526,9 @@ class StableValidator:
         # If so, we need to add new hotkeys and moving averages.
         if len(self.neuron_attributes.hotkeys) < len(self.metagraph.hotkeys):
             # Update the size of the moving average scores.
-            new_moving_average = torch.zeros((self.metagraph.n)).to(self.neuron_attributes.device)
+            new_moving_average = torch.zeros((self.metagraph.n)).to(
+                self.neuron_attributes.device
+            )
             min_len = min(len(self.neuron_attributes.hotkeys), len(self.scores))
             new_moving_average[:min_len] = self.scores[:min_len]
             self.scores = new_moving_average
@@ -642,14 +649,16 @@ class StableValidator:
                     + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
-                self.moving_average_scores[
-                    : len(neuron_weights)
-                ] = neuron_weights.to(self.neuron_attributes.device)
+                self.moving_average_scores[: len(neuron_weights)] = (
+                    neuron_weights.to(self.neuron_attributes.device)
+                )
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict
             elif not any([has_nans, has_infs]):
-                self.moving_average_scores = neuron_weights.to(self.neuron_attributes.device)
+                self.moving_average_scores = neuron_weights.to(
+                    self.neuron_attributes.device
+                )
                 logger.info(f"MA scores: {self.moving_average_scores}")
                 # self.update_hotkeys()
             else:

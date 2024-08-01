@@ -33,10 +33,10 @@ from neurons.miners.StableMiner.utils import (
 import bittensor as bt
 
 
-
 class BaseMiner(ABC):
     def __init__(self) -> None:
-        self.background_loop_command_queue = multiprocessing.Queue()
+        self.manager = multiprocessing.Manager()
+        self.background_loop_command_queue = self.manager.Queue()
         self.neuron_attributes = NeuronAttributes(
             background_steps=1,
             storage_client=None,
@@ -726,7 +726,6 @@ class BaseMiner(ABC):
             except Exception:
                 logger.error(f"Unexpected error: {traceback.format_exc()}")
                 continue
-
 
     def die(self) -> None:
         """

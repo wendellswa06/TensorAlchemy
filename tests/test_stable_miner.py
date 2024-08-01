@@ -22,8 +22,11 @@ class MockConfig:
         logging_dir = "/tmp"
 
     class Wallet:
+        class Hotkey:
+            ss58_address = "5Fg3"
+
         name = "test_wallet"
-        hotkey = "test_hotkey"
+        hotkey = Hotkey()
 
     class Miner:
         device = "cuda:0"
@@ -84,6 +87,10 @@ class TestStableMiner(unittest.TestCase):
             "mock_get_bt_miner_config": patch(
                 "neurons.miners.StableMiner.base.get_bt_miner_config",
                 return_value=MockConfig(),
+            ),
+            "mock_start_background_loop": patch(
+                "neurons.miners.StableMiner.base.BaseMiner.start_background_loop",
+                return_value=None,
             ),
         }
         self.mocks = {
