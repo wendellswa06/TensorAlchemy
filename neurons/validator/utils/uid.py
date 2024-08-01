@@ -133,8 +133,8 @@ def filter_available_uids(exclude: List[int] = None) -> List[int]:
         uid
         for uid in range(metagraph.n.item())
         if is_uid_available(uid, VPERMIT_TAO)
-        and metagraph.axons[uid].hotkey not in metagraph.hotkey_blacklist
-        and metagraph.axons[uid].coldkey not in metagraph.coldkey_blacklist
+        and metagraph.axons[uid].hotkey not in validator.hotkey_blacklist
+        and metagraph.axons[uid].coldkey not in validator.coldkey_blacklist
         and uid not in exclude
     ]
 

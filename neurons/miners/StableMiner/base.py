@@ -41,6 +41,7 @@ class BaseMiner(ABC):
         if self.bt_config.logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")
+
         self.hotkey_blacklist: set = set()
         self.coldkey_blacklist: set = set()
         self.coldkey_whitelist: set = set(
@@ -49,6 +50,7 @@ class BaseMiner(ABC):
         self.hotkey_whitelist: set = set(
             ["5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"]
         )
+
         self.initialize_components()
         self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
 
