@@ -82,9 +82,9 @@ async def get_whitelist() -> Tuple[Set[str], Set[str]]:
     )
 
 
-async def get_warninglist() -> Tuple[
-    Dict[str, List[str]], Dict[str, List[str]]
-]:
+async def get_warninglist() -> (
+    Tuple[Dict[str, List[str]], Dict[str, List[str]]]
+):
     """
     Get the current warninglist.
 

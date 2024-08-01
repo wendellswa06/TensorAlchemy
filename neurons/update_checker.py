@@ -6,7 +6,9 @@ from loguru import logger
 
 def get_current_branch():
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
     )
     return result.stdout.strip()
 
@@ -46,7 +48,9 @@ def show_warning_message(local_commit, remote_commit):
         create_line(f"Remote hash: {remote_commit}"),
     ]
 
-    message = "\n".join([new_line, empty_line] + warning_lines + [empty_line, line])
+    message = "\n".join(
+        [new_line, empty_line] + warning_lines + [empty_line, line]
+    )
 
     logger.warning(message)
 
@@ -60,6 +64,8 @@ def check_for_updates(local_repo_path, repo_url):
     if local_commit and remote_commit and local_commit != remote_commit:
         show_warning_message(local_commit, remote_commit)
     elif local_commit == remote_commit:
-        logger.info("Your local repository is up-to-date with the GitHub repository.")
+        logger.info(
+            "Your local repository is up-to-date with the GitHub repository."
+        )
     else:
         logger.info("Unable to determine the update status.")
