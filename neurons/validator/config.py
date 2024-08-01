@@ -125,6 +125,7 @@ def add_args(parser):
 config: bt.config = None
 wallet: bt.wallet = None
 device: torch.device = None
+dendrite: bt.dendrite = None
 metagraph: bt.metagraph = None
 subtensor: bt.subtensor = None
 openai_client: AsyncOpenAI = None
@@ -219,6 +220,14 @@ def get_wallet(config: Optional[bt.config] = get_config()) -> bt.wallet:
         wallet = bt.wallet(config=config)
 
     return wallet
+
+
+def get_dendrite(wallet: Optional[bt.wallet] = get_wallet()) -> bt.dendrite:
+    global dendrite
+    if not dendrite:
+        dendrite = bt.dendrite(wallet=wallet)
+
+    return dendrite
 
 
 def get_subtensor(config: Optional[bt.config] = get_config()) -> bt.subtensor:
