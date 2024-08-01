@@ -394,7 +394,6 @@ class StableValidator:
         # Update settings from google cloud
         update_validator_settings(
             await retrieve_public_file(
-                self.storage_client,
                 IA_VALIDATOR_SETTINGS_FILE,
             )
         )
