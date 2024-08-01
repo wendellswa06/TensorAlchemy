@@ -36,6 +36,7 @@ async def check_uid(uid) -> Tuple[bool, float]:
         )
 
         if response.is_success:
+            print(response)
             isalive_dict[uid] = 0
             return True, time.perf_counter() - t1
 
