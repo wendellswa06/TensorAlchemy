@@ -163,7 +163,8 @@ class StableValidator:
             self.metagraph_sync()
 
     def __init__(self):
-        self.background_loop_command_queue = multiprocessing.Queue()
+        self.manager = multiprocessing.Manager()
+        self.background_loop_command_queue = self.manager.Queue()
         self.neuron_attributes = NeuronAttributes(
             background_steps=1,
             total_number_of_neurons=0,
