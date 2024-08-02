@@ -1,13 +1,15 @@
 import queue
+import asyncio
 import traceback
-import bittensor as bt
 from typing import List
-from multiprocessing import Queue
+from multiprocessing import Event, Queue
 
 import torch
+import bittensor as bt
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
+from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.validator.config import (
     get_config,
     get_wallet,
@@ -32,26 +34,33 @@ def tensor_to_list(tensor: torch.Tensor) -> List[float]:
     return tensor.detach().cpu().tolist()
 
 
-async def set_weights_loop(set_weights_queue: Queue) -> None:
+async def set_weights_loop(
+    should_quit: Event,
+    set_weights_queue: Queue,
+) -> None:
     try:
         weights_event: SetWeightsTask = set_weights_queue.get(block=False)
     except queue.Empty:
         return
 
-    block: int = ttl_get_block()
-    epoch: int = weights_event.epoch
+    logger.info("Gathered a weights setting task")
 
-    logger.info(f"Gathered a weights setting task for {block=} {epoch=}")
+    try:
+        block: int = ttl_get_block()
+        epoch: int = weights_event.epoch
 
-    epoch_length: int = get_config().alchemy.epoch_length
+        epoch_length: int = get_config().alchemy.epoch_length
 
-    if block > epoch + epoch_length:
-        logger.error("Failed to set weights before next epoch!")
-        return
+        if block > epoch + epoch_length:
+            logger.error("Failed to set weights before next epoch!")
+            return
 
-    await set_weights(
-        weights_event.hotkeys, torch.tensor(weights_event.weights)
-    )
+        await set_weights(
+            weights_event.hotkeys,
+            torch.tensor(weights_event.weights),
+        )
+    except BittensorBrokenPipe:
+        should_quit.set()
 
 
 async def set_weights(
@@ -124,7 +133,7 @@ async def set_weights(
     logger.info(f"Processed weight UIDs: {processed_weight_uids}")
 
     try:
-        subtensor.set_weights(
+        _success, message = subtensor.set_weights(
             wallet=get_wallet(),
             netuid=config.netuid,
             uids=processed_weight_uids,
@@ -132,6 +141,8 @@ async def set_weights(
             wait_for_finalization=True,
             version_key=get_validator_spec_version(),
         )
-        logger.info("Weights set successfully!")
+
+        logger.info(f"{message}")
+
     except Exception as e:
         logger.error(f"Failed to set weights: {e}")

@@ -14,6 +14,7 @@ from loguru import logger
 from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
+from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.utils.defaults import Stats
 from neurons.utils.log import image_to_str
 from neurons.utils.image import (
@@ -500,6 +501,11 @@ async def run_step(
             }
         )
         event.update(validator_info)
+
+    # Should stop & restart the validator
+    except BittensorBrokenPipe:
+        raise
+
     except Exception as err:
         logger.error(f"Error updating event dict: {err}")
 

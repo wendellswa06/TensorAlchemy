@@ -8,7 +8,7 @@ import uuid
 import queue
 from math import ceil
 from threading import Thread
-from multiprocessing import Manager, Queue, Process, set_start_method
+from multiprocessing import Event, Manager, Queue, Process, set_start_method
 from typing import List, Optional, Tuple, Union
 
 import bittensor as bt
@@ -31,6 +31,7 @@ from neurons.protocol import (
     denormalize_image_model,
     ImageGenerationTaskModel,
 )
+from neurons.utils.exceptions import BittensorBrokenPipe, broken_pipe_message
 from neurons.utils.common import log_dependencies
 from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
@@ -102,7 +103,10 @@ async def upload_image(
     await backend_client.post_batch(batch)
 
 
-def upload_images_loop(batches_upload_queue: Queue) -> None:
+def upload_images_loop(
+    _should_quit: Event,
+    batches_upload_queue: Queue,
+) -> None:
     # Send new batches to the Human Validation Bot
     try:
         backend_client: TensorAlchemyBackendClient = get_backend_client()
@@ -301,6 +305,7 @@ class StableValidator:
 
         # Start the batch streaming background loop
         manager = Manager()
+        self.should_quit: Event = manager.Event()
         self.set_weights_queue: Queue = manager.Queue(maxsize=128)
         self.batches_upload_queue: Queue = manager.Queue(maxsize=2048)
 
@@ -360,14 +365,14 @@ class StableValidator:
                 MultiprocessBackgroundTimer,
                 0.2,
                 upload_images_loop,
-                [self.batches_upload_queue],
+                [self.should_quit, self.batches_upload_queue],
             ),
             (
                 "set_weights_process",
                 MultiprocessBackgroundTimer,
                 0.2,
                 set_weights_loop,
-                [self.set_weights_queue],
+                [self.should_quit, self.set_weights_queue],
             ),
         ]
 
@@ -443,7 +448,8 @@ class StableValidator:
         # Load Previous Sates
         self.load_state()
         self.step = 0
-        while True:
+        exit_code: int = 1
+        while not self.should_quit.is_set():
             try:
                 logger.info(
                     f"Started new validator run ({validator_run_id.get()})."
@@ -482,6 +488,9 @@ class StableValidator:
 
                     continue
 
+                if self.should_quit.is_set():
+                    break
+
                 # Text to Image Run
                 await run_step(
                     validator=self,
@@ -491,6 +500,9 @@ class StableValidator:
                     model_type=self.model_type,
                     stats=self.stats,
                 )
+
+                if self.should_quit.is_set():
+                    break
 
                 try:
                     # Re-sync with the network. Updates the metagraph.
@@ -512,22 +524,44 @@ class StableValidator:
                 # End the current step and prepare for the next iteration.
                 self.step += 1
 
+            except BittensorBrokenPipe:
+                # Sometimes we want to restart the validator
+                # due to an unexpected error in Bittensor (broken pipe 😢)
+                self.should_quit.set()
+
             # If the user interrupts the program, gracefully exit.
             except KeyboardInterrupt:
                 logger.success(
                     "Keyboard interrupt detected. Exiting validator."
                 )
 
-                self.axon.stop()
-
-                self.upload_images_process.cancel()
-                self.upload_images_process.join()
-                sys.exit(0)
+                exit_code = 0
+                self.should_quit.set()
 
             # If we encounter an unexpected error, log it for debugging.
             except Exception as e:
                 logger.error(traceback.format_exc())
                 sentry_sdk.capture_exception(e)
+
+        self.axon.stop()
+
+        threads: List = [
+            self.background_timer,
+            self.set_weights_process,
+            self.upload_images_process,
+        ]
+
+        try:
+            for thread in threads:
+                if thread.is_alive():
+                    thread.cancel()
+        except Exception:
+            pass
+
+        if exit_code == 1:
+            broken_pipe_message()
+
+        sys.exit(exit_code)
 
     async def get_image_generation_task(
         self,
