@@ -1,24 +1,18 @@
 import sys
+import json
 import torch
-from loguru import logger
+import logging
+from multiprocessing import Queue
+from typing import Any
+from functools import partial
+from logging.handlers import QueueHandler, QueueListener
 
 import bittensor as bt
-from typing import Any
-
+import logging_loki
+from loguru import logger
 from PIL.Image import Image as ImageType
 
-import json
-import logging
-import sys
-from logging.handlers import QueueHandler, QueueListener
-from multiprocessing import Queue
-
-from loguru import logger
-
 from neurons import constants
-import bittensor as bt
-
-import logging_loki
 
 
 LOKI_VALIDATOR_APP_NAME = "tensoralchemy-validator"
@@ -96,7 +90,6 @@ def configure_loki_logger():
 
     class JSONFormatter(logging.Formatter):
         def format(self, record):
-
             try:
                 # Extract real message noisy msg line emitted by bittensor
                 # might exist better solution here
@@ -159,12 +152,29 @@ def configure_loki_logger():
     logger.add(loki_handler)
 
 
+def create_wrapper(log_func):
+    def wrapper(message, *args, prefix=None, suffix=None, **kwargs):
+        full_message = ""
+
+        if prefix:
+            full_message += f"{prefix} "
+
+        full_message += str(message)
+
+        if suffix:
+            full_message += f" {suffix}"
+
+        return log_func(full_message, *args, **kwargs)
+
+    return wrapper
+
+
 def patch_bt_logging():
-    bt.logging.info = logger.info
-    bt.logging.warning = logger.warning
-    bt.logging.error = logger.error
-    bt.logging.debug = logger.debug
-    bt.logging.trace = logger.trace
+    bt.logging.info = create_wrapper(logger.info)
+    bt.logging.warning = create_wrapper(logger.warning)
+    bt.logging.error = create_wrapper(logger.error)
+    bt.logging.debug = create_wrapper(logger.debug)
+    bt.logging.trace = create_wrapper(logger.trace)
 
 
 def configure_logging():

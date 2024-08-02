@@ -23,8 +23,8 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
     N_NEURONS,
 )
-from neurons.utils.common import is_validator
 from neurons.utils.gcloud import retrieve_public_file
+from neurons.utils.exceptions import BittensorBrokenPipe
 
 from neurons.validator.scoring.models.types import (
     RewardModelType,

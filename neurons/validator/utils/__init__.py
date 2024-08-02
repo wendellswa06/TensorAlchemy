@@ -14,6 +14,7 @@ import torch.nn as nn
 from loguru import logger
 
 
+from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.constants import (
     N_NEURONS_TO_QUERY,
     VPERMIT_TAO,
@@ -54,7 +55,12 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 # 12 seconds updating block.
 @ttl_cache(maxsize=1, ttl=12)
 def ttl_get_block() -> int:
-    return get_subtensor().get_current_block()
+    try:
+        return get_subtensor().get_current_block()
+    except Exception as e:
+        if "Broken pipe" in str(e):
+            logger.info("======= Exiting due to a broken pipe ========")
+            raise BittensorBrokenPipe from e
 
 
 def check_uid_availability(

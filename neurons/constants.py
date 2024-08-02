@@ -28,7 +28,7 @@ IA_VALIDATOR_SETTINGS_FILE = "validator_settings.json"
 IA_MINER_WARNINGLIST = "warninglist_for_miners.json"
 
 PROD_URL = "https://api.tensoralchemy.ai/api"
-DEV_URL = "https://api-dev.tensoralchemy.ai/api"
+DEV_URL = "https://api-develop.tensoralchemy.ai/api"
 
 
 VALIDATOR_SENTRY_DSN = (
