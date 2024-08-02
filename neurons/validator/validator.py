@@ -349,7 +349,7 @@ class StableValidator:
                 MultiprocessBackgroundTimer,
                 60,
                 validator_background_loop,
-                {"shared_data": shared_data},
+                [shared_data],
             ),
             (
                 "upload_images_process",
