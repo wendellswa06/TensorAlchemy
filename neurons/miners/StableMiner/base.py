@@ -138,7 +138,7 @@ class BaseMiner(ABC):
         self.background_timer: BackgroundTimer = BackgroundTimer(
             300,
             miner_background_loop,
-            {"shared_data": shared_data},
+            [shared_data],
         )
         self.background_timer.daemon = True
         self.background_timer.start()
