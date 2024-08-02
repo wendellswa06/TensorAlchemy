@@ -132,7 +132,7 @@ def upload_images_loop(batches_upload_queue: Queue) -> None:
 
 class StableValidator:
     def metagraph_sync(self):
-        self.metagraph_sync()
+        self.metagraph.sync(subtensor=self.subtensor)
         self.neuron_attributes.total_number_of_neurons = self.metagraph.n.item()
 
     def loop_until_registered(self):
