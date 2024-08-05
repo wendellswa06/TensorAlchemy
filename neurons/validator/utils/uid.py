@@ -140,9 +140,11 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     response_times = []
 
     for uid, (is_alive, response_time) in zip(uids, responses):
-        if is_alive:
-            alive_uids.append(uid)
-            response_times.append(response_time)
+        if not is_alive:
+            continue
+
+        alive_uids.append(uid)
+        response_times.append(response_time)
 
     return alive_uids, response_times
 
@@ -183,7 +185,8 @@ async def get_all_active_uids() -> List[int]:
 
 
 async def get_random_uids(
-    k: int, exclude: List[int] = None
+    k: int,
+    exclude: List[int] = None,
 ) -> torch.LongTensor:
     """
     Get random active UIDs.
@@ -195,12 +198,17 @@ async def get_random_uids(
     Returns:
         torch.LongTensor: Tensor of randomly selected active UIDs.
     """
-    start_time = time.perf_counter()
+    start_time: float = time.perf_counter()
 
     all_active_uids = await get_all_active_uids()
 
     if exclude:
-        all_active_uids = [uid for uid in all_active_uids if uid not in exclude]
+        all_active_uids = [
+            #
+            uid
+            for uid in all_active_uids
+            if uid not in exclude
+        ]
 
     selected_uids = (
         all_active_uids
@@ -208,9 +216,10 @@ async def get_random_uids(
         else random.sample(all_active_uids, k)
     )
 
-    end_time = time.perf_counter()
+    end_time: float = time.perf_counter()
     logger.info(
-        f"Time to find {len(selected_uids)} random UIDs: {end_time - start_time:.2f}s"
+        f"Time to find {len(selected_uids)}"
+        + f" random UIDs: {end_time - start_time:.2f}s"
     )
 
     return torch.tensor(selected_uids, dtype=torch.long)
