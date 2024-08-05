@@ -121,7 +121,7 @@ async def set_weights(
             # Use valid_weights instead of raw_weights
             weights=torch.tensor(valid_weights).cpu(),
         )
-    except Exception as e:
+    except Exception:
         logger.error(
             #
             "Could not process weights: "

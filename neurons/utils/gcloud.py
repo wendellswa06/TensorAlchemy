@@ -52,7 +52,7 @@ async def retrieve_public_file(
             logger.info(
                 f"Failed to download {source_name} from {bucket_name}: {e}"
             )
-    except Exception as e:
+    except Exception:
         logger.info(
             "An error occurred downloading from Google Cloud: "
             + traceback.format_exc()

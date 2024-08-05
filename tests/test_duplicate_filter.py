@@ -355,7 +355,8 @@ async def test_specific_different_images(duplicate_filter, mock_metagraph):
 
         mask = await duplicate_filter.get_rewards(None, [synapse1, synapse2])
 
-        # Assert that the images are considered different (mask should be all zeros)
+        # Assert that the images are considered different (mask should be all
+        # zeros)
         assert torch.allclose(mask, torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0]))
 
         # Additional assertion to ensure the hashes are different

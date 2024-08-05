@@ -1,3 +1,4 @@
+from neurons.validator.config import get_openai_client, get_corcel_api_key
 from typing import List, Dict, Union, TypedDict, Callable, Awaitable
 import json
 import httpx
@@ -23,7 +24,6 @@ class PromptBreakdown(TypedDict):
 BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
 
 # Configuration functions
-from neurons.validator.config import get_openai_client, get_corcel_api_key
 
 
 def get_prompt_breakdown_function() -> ChatCompletionToolParam:

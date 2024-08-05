@@ -47,7 +47,7 @@ async def get_list(list_type: str) -> Dict[str, Dict[str, Any]]:
         result = await retrieve_public_file(file_name)
         logger.info(f"Retrieved {list_type}")
         return result
-    except Exception as e:
+    except Exception:
         logger.error(f"Error retrieving {list_type}: {traceback.format_exc()}")
         return {}
 

@@ -109,13 +109,13 @@ incoming_synapse_old = {
 
 def test_deserialize_old_miner_synapse():
     synapse = ImageGeneration(**incoming_synapse_old)
-    assert type(synapse.images[0]) == str
+    assert isinstance(synapse.images[0], str)
     # Should be able to decode
     base64.b64decode(synapse.images[0])
 
 
 def test_deserialize_new_miner_synapse():
     synapse = ImageGeneration(**incoming_synapse_new_base64)
-    assert type(synapse.images[0]) == str
+    assert isinstance(synapse.images[0], str)
     # Should be able to decode
     base64.b64decode(synapse.images[0])

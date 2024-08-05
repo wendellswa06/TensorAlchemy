@@ -1,5 +1,3 @@
-import sys
-
 from loguru import logger
 import torch
 from diffusers import (
@@ -17,7 +15,6 @@ from neurons.utils.log import configure_logging
 
 
 def run_miner():
-
     configure_logging()
 
     task_configs = [
