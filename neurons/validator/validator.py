@@ -348,7 +348,7 @@ class StableValidator:
         shared_data = manager.dict()
         shared_data["neuron_attributes"] = self.neuron_attributes
         shared_data["command_queue"] = self.background_loop_command_queue
-        thread_configs: List[Tuple[str, object, float, callable, list]] = [
+        process_configs: List[Tuple[str, object, float, callable, list]] = [
             (
                 "validator_background_loop",
                 MultiprocessBackgroundTimer,
@@ -378,9 +378,9 @@ class StableValidator:
             interval,
             target_func,
             args,
-        ) in thread_configs:
-            thread = getattr(self, attr_name)
-            if thread and thread.is_alive():
+        ) in process_configs:
+            process = getattr(self, attr_name)
+            if process and process.is_alive():
                 continue
 
             new_thread = thread_class(interval, target_func, args)
@@ -820,12 +820,42 @@ class StableValidator:
 
     def die(self) -> None:
         """
-        Terminate the current process.
+        Terminate the current process and ensure all resources are released.
         """
         logger.info("Terminating the process...")
-        self.axon.stop()
-        self.stop_threads()
 
-        self.upload_images_process.cancel()
-        self.upload_images_process.join()
+        try:
+            # Stop the background processes
+            if (
+                hasattr(self, "validator_background_loop")
+                and self.validator_background_loop.is_alive()
+            ):
+                self.validator_background_loop.cancel()
+                self.validator_background_loop.join()  # Ensure the process has finished
+                logger.info("Validator background loop stopped.")
+
+            if (
+                hasattr(self, "upload_images_process")
+                and self.upload_images_process.is_alive()
+            ):
+                self.upload_images_process.cancel()
+                self.upload_images_process.join()  # Ensure the process has finished
+                logger.info("Upload images process stopped.")
+
+            if (
+                hasattr(self, "set_weights_process")
+                and self.set_weights_process.is_alive()
+            ):
+                self.set_weights_process.cancel()
+                self.set_weights_process.join()  # Ensure the process has finished
+                logger.info("Set weights process stopped.")
+
+            # Stop the Axon server
+            if self.axon:
+                self.axon.stop()
+                logger.info("Axon server stopped.")
+        except Exception as e:
+            logger.error(f"Failed to stop all processes: {e}")
+
+        logger.info("Exiting the process.")
         sys.exit(0)
