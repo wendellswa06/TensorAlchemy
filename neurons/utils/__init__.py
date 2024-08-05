@@ -97,17 +97,17 @@ def send_run_command(command_queue, command, data):
 
 def kill_main_process_if_deregistered(
     command_queue,
-    neurom_attributes: NeuronAttributes,
+    neuron_attributes: NeuronAttributes,
 ):
     # Terminate the miner / validator after deregistration
     if (
-        neurom_attributes.background_steps % 5 == 0
-        and neurom_attributes.background_steps > 1
+        neuron_attributes.background_steps % 5 == 0
+        and neuron_attributes.background_steps > 1
     ):
         try:
             if (
-                neurom_attributes.wallet_hotkey_ss58_address
-                not in neurom_attributes.hotkeys
+                neuron_attributes.wallet_hotkey_ss58_address
+                not in neuron_attributes.hotkeys
             ):
                 logger.info(f">>> Neuron has deregistered... terminating.")
                 try:

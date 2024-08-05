@@ -17,7 +17,7 @@ from neurons.constants import VPERMIT_TAO
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
 from neurons.miners.config import get_bt_miner_config
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
-from neurons.utils import BackgroundTimer, miner_background_loop
+from neurons.utils import miner_background_loop, MultiprocessBackgroundTimer
 from neurons.utils.defaults import Stats, get_defaults
 from neurons.utils.image import (
     image_to_base64,
@@ -135,10 +135,12 @@ class BaseMiner(ABC):
         shared_data["neuron_attributes"] = self.neuron_attributes
         shared_data["command_queue"] = self.background_loop_command_queue
         self.neuron_attributes.background_steps = 1
-        self.background_timer: BackgroundTimer = BackgroundTimer(
-            300,
-            miner_background_loop,
-            [shared_data],
+        self.background_timer: MultiprocessBackgroundTimer = (
+            MultiprocessBackgroundTimer(
+                300,
+                miner_background_loop,
+                [shared_data],
+            )
         )
         self.background_timer.daemon = True
         self.background_timer.start()
@@ -732,7 +734,16 @@ class BaseMiner(ABC):
         Terminate the current process.
         """
         logger.info("Terminating the process...")
+
+        if (
+            hasattr(self, "background_timer")
+            and self.background_timer.is_alive()
+        ):
+            self.background_timer.cancel()
+            self.background_timer.join()
+
         self.axon.stop()
+
         sys.exit(0)
 
     def process_background_command(self):
