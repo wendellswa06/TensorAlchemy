@@ -25,7 +25,8 @@ class StableMiner(BaseMiner):
 
         self.task_configs = task_configs
         self.miner_config = MinerConfig()
-        # TODO: Fix safety checker and processor to allow different values for each task config
+        # TODO: Fix safety checker and processor to allow different values for
+        # each task config
         self.safety_checker: Optional[torch.nn.Module] = None
         self.processor: Optional[torch.nn.Module] = None
 
@@ -75,7 +76,8 @@ class StableMiner(BaseMiner):
                 task_config.safety_checker,
                 task_config.safety_checker_model_name,
             )
-            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
+            # TODO: temporary hack so nsfw_image_filter works; refactor later
+            # to allow different safety_checkers
             self.safety_checker = self.miner_config.model_configs[
                 task_config.model_type
             ][task_config.task_type].safety_checker
@@ -91,7 +93,8 @@ class StableMiner(BaseMiner):
             ].processor = ModelLoader(self.bt_config.miner).load_processor(
                 task_config.processor
             )
-            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
+            # TODO: temporary hack so nsfw_image_filter works; refactor later
+            # to allow different safety_checkers
             self.processor = self.miner_config.model_configs[
                 task_config.model_type
             ][task_config.task_type].processor
@@ -156,9 +159,9 @@ class StableMiner(BaseMiner):
             if model_type not in self.miner_config.model_configs:
                 self.miner_config.model_configs[model_type] = {}
 
-            self.miner_config.model_configs[model_type][task_type].args = (
-                self.get_args_for_task(task_type)
-            )
+            self.miner_config.model_configs[model_type][
+                task_type
+            ].args = self.get_args_for_task(task_type)
 
         logger.info("Model configurations set up successfully.")
 

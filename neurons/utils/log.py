@@ -105,7 +105,7 @@ def configure_loki_logger():
 
             try:
                 netuid = get_config().netuid
-            except:
+            except BaseException:
                 netuid = ""
 
             try:

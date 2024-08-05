@@ -650,9 +650,9 @@ class StableValidator:
                     + f"does not match metagraph n {self.metagraph.n}"
                     "Populating new moving_averaged_scores IDs with zeros"
                 )
-                self.moving_average_scores[: len(neuron_weights)] = (
-                    neuron_weights.to(self.neuron_attributes.device)
-                )
+                self.moving_average_scores[
+                    : len(neuron_weights)
+                ] = neuron_weights.to(self.neuron_attributes.device)
                 # self.update_hotkeys()
 
             # Check for nans in saved state dict
@@ -755,7 +755,7 @@ class StableValidator:
                 return False
 
             return True
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
             await asyncio.sleep(10)
             return False

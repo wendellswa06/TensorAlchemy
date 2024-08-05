@@ -70,7 +70,7 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
 
                 self.finished.wait(self.interval)
 
-            except Exception as e:
+            except Exception:
                 logger.error(traceback.format_exc())
 
     def cancel(self):

@@ -1,6 +1,6 @@
 import copy
 import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import bittensor as bt
 from loguru import logger
