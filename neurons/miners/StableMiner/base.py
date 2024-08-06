@@ -4,6 +4,7 @@ import multiprocessing
 import sys
 import time
 import traceback
+import queue
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -132,8 +133,10 @@ class BaseMiner(ABC):
         # Start the generic background loop
         manager = multiprocessing.Manager()
         shared_data = manager.dict()
+
         shared_data["neuron_attributes"] = self.neuron_attributes
         shared_data["command_queue"] = self.background_loop_command_queue
+
         self.neuron_attributes.background_steps = 1
         self.background_timer: MultiprocessBackgroundTimer = (
             MultiprocessBackgroundTimer(
@@ -747,8 +750,11 @@ class BaseMiner(ABC):
         sys.exit(0)
 
     def process_background_command(self):
-        if self.background_loop_command_queue.empty():
+        try:
+            command, data = self.background_loop_command_queue.get(block=False)
+        except queue.Empty:
             return
+
         command, data = self.background_loop_command_queue.get()
         logger.info(
             f"Main process: Received command: {command} with data: {data}"

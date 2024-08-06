@@ -821,34 +821,26 @@ class StableValidator:
 
         try:
             # Stop the background processes
-            if (
-                hasattr(self, "validator_background_loop")
-                and self.validator_background_loop.is_alive()
-            ):
+            for thread_name in [
+                "validator_background_loop",
+                "upload_images_process",
+                "set_weights_process",
+            ]:
+                if not hasattr(self, thread_name):
+                    continue
+
+                thread: MultiprocessBackgroundTimer = getattr(self, thread_name)
+                if not thread.is_alive():
+                    continue
+
                 self.validator_background_loop.cancel()
-                self.validator_background_loop.join()  # Ensure the process has finished
-                logger.info("Validator background loop stopped.")
-
-            if (
-                hasattr(self, "upload_images_process")
-                and self.upload_images_process.is_alive()
-            ):
-                self.upload_images_process.cancel()
-                self.upload_images_process.join()  # Ensure the process has finished
-                logger.info("Upload images process stopped.")
-
-            if (
-                hasattr(self, "set_weights_process")
-                and self.set_weights_process.is_alive()
-            ):
-                self.set_weights_process.cancel()
-                self.set_weights_process.join()  # Ensure the process has finished
-                logger.info("Set weights process stopped.")
+                self.validator_background_loop.join()
 
             # Stop the Axon server
             if self.axon:
                 self.axon.stop()
                 logger.info("Axon server stopped.")
+
         except Exception as e:
             logger.error(f"Failed to stop all processes: {e}")
 
