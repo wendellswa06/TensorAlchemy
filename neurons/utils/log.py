@@ -154,18 +154,19 @@ def configure_loki_logger():
 
 def create_bittensor_logging_wrapper(log_func):
     def bt_log(*args, **kwargs):
-        full_message = ""
-
         prefix = kwargs.get("prefix", None)
         suffix = kwargs.get("suffix", None)
 
-        if prefix and suffix:
-            full_message += f"{prefix}: {suffix}"
-        else:
-            if len(args) > 0:
-                full_message = args[0]
-            else:
-                full_message = ""
+        full_message: str = ""
+
+        if len(args) > 0:
+            full_message = str(args[0])
+
+        if prefix:
+            full_message = f"{prefix}: " + full_message
+
+        if suffix:
+            full_message += suffix
 
         return log_func(full_message, *args, **kwargs)
 
