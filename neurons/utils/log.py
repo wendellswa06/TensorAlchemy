@@ -156,8 +156,8 @@ def create_bittensor_logging_wrapper(log_func):
     def bt_log(*args, **kwargs):
         full_message = ""
 
-        prefix = kwargs.pop("prefix", None)
-        suffix = kwargs.pop("suffix", None)
+        prefix = kwargs.get("prefix", None)
+        suffix = kwargs.get("suffix", None)
 
         if prefix and suffix:
             full_message += f"{prefix}: {suffix}"
