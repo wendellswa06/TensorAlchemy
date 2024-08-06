@@ -142,7 +142,7 @@ async def set_weights(
             version_key=get_validator_spec_version(),
         )
 
-        logger.info(f"{message}")
+        logger.info(f"set_weights message: {message}")
 
     except Exception as e:
         logger.error(f"Failed to set weights: {e}")

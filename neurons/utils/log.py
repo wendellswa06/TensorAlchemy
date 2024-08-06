@@ -152,29 +152,32 @@ def configure_loki_logger():
     logger.add(loki_handler)
 
 
-def create_wrapper(log_func):
-    def wrapper(message, *args, prefix=None, suffix=None, **kwargs):
+def create_bittensor_logging_wrapper(log_func):
+    def bt_log(*args, **kwargs):
         full_message = ""
 
-        if prefix:
-            full_message += f"{prefix} "
+        prefix = kwargs.pop("prefix", None)
+        suffix = kwargs.pop("suffix", None)
 
-        full_message += str(message)
-
-        if suffix:
-            full_message += f" {suffix}"
+        if prefix and suffix:
+            full_message += f"{prefix}: {suffix}"
+        else:
+            if len(args) > 0:
+                full_message = args[0]
+            else:
+                full_message = ""
 
         return log_func(full_message, *args, **kwargs)
 
-    return wrapper
+    return bt_log
 
 
 def patch_bt_logging():
-    bt.logging.info = create_wrapper(logger.info)
-    bt.logging.warning = create_wrapper(logger.warning)
-    bt.logging.error = create_wrapper(logger.error)
-    bt.logging.debug = create_wrapper(logger.debug)
-    bt.logging.trace = create_wrapper(logger.trace)
+    bt.logging.info = create_bittensor_logging_wrapper(logger.info)
+    bt.logging.warning = create_bittensor_logging_wrapper(logger.warning)
+    bt.logging.error = create_bittensor_logging_wrapper(logger.error)
+    bt.logging.debug = create_bittensor_logging_wrapper(logger.debug)
+    bt.logging.trace = create_bittensor_logging_wrapper(logger.trace)
 
 
 def configure_logging():
