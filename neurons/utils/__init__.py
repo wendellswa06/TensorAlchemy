@@ -1,27 +1,14 @@
 import os
 import sys
-import inspect
 import asyncio
-import traceback
-import multiprocessing
-
-from threading import Timer
-
 import torch
-
-import _thread
 
 from loguru import logger
 from google.cloud import storage
 
 from neurons.common_schema import NeuronAttributes
 from neurons.constants import (
-    IA_MINER_BLACKLIST,
-    IA_MINER_WARNINGLIST,
-    IA_MINER_WHITELIST,
-    IA_VALIDATOR_BLACKLIST,
     IA_VALIDATOR_WEIGHT_FILES,
-    IA_VALIDATOR_WHITELIST,
     N_NEURONS,
 )
 from neurons.utils.exceptions import BittensorBrokenPipe
@@ -30,52 +17,14 @@ from neurons.utils.common import is_validator
 from neurons.validator.scoring.models.types import (
     RewardModelType,
 )
-from neurons.utils.log import configure_logging
+from neurons.utils.gcloud import retrieve_public_file
 
-
-# Background Loop
-class BackgroundTimer(Timer):
-    def __str__(self) -> str:
-        return self.function.__name__
-
-    def run(self):
-        configure_logging()
-        self.function(*self.args, **self.kwargs)
-        while not self.finished.wait(self.interval):
-            self.function(*self.args, **self.kwargs)
-
-
-class MultiprocessBackgroundTimer(multiprocessing.Process):
-    def __str__(self) -> str:
-        return self.function.__name__
-
-    def __init__(self, interval, function, args=None, kwargs=None):
-        super().__init__()
-        self.interval = interval
-        self.function = function
-        self.args = args if args is not None else []
-        self.kwargs = kwargs if kwargs is not None else {}
-        self.finished = multiprocessing.Event()
-
-    def run(self):
-        configure_logging()
-
-        logger.info(f"{self.function.__name__} started")
-
-        while not self.finished.is_set():
-            try:
-                if inspect.iscoroutinefunction(self.function):
-                    asyncio.run(self.function(*self.args, **self.kwargs))
-                else:
-                    self.function(*self.args, **self.kwargs)
-
-                self.finished.wait(self.interval)
-
-            except Exception:
-                logger.error(traceback.format_exc())
-
-    def cancel(self):
-        self.finished.set()
+from .thread_utils import (
+    BackgroundTimer,
+    MultiprocessBackgroundTimer,
+    send_run_command,
+    kill_main_process_if_deregistered,
+)
 
 
 def get_coldkey_for_hotkey(self, hotkey):
@@ -86,48 +35,6 @@ def get_coldkey_for_hotkey(self, hotkey):
         index = self.metagraph.hotkeys.index(hotkey)
         return self.metagraph.coldkeys[index]
     return None
-
-
-def send_run_command(command_queue, command, data):
-    """
-    Send a command to the main process with the associated data.
-    """
-    command_queue.put((command, data))
-    logger.info(f"Sent command: {command} with data: {data}")
-
-
-def kill_main_process_if_deregistered(
-    command_queue,
-    neuron_attributes: NeuronAttributes,
-):
-    # Terminate the miner / validator after deregistration
-    if (
-        neuron_attributes.background_steps % 5 == 0
-        and neuron_attributes.background_steps > 1
-    ):
-        try:
-            if (
-                neuron_attributes.wallet_hotkey_ss58_address
-                not in neuron_attributes.hotkeys
-            ):
-                logger.info(f">>> Neuron has deregistered... terminating.")
-                try:
-                    send_run_command(command_queue, "die", None)
-                except Exception as e:
-                    logger.info(
-                        f"An error occurred trying to terminate the main thread: {e}."
-                    )
-                try:
-                    os.exit(0)
-                except Exception as e:
-                    logger.error(
-                        f"An error occurred trying to use os._exit(): {e}."
-                    )
-                sys.exit(0)
-        except Exception as e:
-            logger.error(
-                f">>> An unexpected error occurred syncing the metagraph: {e}"
-            )
 
 
 def calculate_human_voting_weight(validator_weights, neuron_attributes):
@@ -187,21 +94,16 @@ def process_and_normalize_reward_weights(validator_weights, neuron_attributes):
         )
 
         logger.info(
-            f"Retrieved the latest validator weights: {neuron_attributes.reward_weights}"
+            "Retrieved the latest validator weights: "
+            + str(neuron_attributes.reward_weights)
         )
 
-    # self.reward_weights = torch.tensor(
-    # [v for k, v in validator_weights.items() if "manual" not in k],
-    # dtype=torch.float32,
-    # ).to(self.device)
     return reward_weights
 
 
 def update_and_normalize_validator_weights(
     command_queue, neuron_attributes: NeuronAttributes
 ):
-    from neurons.utils.gcloud import retrieve_public_file
-
     validator_weights = asyncio.run(
         retrieve_public_file(IA_VALIDATOR_WEIGHT_FILES)
     )
