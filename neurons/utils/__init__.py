@@ -50,7 +50,7 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
     def __str__(self) -> str:
         return self.function.__name__
 
-    def __init__(self, interval, function, args=None, kwargs=None, timeout=100):
+    def __init__(self, interval, function, args=None, kwargs=None, timeout=300):
         super().__init__()
         self.interval = interval
         self.function = function
