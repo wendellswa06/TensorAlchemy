@@ -59,7 +59,7 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
     def run(self):
         configure_logging()
 
-        logger.info(f"{self.function.__name__} started")
+        logger.info(f"[thread] {self.function.__name__} started")
 
         while not self.finished.is_set():
             try:
@@ -74,6 +74,7 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
                 logger.error(traceback.format_exc())
 
     def cancel(self):
+        logger.info(f"[thread] cancel {self.function.__name__}")
         self.finished.set()
 
 

@@ -349,9 +349,10 @@ class StableValidator:
         if is_startup:
             logger.info(f"Started {thread}")
         else:
-            logger.info(f"{thread} had segfault, restarted")
+            logger.error(f"{thread} had segfault, restarted")
 
     def start_threads(self, is_startup: bool = True) -> None:
+        logger.info(f"[start_threads] is_startup={is_startup}")
         thread_configs: List[Tuple[str, object, float, callable, list]] = [
             (
                 "background_timer",
@@ -644,7 +645,10 @@ class StableValidator:
                     weights=tensor_to_list(self.moving_average_scores),
                 )
             )
-            logger.info("Added a weight setting task to the queue")
+            logger.info(
+                f"Added a weight setting task to the queue"
+                f" (current size={self.set_weights_queue.qsize()})"
+            )
 
             self.prev_block = ttl_get_block()
 
