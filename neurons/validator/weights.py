@@ -1,5 +1,6 @@
 import queue
 import asyncio
+import time
 import traceback
 from typing import List
 from multiprocessing import Event, Queue
@@ -38,9 +39,16 @@ async def set_weights_loop(
     should_quit: Event,
     set_weights_queue: Queue,
 ) -> None:
+    # Log empty queue each minute
     try:
         weights_event: SetWeightsTask = set_weights_queue.get(block=False)
+        logger.info(
+            f"[set_weights_loop] set_weights_queue size={set_weights_queue.qsize()}"
+        )
     except queue.Empty:
+        # Only output each minute to prevent spamming
+        if int(time.time()) % 60 == 0:
+            logger.info("queue is empty")
         return
 
     logger.info("Gathered a weights setting task")
@@ -60,6 +68,7 @@ async def set_weights_loop(
             torch.tensor(weights_event.weights),
         )
     except BittensorBrokenPipe:
+        logger.info("[set_weights_loop] bittensor broken pipe")
         should_quit.set()
 
 
@@ -138,7 +147,7 @@ async def set_weights(
             netuid=config.netuid,
             uids=processed_weight_uids,
             weights=processed_weights,
-            wait_for_finalization=True,
+            wait_for_finalization=False,
             version_key=get_validator_spec_version(),
         )
 

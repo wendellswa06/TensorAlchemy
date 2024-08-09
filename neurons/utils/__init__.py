@@ -1,11 +1,13 @@
 import os
 import sys
+import signal
 import inspect
 import asyncio
 import traceback
 import multiprocessing
 
 from threading import Timer
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 import torch
 
@@ -48,32 +50,64 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
     def __str__(self) -> str:
         return self.function.__name__
 
-    def __init__(self, interval, function, args=None, kwargs=None):
+    def __init__(self, interval, function, args=None, kwargs=None, timeout=300):
         super().__init__()
         self.interval = interval
         self.function = function
         self.args = args if args is not None else []
         self.kwargs = kwargs if kwargs is not None else {}
         self.finished = multiprocessing.Event()
+        self.timeout = timeout
+
+    def run_with_timeout(self, func, *args, **kwargs):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(func, *args, **kwargs)
+            try:
+                return future.result(timeout=self.timeout)
+            except TimeoutError:
+                logger.error(
+                    f"[thread] {self.function.__name__} timed out"
+                    + f" after {self.timeout} seconds"
+                )
+                # Optionally, you might want to kill the thread here
+                # This is a bit tricky and might not always work as expected
+                return None
+
+    async def run_async_with_timeout(self, func, *args, **kwargs):
+        try:
+            return await asyncio.wait_for(
+                func(*args, **kwargs), timeout=self.timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"[thread] {self.function.__name__} timed out"
+                + f" after {self.timeout} seconds"
+            )
+            return None
 
     def run(self):
         configure_logging()
 
-        logger.info(f"{self.function.__name__} started")
+        logger.info(f"[thread] {self.function.__name__} started")
 
         while not self.finished.is_set():
             try:
                 if inspect.iscoroutinefunction(self.function):
-                    asyncio.run(self.function(*self.args, **self.kwargs))
+                    asyncio.run(
+                        self.run_async_with_timeout(
+                            self.function, *self.args, **self.kwargs
+                        )
+                    )
                 else:
-                    self.function(*self.args, **self.kwargs)
-
+                    self.run_with_timeout(
+                        self.function, *self.args, **self.kwargs
+                    )
                 self.finished.wait(self.interval)
-
-            except Exception as e:
+            except Exception:
                 logger.error(traceback.format_exc())
 
     def cancel(self):
+        logger.info(f"[thread] cancel {self.function.__name__}")
         self.finished.set()
 
 

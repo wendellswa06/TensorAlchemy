@@ -124,6 +124,8 @@ class TensorAlchemyBackendClient:
         if response.status_code == 401:
             if task.get("code") == "VALIDATOR_NOT_FOUND_YET":
                 return None
+            if task.get("code") == "VALIDATOR_HAS_NOT_ENOUGH_STAKE":
+                return None
 
         raise GetTaskError(
             f"/tasks failed with status_code {response.status_code}:"
