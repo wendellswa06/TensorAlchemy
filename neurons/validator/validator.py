@@ -364,14 +364,14 @@ class StableValidator:
             (
                 "upload_images_process",
                 MultiprocessBackgroundTimer,
-                0.2,
+                0.5,
                 upload_images_loop,
                 [self.should_quit, self.batches_upload_queue],
             ),
             (
                 "set_weights_process",
                 MultiprocessBackgroundTimer,
-                0.2,
+                1.0,
                 set_weights_loop,
                 [self.should_quit, self.set_weights_queue],
             ),
