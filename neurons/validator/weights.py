@@ -42,13 +42,13 @@ async def set_weights_loop(
     # Log empty queue each minute
     try:
         weights_event: SetWeightsTask = set_weights_queue.get(block=False)
-        logger.info(
-            f"[set_weights_loop] set_weights_queue size={set_weights_queue.qsize()}"
-        )
+        if not weights_event:
+            return
+
     except queue.Empty:
         # Only output each minute to prevent spamming
         if int(time.time()) % 60 == 0:
-            logger.info("queue is empty")
+            logger.info("[weights] queue is empty")
         return
 
     logger.info("Gathered a weights setting task")
@@ -147,7 +147,7 @@ async def set_weights(
             netuid=config.netuid,
             uids=processed_weight_uids,
             weights=processed_weights,
-            wait_for_finalization=False,
+            wait_for_finalization=True,
             version_key=get_validator_spec_version(),
         )
 
