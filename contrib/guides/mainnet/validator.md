@@ -39,7 +39,7 @@ python3.10 -m venv ~/venvs/TensorAlchemy && source ~/venvs/TensorAlchemy/bin/act
 
 ### STEP 4. INSTALL REQUIREMENTS INTO VENV
 ```bash
-source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -r validator_requirements.txt
+source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -r requirements.txt
 ```
 
 ### STEP 5. Export API key
@@ -94,7 +94,7 @@ python3.10 -m venv ~/venvs/TensorAlchemy && source ~/venvs/TensorAlchemy/bin/act
 
 ### STEP 4. INSTALL REQUIREMENTS INTO VENV
 ```bash
-source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -r validator_requirements.txt
+source ~/venvs/TensorAlchemy/bin/activate && cd ~/TensorAlchemy && pip install -r requirements.txt
 ```
 
 ### STEP 5. Export API key
@@ -155,7 +155,7 @@ conda config --set auto_activate_base false
 
 ### STEP 3. INSTALL REQUIREMENTS INTO VENV
 ```bash
-cd ~/TensorAlchemy && pip install -r validator_requirements.txt
+cd ~/TensorAlchemy && pip install -r requirements.txt
 ```
 
 ### STEP 4. Export API key

@@ -212,7 +212,7 @@ def get_metagraph(**kwargs) -> bt.metagraph:
 
     if not metagraph:
         netuid: int = get_config().netuid or 26
-        network: str = get_subtensor().network or "finney"
+        network: str = get_subtensor().chain_endpoint or "finney"
 
         logger.info(
             #
