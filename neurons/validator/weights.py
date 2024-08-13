@@ -147,7 +147,7 @@ async def set_weights(
             netuid=config.netuid,
             uids=processed_weight_uids,
             weights=processed_weights,
-            wait_for_finalization=True,
+            wait_for_finalization=False,
             version_key=get_validator_spec_version(),
         )
 

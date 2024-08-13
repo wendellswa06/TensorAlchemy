@@ -4,6 +4,7 @@ import time
 import traceback
 from typing import List, Tuple, Dict, Any
 from functools import wraps
+from multiprocessing import Manager
 
 import numpy as np
 import bittensor as bt
@@ -22,7 +23,24 @@ from neurons.validator.config import (
 )
 
 isalive_threshold = 8
-isalive_dict: Dict[int, int] = {}
+
+# Global variables to hold our Manager instance and managed dictionary
+_manager = None
+_isalive_dict = None
+
+
+def get_manager():
+    global _manager
+    if _manager is None:
+        _manager = Manager()
+    return _manager
+
+
+def get_isalive_dict():
+    global _isalive_dict
+    if _isalive_dict is None:
+        _isalive_dict = get_manager().dict()
+    return _isalive_dict
 
 
 async def check_uid(uid) -> Tuple[bool, float]:
@@ -35,11 +53,16 @@ async def check_uid(uid) -> Tuple[bool, float]:
             timeout=get_config().alchemy.async_timeout,
         )
 
+        isalive_dict = get_isalive_dict()
+
         if response.is_success:
             isalive_dict[uid] = 0
             return True, time.perf_counter() - t1
 
-        isalive_dict[uid] += 1
+        if uid in isalive_dict:
+            isalive_dict[uid] += 1
+        else:
+            isalive_dict[uid] = 1
 
         return False, -1
     except Exception:
@@ -90,8 +113,9 @@ def is_uid_available(uid: int, vpermit_tao_limit: int) -> bool:
     if not metagraph.axons[uid].is_serving:
         return False
 
-    if metagraph.validator_permit[uid] and metagraph.S[uid] > vpermit_tao_limit:
-        return False
+    if metagraph.validator_permit[uid]:
+        if metagraph.S[uid] > vpermit_tao_limit:
+            return False
 
     return True
 
@@ -131,13 +155,7 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     Returns:
         Tuple[List[int], List[float]]: A tuple containing the list of alive UIDs and their response times.
     """
-    responses = await asyncio.gather(
-        *[
-            #
-            check_uid(uid)
-            for uid in uids
-        ]
-    )
+    responses = await asyncio.gather(*[check_uid(uid) for uid in uids])
 
     alive_uids = []
     response_times = []
@@ -151,18 +169,17 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
 
 
 def update_isalive_dict() -> None:
+    isalive_dict = get_isalive_dict()
     # Start following this UID
     for uid in range(get_metagraph().n.item()):
         if uid not in isalive_dict:
             isalive_dict[uid] = 0
 
 
-@memoize_with_expiration(120)  # Memoize for 60 seconds
+@memoize_with_expiration(20)
 async def get_all_active_uids() -> List[int]:
     """
-    Fetch all active (alive) UIDs. Results are memoized for 60 seconds.
-
-    Args:
+    Fetch all active (alive) UIDs. Results are memoized for 20 seconds.
 
     Returns:
         List[int]: List of all active UIDs.
@@ -232,6 +249,9 @@ async def main():
     # Call get_all_active_uids again (should use cached result)
     all_active_cached = await get_all_active_uids()
     logger.info(f"Total active UIDs (cached): {len(all_active_cached)}")
+
+    # Print the contents of isalive_dict
+    logger.info(f"isalive_dict contents: {dict(get_isalive_dict())}")
 
 
 if __name__ == "__main__":

@@ -4,8 +4,8 @@ List management utilities for the Alchemy project.
 
 import traceback
 from typing import Any, Dict, List, Set, Tuple
+from multiprocessing import Manager
 
-from google.cloud import storage
 from loguru import logger
 
 from neurons.utils.common import is_validator
@@ -18,17 +18,39 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
 )
 
+# Global variables to hold our Manager instance and managed dictionaries
+_manager = None
+_shared_lists = None
+
+
+def get_manager():
+    global _manager
+    if _manager is None:
+        _manager = Manager()
+    return _manager
+
+
+def get_shared_lists():
+    global _shared_lists
+    if _shared_lists is None:
+        _shared_lists = get_manager().dict(
+            {"whitelist": None, "blacklist": None, "warninglist": None}
+        )
+    return _shared_lists
+
 
 def get_file_name(list_type: str) -> str:
     """Determine the file name based on list type and neuron type."""
     if list_type == "whitelist":
         return IA_VALIDATOR_WHITELIST if is_validator() else IA_MINER_WHITELIST
-    elif list_type == "blacklist":
+
+    if list_type == "blacklist":
         return IA_VALIDATOR_BLACKLIST if is_validator() else IA_MINER_BLACKLIST
-    elif list_type == "warninglist":
+
+    if list_type == "warninglist":
         return IA_MINER_WARNINGLIST
-    else:
-        raise ValueError(f"Invalid list_type: {list_type}")
+
+    raise ValueError(f"Invalid list_type: {list_type}")
 
 
 async def get_list(list_type: str) -> Dict[str, Dict[str, Any]]:
@@ -42,14 +64,21 @@ async def get_list(list_type: str) -> Dict[str, Dict[str, Any]]:
     Returns:
         Dict[str, Dict[str, Any]]: The retrieved list.
     """
-    file_name = get_file_name(list_type)
-    try:
-        result = await retrieve_public_file(file_name)
-        logger.info(f"Retrieved {list_type}")
-        return result
-    except Exception as e:
-        logger.error(f"Error retrieving {list_type}: {traceback.format_exc()}")
-        return {}
+    shared_lists = get_shared_lists()
+
+    if shared_lists[list_type] is None:
+        file_name = get_file_name(list_type)
+        try:
+            result = await retrieve_public_file(file_name)
+            logger.info(f"Retrieved {list_type}")
+            shared_lists[list_type] = result
+        except Exception:
+            logger.error(
+                f"Error retrieving {list_type}: {traceback.format_exc()}"
+            )
+            shared_lists[list_type] = {}
+
+    return shared_lists[list_type]
 
 
 async def get_blacklist() -> Tuple[Set[str], Set[str]]:
