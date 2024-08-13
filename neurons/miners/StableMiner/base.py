@@ -463,7 +463,7 @@ class BaseMiner(ABC):
         # If hotkey or coldkey is whitelisted
         # and not found on the metagraph, give a priority of 5,000
         # Caller hotkey
-        caller_hotkey: str = synapse.axon.hotkey
+        caller_hotkey: str = synapse.dendrite.hotkey
 
         try:
             priority: float = 0.0
@@ -477,17 +477,17 @@ class BaseMiner(ABC):
 
             try:
                 caller_uid: int = self.metagraph.hotkeys.index(
-                    synapse.axon.hotkey,
+                    synapse.dendrite.hotkey,
                 )
                 priority = max(priority, float(self.metagraph.S[caller_uid]))
                 logger.info(
-                    f"Prioritizing key {synapse.axon.hotkey}"
+                    f"Prioritizing key {synapse.dendrite.hotkey}"
                     + f" with value: {priority}."
                 )
             except ValueError:
                 logger.warning(
                     #
-                    f"Hotkey {synapse.axon.hotkey}"
+                    f"Hotkey {synapse.dendrite.hotkey}"
                     + f" not found in metagraph"
                 )
 

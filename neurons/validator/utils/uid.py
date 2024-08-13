@@ -47,6 +47,7 @@ async def check_uid(uid) -> Tuple[bool, float]:
     try:
         t1 = time.perf_counter()
         metagraph: bt.metagraph = get_metagraph()
+
         response = await get_dendrite().forward(
             synapse=IsAlive(),
             axons=metagraph.axons[uid],
@@ -161,9 +162,11 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     response_times = []
 
     for uid, (is_alive, response_time) in zip(uids, responses):
-        if is_alive:
-            alive_uids.append(uid)
-            response_times.append(response_time)
+        if not is_alive:
+            continue
+
+        alive_uids.append(uid)
+        response_times.append(response_time)
 
     return alive_uids, response_times
 
@@ -176,7 +179,7 @@ def update_isalive_dict() -> None:
             isalive_dict[uid] = 0
 
 
-@memoize_with_expiration(20)
+@memoize_with_expiration(80)
 async def get_all_active_uids() -> List[int]:
     """
     Fetch all active (alive) UIDs. Results are memoized for 20 seconds.

@@ -442,15 +442,6 @@ async def run_step(
     else:
         logger.warning("CLIP or IMAGE rewards not found in scoring results")
 
-    # TODO: Check and see if miners are getting dropped scores
-    #       because the is-alive filter is too strict or broken
-    # rewards_tensor_adjusted = filter_rewards(
-    #     validator.isalive_dict,
-    #     validator.isalive_threshold,
-    #     # No need for scattering, directly use the rewards
-    #     scoring_results.combined_scores,
-    # )
-
     # Update moving averages
     validator.moving_average_scores = await update_moving_averages(
         validator.moving_average_scores,
