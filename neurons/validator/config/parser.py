@@ -139,7 +139,7 @@ def update_validator_settings(validator_settings: Dict) -> bt.config:
             config.query_timeout,
         )
     )
-    config.alchemy.async_timeout = int(
+    config.alchemy.async_timeout = float(
         validator_settings.get(
             "async_timeout",
             config.async_timeout,

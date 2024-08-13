@@ -43,7 +43,7 @@ def get_isalive_dict():
     return _isalive_dict
 
 
-async def check_uid(uid) -> Tuple[bool, float]:
+async def check_uid(uid: int) -> Tuple[bool, float]:
     try:
         t1 = time.perf_counter()
         metagraph: bt.metagraph = get_metagraph()
