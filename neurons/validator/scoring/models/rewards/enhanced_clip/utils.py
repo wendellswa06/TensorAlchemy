@@ -95,7 +95,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
     tool = get_prompt_breakdown_function()
 
     response = await client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         temperature=0,
         tool_choice={
             "type": "function",

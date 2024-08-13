@@ -86,7 +86,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
             )
 
             # Add 1 to each adjusted similarity before taking the product
-            final_result = (adjusted_similarities + 1).prod().item() - 1
+            final_result: float = (adjusted_similarities + 1).prod().item() - 1
 
             for i, desc in enumerate(descriptions):
                 logger.info(
@@ -96,6 +96,11 @@ class EnhancedClipRewardModel(BaseRewardModel):
                 )
 
             logger.info(f"Enhanced CLIP similarity score: {final_result:.4f}")
+
+            # Now normalize by the length of the descriptions
+            # This should give us a nicer ImageReward score compatable range
+            # although not strictly bound to 0..1
+            final_result /= len(descriptions)
 
             return final_result
 
