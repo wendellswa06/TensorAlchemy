@@ -12,7 +12,6 @@ from multiprocessing import Event, Manager, Queue, Process, set_start_method
 from typing import List, Optional, Tuple, Union
 
 import bittensor as bt
-import sentry_sdk
 import torch
 import numpy as np
 from loguru import logger
@@ -22,7 +21,6 @@ from neurons.constants import (
     TESTNET_URL,
     MAINNET_URL,
     N_NEURONS,
-    VALIDATOR_SENTRY_DSN,
     IA_VALIDATOR_SETTINGS_FILE,
 )
 
@@ -129,7 +127,6 @@ def upload_images_loop(
             "An error occurred trying to submit a batch: "
             + f"{e}\n{traceback.format_exc()}"
         )
-        sentry_sdk.capture_exception(e)
 
 
 class StableValidator:
@@ -164,11 +161,6 @@ class StableValidator:
         if self.config.subtensor.network == "test":
             environment = "local"
 
-        sentry_sdk.init(
-            environment=environment,
-            dsn=VALIDATOR_SENTRY_DSN,
-        )
-
         bt.logging(
             config=self.config,
             logging_dir=self.config.alchemy.full_path,
@@ -193,16 +185,6 @@ class StableValidator:
         # Init subtensor
         self.subtensor = get_subtensor(config=self.config)
         logger.info(f"Loaded subtensor: {self.subtensor}")
-
-        try:
-            sentry_sdk.set_context(
-                "bittensor", {"network": str(self.subtensor.network)}
-            )
-            sentry_sdk.set_context(
-                "cuda_device", {"name": get_device_name(self.device)}
-            )
-        except Exception:
-            logger.error("Failed to set sentry context")
 
         # Init wallet.
         self.wallet = get_wallet(config=self.config)
@@ -714,7 +696,6 @@ class StableValidator:
                 )
             except Exception as e:
                 logger.error(traceback.format_exc())
-                sentry_sdk.capture_exception(e)
 
     async def pre_step(self):
         try:

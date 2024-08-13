@@ -48,27 +48,36 @@ async def check_uid(uid: int) -> Tuple[bool, float]:
         t1 = time.perf_counter()
         metagraph: bt.metagraph = get_metagraph()
 
-        response = await get_dendrite().forward(
+        responses: List[IsAlive] = await get_dendrite().forward(
             synapse=IsAlive(),
-            axons=metagraph.axons[uid],
+            axons=[metagraph.axons[uid]],
             timeout=get_config().alchemy.async_timeout,
         )
+
+        if not responses:
+            return uid, False, -1
+
+        response: IsAlive = responses[0]
 
         isalive_dict = get_isalive_dict()
 
         if response.is_success:
             isalive_dict[uid] = 0
-            return True, time.perf_counter() - t1
+            return uid, True, time.perf_counter() - t1
 
         if uid in isalive_dict:
             isalive_dict[uid] += 1
         else:
             isalive_dict[uid] = 1
 
-        return False, -1
-    except Exception:
-        logger.error(f"Error checking UID {uid}: {traceback.format_exc()}")
-        return False, -1
+        return uid, False, -1
+    except Exception as e:
+        logger.error(
+            #
+            f"Error checking UID {uid}: "
+            + traceback.format_exc()
+        )
+        return uid, False, -1
 
 
 def memoize_with_expiration(expiration_time: int):
@@ -156,12 +165,15 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     Returns:
         Tuple[List[int], List[float]]: A tuple containing the list of alive UIDs and their response times.
     """
-    responses = await asyncio.gather(*[check_uid(uid) for uid in uids])
 
     alive_uids = []
     response_times = []
 
-    for uid, (is_alive, response_time) in zip(uids, responses):
+    tasks = [asyncio.create_task(check_uid(uid)) for uid in uids]
+
+    for future in asyncio.as_completed(tasks):
+        uid, is_alive, response_time = await future
+
         if not is_alive:
             continue
 
@@ -179,7 +191,7 @@ def update_isalive_dict() -> None:
             isalive_dict[uid] = 0
 
 
-@memoize_with_expiration(80)
+@memoize_with_expiration(20)
 async def get_all_active_uids() -> List[int]:
     """
     Fetch all active (alive) UIDs. Results are memoized for 20 seconds.
