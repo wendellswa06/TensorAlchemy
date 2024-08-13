@@ -360,7 +360,7 @@ class StableValidator:
 
     async def get_image_generation_task(
         self,
-        timeout: int = 60,
+        timeout: int = 30,
     ) -> ImageGenerationTaskModel | None:
         """
         Fetch new image generation task from backend or generate new one

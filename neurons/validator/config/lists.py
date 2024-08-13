@@ -8,8 +8,6 @@ from multiprocessing import Manager
 
 from loguru import logger
 
-from neurons.utils.common import is_validator
-from neurons.utils.gcloud import retrieve_public_file
 from neurons.constants import (
     IA_MINER_BLACKLIST,
     IA_MINER_WARNINGLIST,
@@ -18,7 +16,6 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
 )
 
-from neurons.validator.config import get_wallet
 
 # Global variables to hold our Manager instance and managed dictionaries
 _manager = None
@@ -43,6 +40,8 @@ def get_shared_lists():
 
 def get_file_name(list_type: str) -> str:
     """Determine the file name based on list type and neuron type."""
+    from neurons.utils.common import is_validator
+
     if list_type == "whitelist":
         return IA_VALIDATOR_WHITELIST if is_validator() else IA_MINER_WHITELIST
 
@@ -71,6 +70,8 @@ async def get_list(list_type: str) -> Dict[str, Dict[str, Any]]:
     if shared_lists[list_type] is None:
         file_name = get_file_name(list_type)
         try:
+            from neurons.utils.gcloud import retrieve_public_file
+
             result = await retrieve_public_file(file_name)
             logger.info(f"Retrieved {list_type}")
             shared_lists[list_type] = result
@@ -135,15 +136,6 @@ async def get_warninglist() -> Tuple[
         for k, v in warninglist.items()
         if v["type"] == "coldkey"
     }
-
-    my_hotkey: str = get_wallet().hotkey.ss58_address
-    if my_hotkey in hotkeys.keys():
-        hotkey_warning: str = hotkeys[my_hotkey][1]
-
-        logger.info(
-            f"This hotkey is on the warning list: {my_hotkey}"
-            + f" | Date for rectification: {hotkey_warning}",
-        )
 
     return (
         hotkeys,
