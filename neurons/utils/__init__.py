@@ -109,6 +109,11 @@ def background_loop(self, is_validator: bool):
     Handles terminating the miner after deregistration and
     updating the blacklist and whitelist.
     """
+    from neurons.constants import IS_CI_ENV
+
+    if IS_CI_ENV:
+        return
+
     global background_steps
     background_steps += 1
 
@@ -139,13 +144,9 @@ def background_loop(self, is_validator: bool):
                 logger.info(
                     f"An error occurred trying to terminate the main thread: {e}."
                 )
-            try:
-                os.exit(0)
-            except Exception as e:
-                logger.error(
-                    f"An error occurred trying to use os._exit(): {e}."
-                )
-                sys.exit(0)
+
+            sys.exit(0)
+
     except Exception as e:
         logger.error(
             f">>> An unexpected error occurred syncing the metagraph: {e}"

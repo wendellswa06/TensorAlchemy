@@ -9,3 +9,4 @@ sys.path.insert(0, project_root)
 
 # Use the older torch style for now
 os.environ["USE_TORCH"] = "1"
+os.environ["CI"] = "true"
