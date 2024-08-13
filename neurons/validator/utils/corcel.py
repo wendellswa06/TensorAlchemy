@@ -5,27 +5,19 @@ from neurons.validator.config import get_corcel_api_key
 
 
 def corcel_parse_response(text):
-    split = text.split('"')
-    if len(split) == 3:
-        split = [x for x in split if x]
-        if split:
-            split = split[0]
-        else:
-            logger.info(f"Returning (X1) default text: {text}")
-            return text
-    elif len(split) == 1:
-        split = split[0]
-    elif len(split) > 3:
-        split = [x for x in split if x]
-        if len(split) > 0:
-            split = split[0]
-    else:
-        logger.info(f"Split: {split}")
-        logger.info(f"Returning (X2) default text: {text}")
+    if not isinstance(text, str):
+        logger.warning(f"Input is not a string: {text}")
+        return str(text)
+
+    parts = [part.strip() for part in text.split('"') if part.strip()]
+
+    if not parts:
+        logger.info(f"No non-empty parts found in: {text}")
         return text
 
-    logger.info(f"Returning parsed text: {split}")
-    return split
+    result = parts[0]
+    logger.info(f"Returning parsed text: {result}")
+    return result
 
 
 def call_corcel(prompt):
