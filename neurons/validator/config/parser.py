@@ -16,9 +16,14 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     Add Alchemy-specific arguments to the argument parser.
 
     Args:
-        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+        parser (argparse.ArgumentParser): The argument parser to add arguments
     """
-    parser.add_argument("--netuid", type=int, help="Network netuid", default=26)
+    parser.add_argument(
+        "--netuid",
+        type=int,
+        help="Network netuid",
+        default=26,
+    )
     parser.add_argument(
         "--alchemy.name",
         type=str,
@@ -26,7 +31,10 @@ def add_args(parser: argparse.ArgumentParser) -> None:
         default="image_alchemy_validator",
     )
     parser.add_argument(
-        "--alchemy.debug", type=bool, default=False, help="Enable debug logging"
+        "--alchemy.debug",
+        type=bool,
+        default=False,
+        help="Enable debug logging",
     )
     parser.add_argument(
         "--alchemy.device",
@@ -109,6 +117,7 @@ def get_config() -> bt.config:
         add_args(parser)
         config = bt.config(parser)
         check_config(config)
+
     return config
 
 
