@@ -18,6 +18,8 @@ from neurons.constants import (
     IA_VALIDATOR_WHITELIST,
 )
 
+from neurons.validator.config import get_wallet
+
 # Global variables to hold our Manager instance and managed dictionaries
 _manager = None
 _shared_lists = None
@@ -122,15 +124,28 @@ async def get_warninglist() -> Tuple[
             A tuple containing the hotkey warninglist and coldkey warninglist.
     """
     warninglist = await get_list("warninglist")
+
+    hotkeys: Dict = {
+        k: [v["reason"], v["resolve_by"]]
+        for k, v in warninglist.items()
+        if v["type"] == "hotkey"
+    }
+    coldkeys: Dict = {
+        k: [v["reason"], v["resolve_by"]]
+        for k, v in warninglist.items()
+        if v["type"] == "coldkey"
+    }
+
+    my_hotkey: str = get_wallet().hotkey.ss58_address
+    if my_hotkey in hotkeys.keys():
+        hotkey_warning: str = hotkeys[my_hotkey][1]
+
+        logger.info(
+            f"This hotkey is on the warning list: {my_hotkey}"
+            + f" | Date for rectification: {hotkey_warning}",
+        )
+
     return (
-        {
-            k: [v["reason"], v["resolve_by"]]
-            for k, v in warninglist.items()
-            if v["type"] == "hotkey"
-        },
-        {
-            k: [v["reason"], v["resolve_by"]]
-            for k, v in warninglist.items()
-            if v["type"] == "coldkey"
-        },
+        hotkeys,
+        coldkeys,
     )
