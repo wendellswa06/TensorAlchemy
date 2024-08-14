@@ -26,11 +26,8 @@ from neurons.miners.StableMiner.utils import (
     get_caller_stake,
     get_coldkey_for_hotkey,
 )
-from neurons.miners.StableMiner.utils.log import do_logs
 
 import bittensor as bt
-
-from neurons.utils.log import configure_logging
 
 
 class BaseMiner(ABC):

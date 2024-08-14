@@ -1,5 +1,4 @@
 import base64
-import binascii
 import traceback
 from io import BytesIO
 from typing import List
@@ -293,7 +292,9 @@ def base64_to_image(b64_image: str) -> ImageType:
         return Image.open(BytesIO(base64.b64decode(b64_image)))
 
     except Exception:
-        logger.error(f"Error converting base64 to image: {traceback.format_exc()}")
+        logger.error(
+            f"Error converting base64 to image: {traceback.format_exc()}"
+        )
         return empty_image()
 
 
@@ -323,7 +324,9 @@ def tensor_to_image(tensor: bt.Tensor) -> ImageType:
     try:
         return T.ToPILImage()(tensor_to_torch(tensor))
     except Exception:
-        logger.error(f"Error converting tensor to image: {traceback.format_exc()}")
+        logger.error(
+            f"Error converting tensor to image: {traceback.format_exc()}"
+        )
         return empty_image()
 
 

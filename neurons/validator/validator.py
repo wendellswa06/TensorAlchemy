@@ -17,20 +17,15 @@ import numpy as np
 from loguru import logger
 
 from neurons.constants import (
-    DEVELOP_URL,
-    TESTNET_URL,
-    MAINNET_URL,
     N_NEURONS,
     IA_VALIDATOR_SETTINGS_FILE,
 )
 
 from neurons.protocol import (
-    IsAlive,
     ModelType,
     denormalize_image_model,
     ImageGenerationTaskModel,
 )
-from neurons.utils.exceptions import BittensorBrokenPipe, broken_pipe_message
 from neurons.utils.common import log_dependencies
 from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
@@ -59,8 +54,6 @@ from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
     ttl_get_block,
     generate_random_prompt_gpt,
-    get_device_name,
-    get_random_uids,
     get_all_active_uids,
 )
 from neurons.validator.weights import (
@@ -157,19 +150,14 @@ class StableValidator:
         # Init config
         self.config = get_config()
 
-        environment: str = "production"
-        if self.config.subtensor.network == "test":
-            environment = "local"
-
         bt.logging(
             config=self.config,
-            logging_dir=self.config.alchemy.full_path,
             debug=self.config.debug,
             trace=self.config.trace,
+            logging_dir=self.config.alchemy.full_path,
         )
 
         configure_logging()
-
         log_dependencies()
 
         # Init device.
@@ -694,7 +682,7 @@ class StableValidator:
                 logger.success(
                     "Keyboard interrupt detected. Exiting validator."
                 )
-            except Exception as e:
+            except Exception:
                 logger.error(traceback.format_exc())
 
     async def pre_step(self):
@@ -718,7 +706,7 @@ class StableValidator:
                 return False
 
             return True
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
             await asyncio.sleep(10)
             return False

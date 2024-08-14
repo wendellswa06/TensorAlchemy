@@ -1,7 +1,7 @@
 import pytest
 import torch
 from loguru import logger
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 
 import bittensor as bt
 from neurons.protocol import ImageGeneration, ModelType
@@ -14,9 +14,6 @@ from neurons.validator.scoring.pipeline import (
     filter_rewards,
 )
 from neurons.validator.scoring.types import ScoringResults
-from neurons.validator.scoring.models.rewards.image_reward import (
-    ImageRewardModel,
-)
 from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
 

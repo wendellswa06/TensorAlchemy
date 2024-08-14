@@ -4,7 +4,6 @@ import torch
 import logging
 from multiprocessing import Queue
 from typing import Any
-from functools import partial
 from logging.handlers import QueueHandler, QueueListener
 
 import bittensor as bt

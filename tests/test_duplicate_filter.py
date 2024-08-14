@@ -1,7 +1,7 @@
 import pytest
 import torch
 import bittensor as bt
-from PIL import Image, ImageDraw, ImageEnhance
+from PIL import Image, ImageEnhance
 import numpy as np
 from unittest.mock import MagicMock, patch
 import random
@@ -9,7 +9,6 @@ import random
 from loguru import logger
 
 from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
-from neurons.validator.config import get_metagraph
 
 from tests.fixtures import create_complex_image
 

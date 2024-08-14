@@ -1,6 +1,5 @@
 from typing import List
 
-import torch
 import bittensor as bt
 
 from neurons.protocol import ModelType

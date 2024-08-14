@@ -1,4 +1,3 @@
-import bittensor
 import torch
 from typing import List, Optional
 
@@ -156,9 +155,9 @@ class StableMiner(BaseMiner):
             if model_type not in self.miner_config.model_configs:
                 self.miner_config.model_configs[model_type] = {}
 
-            self.miner_config.model_configs[model_type][task_type].args = (
-                self.get_args_for_task(task_type)
-            )
+            self.miner_config.model_configs[model_type][
+                task_type
+            ].args = self.get_args_for_task(task_type)
 
         logger.info("Model configurations set up successfully.")
 

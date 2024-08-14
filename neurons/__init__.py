@@ -17,7 +17,6 @@
 # DEALINGS IN THE SOFTWARE.
 
 # Define the version of the template module.
-from . import constants, protocol, safety
 
 __version__ = "1.4.0"
 version_split = __version__.split(".")

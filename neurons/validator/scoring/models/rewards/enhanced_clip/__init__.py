@@ -104,7 +104,7 @@ class EnhancedClipRewardModel(BaseRewardModel):
 
             return final_result
 
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
             return 0.0
 

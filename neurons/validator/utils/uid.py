@@ -6,7 +6,6 @@ from typing import List, Tuple, Dict, Any
 from functools import wraps
 from multiprocessing import Manager
 
-import numpy as np
 import bittensor as bt
 import torch
 from loguru import logger
@@ -17,8 +16,6 @@ from neurons.validator.config import (
     get_config,
     get_dendrite,
     get_metagraph,
-    get_subtensor,
-    get_wallet,
     get_blacklist,
 )
 
@@ -71,7 +68,7 @@ async def check_uid(uid: int) -> Tuple[bool, float]:
             isalive_dict[uid] = 1
 
         return uid, False, -1
-    except Exception as e:
+    except Exception:
         logger.error(
             #
             f"Error checking UID {uid}: "

@@ -1,9 +1,7 @@
-import pytest
 import torch
 import random
 from PIL import Image, ImageDraw
 
-from loguru import logger
 import bittensor as bt
 
 from neurons.protocol import ImageGeneration, ModelType

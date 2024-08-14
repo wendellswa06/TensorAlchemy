@@ -1,8 +1,6 @@
 import base64
 import os
 
-import torch
-from loguru import logger
 
 from neurons.protocol import ImageGeneration
 
