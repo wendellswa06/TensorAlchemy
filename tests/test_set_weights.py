@@ -1,8 +1,6 @@
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 import torch
-import bittensor as bt
-from loguru import logger
 import asyncio
 
 from neurons.validator.weights import set_weights

@@ -1,7 +1,6 @@
 from typing import List, Optional
 
 import torch
-from loguru import logger
 from pydantic import ConfigDict, BaseModel, Field
 
 from neurons.validator.scoring.models.types import RewardModelType

@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch, AsyncMock
 
 import torch
-from loguru import logger
 
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.exceptions import (
@@ -112,7 +111,9 @@ class TestTensorAlchemyBackendClient(unittest.IsolatedAsyncioTestCase):
         moving_average_scores = torch.tensor([0.5, 0.6])
 
         with self.assertRaises(PostMovingAveragesError):
-            await self.client.post_moving_averages(hotkeys, moving_average_scores)
+            await self.client.post_moving_averages(
+                hotkeys, moving_average_scores
+            )
 
     @patch("httpx.AsyncClient.post")
     async def test_post_weights(self, mock_post):

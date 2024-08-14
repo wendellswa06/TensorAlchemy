@@ -54,7 +54,11 @@ class BaseRewardModel:
 
         rewards = self.zeros()
         for response in responses:
-            score = method(response)
+            if inspect.iscoroutinefunction(method):
+                score = await method(response)
+            else:
+                score = method(response)
+
             hotkey = response.axon.hotkey
             try:
                 index = get_metagraph().hotkeys.index(hotkey)
@@ -102,7 +106,9 @@ class BaseRewardModel:
             rewards = self.get_rewards(synapse, responses)
 
         # Normalize rewards
-        normalized_rewards = self.normalize_rewards(rewards)
+        normalized_rewards = rewards
+        if get_metagraph().n > 1:
+            normalized_rewards = self.normalize_rewards(rewards)
 
         from neurons.validator.scoring.types import ScoringResult
 

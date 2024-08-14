@@ -5,7 +5,6 @@ from loguru import logger
 from functools import wraps
 from typing import Dict
 
-from neurons.validator.config import get_device
 from neurons.validator.forward import update_moving_averages
 from neurons.validator.scoring.types import ScoringResults
 from neurons.constants import MOVING_AVERAGE_ALPHA

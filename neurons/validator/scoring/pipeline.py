@@ -210,7 +210,7 @@ async def get_scoring_results(
     #       so we'll set those scores to 0.0.
     #
     #       0.0 here means "don't change the weights"
-    combined_scores[masks.combined_scores != 0] = 0.0
+    combined_scores[masks.combined_scores >= 1e-6] = 0.0
 
     return ScoringResults(
         # Simple list concatenation

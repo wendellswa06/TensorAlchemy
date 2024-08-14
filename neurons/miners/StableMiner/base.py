@@ -26,11 +26,8 @@ from neurons.miners.StableMiner.utils import (
     get_caller_stake,
     get_coldkey_for_hotkey,
 )
-from neurons.miners.StableMiner.utils.log import do_logs
 
 import bittensor as bt
-
-from neurons.utils.log import configure_logging
 
 
 class BaseMiner(ABC):
@@ -41,6 +38,7 @@ class BaseMiner(ABC):
         if self.bt_config.logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")
+
         self.hotkey_blacklist: set = set()
         self.coldkey_blacklist: set = set()
         self.coldkey_whitelist: set = set(
@@ -49,6 +47,7 @@ class BaseMiner(ABC):
         self.hotkey_whitelist: set = set(
             ["5C5PXHeYLV5fAx31HkosfCkv8ark3QjbABbjEusiD3HXH2Ta"]
         )
+
         self.initialize_components()
         self.request_dict: Dict[str, Dict[str, Union[List[float], int]]] = {}
 
@@ -419,7 +418,9 @@ class BaseMiner(ABC):
 
         else:
             images = model(
-                **self.without_keys(model_args, ["denoising_end", "output_type"])
+                **self.without_keys(
+                    model_args, ["denoising_end", "output_type"]
+                )
             ).images
         return images
 
@@ -459,7 +460,7 @@ class BaseMiner(ABC):
         # If hotkey or coldkey is whitelisted
         # and not found on the metagraph, give a priority of 5,000
         # Caller hotkey
-        caller_hotkey: str = synapse.axon.hotkey
+        caller_hotkey: str = synapse.dendrite.hotkey
 
         try:
             priority: float = 0.0
@@ -473,17 +474,17 @@ class BaseMiner(ABC):
 
             try:
                 caller_uid: int = self.metagraph.hotkeys.index(
-                    synapse.axon.hotkey,
+                    synapse.dendrite.hotkey,
                 )
                 priority = max(priority, float(self.metagraph.S[caller_uid]))
                 logger.info(
-                    f"Prioritizing key {synapse.axon.hotkey}"
+                    f"Prioritizing key {synapse.dendrite.hotkey}"
                     + f" with value: {priority}."
                 )
             except ValueError:
                 logger.warning(
                     #
-                    f"Hotkey {synapse.axon.hotkey}"
+                    f"Hotkey {synapse.dendrite.hotkey}"
                     + f" not found in metagraph"
                 )
 

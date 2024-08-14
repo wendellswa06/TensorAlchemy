@@ -1,7 +1,7 @@
 import pytest
 import torch
 from loguru import logger
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock
 
 import bittensor as bt
 from neurons.protocol import ImageGeneration, ModelType
@@ -14,17 +14,7 @@ from neurons.validator.scoring.pipeline import (
     filter_rewards,
 )
 from neurons.validator.scoring.types import ScoringResults
-from neurons.validator.scoring.models.rewards.image_reward import (
-    ImageRewardModel,
-)
-from tests.fixtures import TEST_IMAGES
-
-
-class MockMetagraph:
-    def __init__(self) -> None:
-        self.n = 10
-        self.hotkeys = [f"hotkey_{i}" for i in range(self.n)]
-        self.coldkeys = [f"coldkey_{i}" for i in range(self.n)]
+from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
 
 class MockScoringModel:
@@ -76,12 +66,18 @@ class MockBackendClient:
         }
 
 
-def mock_get_metagraph():
-    return MockMetagraph()
-
-
 def mock_get_backend_client():
     return MockBackendClient()
+
+
+def mock_openai_response():
+    return AsyncMock(
+        return_value={
+            "elements": [
+                {"description": "Any Image"},
+            ]
+        }
+    )
 
 
 # Patch configuration
@@ -101,6 +97,9 @@ mock_configs = {
     "neurons.validator.scoring.models.rewards.image_reward": {"RM": mock_rm()},
     "neurons.validator.scoring.models.masks.duplicate": {
         "get_metagraph": mock_get_metagraph,
+    },
+    "neurons.validator.scoring.models.rewards.enhanced_clip.utils": {
+        "openai_breakdown": mock_openai_response()
     },
 }
 

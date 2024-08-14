@@ -1,5 +1,4 @@
 import queue
-import asyncio
 import time
 import traceback
 from typing import List
@@ -130,7 +129,7 @@ async def set_weights(
             # Use valid_weights instead of raw_weights
             weights=torch.tensor(valid_weights).cpu(),
         )
-    except Exception as e:
+    except Exception:
         logger.error(
             #
             "Could not process weights: "
@@ -147,7 +146,7 @@ async def set_weights(
             netuid=config.netuid,
             uids=processed_weight_uids,
             weights=processed_weights,
-            wait_for_finalization=True,
+            wait_for_finalization=False,
             version_key=get_validator_spec_version(),
         )
 

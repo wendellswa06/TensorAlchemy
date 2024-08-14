@@ -1,16 +1,35 @@
 import time
-
 import pytest
 from unittest.mock import MagicMock, patch
+import torch
+from diffusers import DiffusionPipeline
 
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.protocol import IsAlive, ImageGeneration
 from neurons.miners.StableMiner.schema import TaskConfig, ModelType, TaskType
-import torch
-from diffusers import DiffusionPipeline
 
 
 class TestStableMinerAsBase:
+    @pytest.fixture
+    def mock_config(self):
+        config = MagicMock()
+        config.axon.port = 1234
+        config.axon.get.return_value = None
+        return config
+
+    @pytest.fixture
+    def task_configs(self):
+        return [
+            TaskConfig(
+                task_type=TaskType.TEXT_TO_IMAGE,
+                model_type=ModelType.CUSTOM,
+                pipeline=DiffusionPipeline,
+                torch_dtype=torch.float32,
+                use_safetensors=True,
+                variant="default",
+            )
+        ]
+
     @pytest.fixture
     @patch("neurons.miners.StableMiner.base.get_bt_miner_config")
     @patch("bittensor.subtensor")
@@ -24,20 +43,9 @@ class TestStableMinerAsBase:
         mock_wallet,
         mock_subtensor,
         mock_get_bt_miner_config,
+        mock_config,
+        task_configs,
     ):
-        task_configs = [
-            TaskConfig(
-                task_type=TaskType.TEXT_TO_IMAGE,
-                model_type=ModelType.CUSTOM,
-                pipeline=DiffusionPipeline,
-                torch_dtype=torch.float32,
-                use_safetensors=True,
-                variant="default",
-            )
-        ]
-        mock_config = MagicMock()
-        mock_config.axon.port = 1234
-        mock_config.axon.get.return_value = None
         mock_get_bt_miner_config.return_value = mock_config
         mock_subtensor.return_value = MagicMock()
         mock_wallet.return_value = MagicMock()
@@ -75,25 +83,17 @@ class TestStableMinerAsBase:
         assert stable_miner.axon is not None
 
     def test_loop_until_registered(self, stable_miner):
-        call_count = 0
+        with patch.object(
+            StableMiner, "get_miner_index"
+        ) as mock_get_miner_index:
+            mock_get_miner_index.side_effect = [None, None, 0]
+            stable_miner.metagraph.uids = [1]
+            stable_miner.bt_config.wallet.hotkey = "test_hotkey"
+            stable_miner.wallet.hotkey.ss58_address = "test_hotkey"
 
-        def get_miner_index_side_effect():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                return None
-            return 0
-
-        stable_miner.get_miner_index = MagicMock(
-            side_effect=get_miner_index_side_effect
-        )
-        stable_miner.metagraph.uids = [1]
-        stable_miner.bt_config.wallet.hotkey = "test_hotkey"
-        stable_miner.wallet.hotkey.ss58_address = "test_hotkey"
-
-        with patch("time.sleep", return_value=None):
-            stable_miner.loop_until_registered()
-            assert stable_miner.miner_index == 0
+            with patch("time.sleep", return_value=None):
+                stable_miner.loop_until_registered()
+                assert stable_miner.miner_index == 0
 
     def test_get_miner_index(self, stable_miner):
         stable_miner.wallet.hotkey.ss58_address = "test_hotkey"
@@ -101,35 +101,29 @@ class TestStableMinerAsBase:
         assert stable_miner.get_miner_index() == 0
 
     def test_check_still_registered(self, stable_miner):
-        stable_miner.get_miner_index = MagicMock(return_value=1)
-        assert stable_miner.check_still_registered() is True
+        with patch.object(StableMiner, "get_miner_index", return_value=1):
+            assert stable_miner.check_still_registered() is True
 
     def test_get_miner_info(self, stable_miner):
         stable_miner.metagraph.block.item.return_value = 1
-        stable_miner.metagraph.stake.__getitem__.return_value.item.return_value = (
-            1.0
-        )
-        stable_miner.metagraph.trust.__getitem__.return_value.item.return_value = (
-            1.0
-        )
-        stable_miner.metagraph.consensus.__getitem__.return_value.item.return_value = (
-            1.0
-        )
-        stable_miner.metagraph.incentive.__getitem__.return_value.item.return_value = (
-            1.0
-        )
-        stable_miner.metagraph.emission.__getitem__.return_value.item.return_value = (
-            1.0
-        )
+        for attr in ["stake", "trust", "consensus", "incentive", "emission"]:
+            getattr(
+                stable_miner.metagraph, attr
+            ).__getitem__.return_value.item.return_value = 1.0
+
         miner_info = stable_miner.get_miner_info()
-        assert miner_info == {
-            "block": 1,
-            "stake": 1.0,
-            "trust": 1.0,
-            "consensus": 1.0,
-            "incentive": 1.0,
-            "emissions": 1.0,
+        expected_info = {
+            attr: 1.0
+            for attr in [
+                "block",
+                "stake",
+                "trust",
+                "consensus",
+                "incentive",
+                "emissions",
+            ]
         }
+        assert miner_info == expected_info
 
     @patch("torchvision.transforms.Compose")
     def test_setup_model_args(self, mock_compose, stable_miner):
@@ -151,8 +145,7 @@ class TestStableMinerAsBase:
     @patch("neurons.miners.StableMiner.base.get_coldkey_for_hotkey")
     def test_base_priority(self, mock_get_coldkey_for_hotkey, stable_miner):
         synapse = MagicMock(spec=IsAlive)
-        synapse.axon = MagicMock()
-        synapse.axon.hotkey = "test_hotkey"
+        synapse.dendrite = MagicMock(hotkey="test_hotkey")
         stable_miner.hotkey_whitelist = ["test_hotkey"]
         stable_miner.coldkey_whitelist = ["test_coldkey"]
 
@@ -169,8 +162,7 @@ class TestStableMinerAsBase:
         self, mock_get_caller_stake, mock_get_coldkey_for_hotkey, stable_miner
     ):
         synapse = MagicMock(spec=IsAlive)
-        synapse.dendrite = MagicMock()
-        synapse.dendrite.hotkey = "test_hotkey"
+        synapse.dendrite = MagicMock(hotkey="test_hotkey")
         stable_miner.coldkey_whitelist = ["test_coldkey"]
         stable_miner.hotkey_whitelist = ["test_hotkey"]
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
