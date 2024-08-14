@@ -61,7 +61,7 @@ class TensorAlchemyBackendClient:
         )
 
     # Get tasks from the client server
-    async def poll_task(self, timeout: int = 60, backoff: int = 1):
+    async def poll_task(self, timeout: int = 30, backoff: int = 1):
         """Performs polling for new task.
         If no new task found within `timeout`
         returns None."""

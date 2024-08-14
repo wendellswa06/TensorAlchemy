@@ -30,8 +30,10 @@ class ImageRewardModel(BaseRewardModel):
                 if not images:
                     raise ValueError("No images")
 
-            except Exception:
-                logger.error("ImageReward score is 0. No image in response.")
+            except Exception as e:
+                logger.error(
+                    f"ImageReward score is 0. No image in response: {str(e)}"
+                )
                 return 0.0
 
             _, scores = self.scoring_model.inference_rank(
