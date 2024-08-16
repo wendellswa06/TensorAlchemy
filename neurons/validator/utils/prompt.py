@@ -3,7 +3,7 @@ import time
 from typing import Optional
 from loguru import logger
 
-from neurons.validator.config import get_corcel_api_key
+from neurons.config import get_corcel_api_key
 from neurons.validator.services.openai.service import (
     get_openai_service,
     OpenAIRequestFailed,

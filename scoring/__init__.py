@@ -8,7 +8,7 @@ from PIL.Image import Image as ImageType
 from neurons.utils.image import image_to_base64
 from neurons.protocol import ImageGeneration, ModelType
 
-from neurons.validator.config import clients
+from neurons.config import clients
 
 from scoring.types import ScoringResults
 from scoring.pipeline import get_scoring_results

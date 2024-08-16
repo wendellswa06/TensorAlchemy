@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 from loguru import logger
 from neurons.utils.log import configure_logging
-from neurons.validator.config.lists import get_warninglist
+from neurons.config.lists import get_warninglist
 
 
 # Background Loop

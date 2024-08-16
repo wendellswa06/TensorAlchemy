@@ -1,7 +1,7 @@
 import random
 import requests
 from loguru import logger
-from neurons.validator.config import get_corcel_api_key
+from neurons.config import get_corcel_api_key
 
 
 def corcel_parse_response(text):

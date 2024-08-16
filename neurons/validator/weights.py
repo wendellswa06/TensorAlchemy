@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
 from neurons.utils.exceptions import BittensorBrokenPipe
-from neurons.validator.config import (
+from neurons.config import (
     get_config,
     get_wallet,
     get_metagraph,

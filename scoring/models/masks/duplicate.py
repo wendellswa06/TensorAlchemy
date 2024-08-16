@@ -7,7 +7,7 @@ import bittensor as bt
 from loguru import logger
 
 from neurons.utils.image import synapse_to_tensors
-from neurons.validator.config import get_metagraph
+from neurons.config import get_metagraph
 from scoring.models.base import BaseRewardModel
 from scoring.models.types import RewardModelType
 

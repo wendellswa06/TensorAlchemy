@@ -6,7 +6,7 @@ from tenacity import (
     retry_if_exception_type,
 )
 
-from neurons.validator.config import get_openai_client
+from neurons.config import get_openai_client
 
 
 class OpenAIRequestFailed(Exception):

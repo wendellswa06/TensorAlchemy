@@ -8,7 +8,7 @@ from loguru import logger
 
 from neurons.utils.image import synapse_to_images
 
-from neurons.validator.config import get_device
+from neurons.config import get_device
 from scoring.models.base import BaseRewardModel
 from scoring.models.types import RewardModelType
 

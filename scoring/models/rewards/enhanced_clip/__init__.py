@@ -8,7 +8,7 @@ from transformers import CLIPProcessor, CLIPModel
 from typing import List
 
 from neurons.utils.image import synapse_to_image
-from neurons.validator.config import get_device
+from neurons.config import get_device
 from scoring.models.base import BaseRewardModel
 from scoring.models.types import RewardModelType
 from scoring.models.rewards.enhanced_clip.utils import (

@@ -7,7 +7,7 @@ import bittensor as bt
 from loguru import logger
 
 
-from neurons.validator.config import get_device, get_metagraph
+from neurons.config import get_device, get_metagraph
 
 if TYPE_CHECKING:
     from scoring.types import ScoringResult

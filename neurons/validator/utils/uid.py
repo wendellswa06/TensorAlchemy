@@ -12,7 +12,7 @@ from loguru import logger
 
 from neurons.protocol import IsAlive
 from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO
-from neurons.validator.config import (
+from neurons.config import (
     get_config,
     get_dendrite,
     get_metagraph,

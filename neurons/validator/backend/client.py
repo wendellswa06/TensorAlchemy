@@ -24,7 +24,7 @@ from neurons.validator.backend.exceptions import (
     PostWeightsError,
     UpdateTaskError,
 )
-from neurons.validator.config import get_config
+from neurons.config import get_config
 from neurons.validator.backend.models import TaskState
 from neurons.validator.schemas import Batch
 

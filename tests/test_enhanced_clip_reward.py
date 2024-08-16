@@ -13,7 +13,7 @@ from tests.fixtures import mock_get_metagraph, TEST_IMAGES, generate_synapse
 
 # Define the mock configurations
 mock_configs = {
-    "neurons.validator.config": {
+    "neurons.config": {
         "get_metagraph": mock_get_metagraph,
         "get_openai_client": MagicMock(),
         "get_corcel_api_key": MagicMock(return_value="mock_api_key"),

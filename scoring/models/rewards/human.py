@@ -6,7 +6,7 @@ import torch
 
 from scoring.models.base import BaseRewardModel
 from scoring.models.types import RewardModelType
-from neurons.validator.config import (
+from neurons.config import (
     get_backend_client,
 )
 

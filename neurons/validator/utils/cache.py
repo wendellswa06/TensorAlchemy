@@ -3,7 +3,7 @@ from functools import lru_cache, update_wrapper
 from math import floor
 from typing import Any, Callable
 
-from neurons.validator.config import get_subtensor
+from neurons.config import get_subtensor
 
 
 def _ttl_hash_gen(seconds: int):

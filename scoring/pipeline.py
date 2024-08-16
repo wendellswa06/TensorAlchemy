@@ -6,7 +6,7 @@ from loguru import logger
 
 from neurons.protocol import ModelType
 from neurons.utils.log import summarize_rewards
-from neurons.validator.config import get_device, get_metagraph
+from neurons.config import get_device, get_metagraph
 
 from scoring.models.types import PackedRewardModel
 from scoring.models import (

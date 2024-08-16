@@ -37,7 +37,7 @@ from neurons.utils import (
 )
 from neurons.utils.log import configure_logging
 from neurons.validator.schemas import Batch
-from neurons.validator.config import (
+from neurons.config import (
     get_device,
     get_config,
     get_wallet,

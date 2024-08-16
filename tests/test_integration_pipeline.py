@@ -91,7 +91,7 @@ def mock_local_get_metagraph(n: int = 11):
 
 # Patch configuration
 mock_configs = {
-    "neurons.validator.config": {
+    "neurons.config": {
         "get_metagraph": mock_local_get_metagraph,
         "get_backend_client": mock_get_backend_client,
     },

@@ -7,7 +7,7 @@ import bittensor as bt
 from loguru import logger
 
 # Import the actual get_metagraph function
-import neurons.validator.config as validator_config
+import neurons.config as validator_config
 from neurons.utils.image import image_tensor_to_base64
 
 from tests.fixtures import TEST_IMAGES
@@ -49,11 +49,11 @@ mock_client = mock_backend_client()
 def patch_all_dependencies(func):
     @wraps(func)
     @patch(
-        "neurons.validator.config.get_metagraph",
+        "neurons.config.get_metagraph",
         return_value=mock_meta,
     )
     @patch(
-        "neurons.validator.config.get_backend_client",
+        "neurons.config.get_backend_client",
         return_value=mock_client,
     )
     @patch(
@@ -78,7 +78,7 @@ def patch_all_dependencies(func):
 @patch_all_dependencies
 async def test_apply_human_voting_weight(*args):
     # Import here to ensure patches are applied first
-    from neurons.validator.config import get_metagraph, get_device
+    from neurons.config import get_metagraph, get_device
     from scoring.pipeline import (
         apply_function,
         apply_functions,
