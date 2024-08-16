@@ -44,8 +44,17 @@ class TestStableMinerAsBase:
         return mock_metagraph
 
     @pytest.fixture
+    def mock_subtensor(self):
+        mock_subtensor = MagicMock()
+        mock_subtensor.network = "mock_network"
+        mock_subtensor.chain_endpoint = "mock_endpoint"
+        return mock_subtensor
+
+    @pytest.fixture
     @patch("neurons.config.get_config")
     @patch("neurons.miners.StableMiner.base.get_config")
+    @patch("neurons.miners.StableMiner.base.get_subtensor")
+    @patch("neurons.miners.StableMiner.base.get_metagraph")
     @patch("neurons.config.get_subtensor")
     @patch("neurons.config.get_wallet")
     @patch("neurons.config.get_metagraph")
@@ -60,9 +69,10 @@ class TestStableMinerAsBase:
         mock_config,
         task_configs,
         mock_metagraph,
+        mock_subtensor,
     ):
         mock_get_config.return_value = mock_config
-        mock_get_subtensor.return_value = MagicMock()
+        mock_get_subtensor.return_value = mock_subtensor
         mock_get_wallet.return_value = MagicMock()
         mock_get_metagraph.return_value = mock_metagraph
         mock_axon.return_value.attach.return_value.start.return_value = (
@@ -79,15 +89,25 @@ class TestStableMinerAsBase:
     )
     @patch("bittensor.subtensor.serve_axon")
     def test_start_axon(
-        self, mock_serve_axon, mock_get_external_ip, mock_axon, stable_miner
+        self,
+        mock_serve_axon,
+        mock_get_external_ip,
+        mock_axon,
+        stable_miner,
+        mock_subtensor,
     ):
         with patch("neurons.config.get_wallet") as mock_get_wallet:
             mock_get_wallet.return_value = MagicMock()
             stable_miner.start_axon()
             assert mock_axon.call_count == 1
             assert stable_miner.axon is not None
+        mock_serve_axon.assert_called_once_with(
+            axon=stable_miner.axon, netuid=mock_subtensor.network
+        )
 
-    def test_loop_until_registered(self, stable_miner, mock_metagraph):
+    def test_loop_until_registered(
+        self, stable_miner, mock_metagraph, mock_subtensor
+    ):
         with patch.object(
             StableMiner, "get_miner_index"
         ) as mock_get_miner_index:
@@ -99,6 +119,7 @@ class TestStableMinerAsBase:
                 with patch("time.sleep", return_value=None):
                     stable_miner.loop_until_registered()
                     assert stable_miner.miner_index == 0
+        mock_metagraph.sync.assert_called_with(subtensor=mock_subtensor)
 
     def test_get_miner_index(self, stable_miner, mock_metagraph):
         with patch("neurons.config.get_wallet") as mock_get_wallet:

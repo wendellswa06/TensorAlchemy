@@ -113,10 +113,88 @@ class TestStableMiner(unittest.TestCase):
         return mock_metagraph
 
     def test_initialization(self):
-        # ... (keep the existing test_initialization method as is)
+        mock_load_model = self.mocks["mock_load_model"]
+        mock_load_safety_checker = self.mocks["mock_load_safety_checker"]
+        mock_load_processor = self.mocks["mock_load_processor"]
+
+        task_configs = [
+            TaskConfig(
+                model_type=ModelType.CUSTOM,
+                task_type=TaskType.TEXT_TO_IMAGE,
+                pipeline=AutoPipelineForText2Image,
+                torch_dtype=torch.float16,
+                use_safetensors=True,
+                variant="fp16",
+                scheduler=DPMSolverMultistepScheduler,
+                safety_checker=StableDiffusionSafetyChecker,
+                safety_checker_model_name="dummy_safety_checker_model_name",
+                processor=CLIPImageProcessor,
+            ),
+            TaskConfig(
+                model_type=ModelType.CUSTOM,
+                task_type=TaskType.IMAGE_TO_IMAGE,
+                pipeline=AutoPipelineForImage2Image,
+                torch_dtype=torch.float16,
+                use_safetensors=True,
+                variant="fp16",
+                scheduler=DPMSolverMultistepScheduler,
+                safety_checker=StableDiffusionSafetyChecker,
+                safety_checker_model_name="dummy_safety_checker_model_name",
+                processor=CLIPImageProcessor,
+            ),
+        ]
+
+        logger.info("Creating StableMiner instance")
+        miner = StableMiner(task_configs)
+
+        self.assertEqual(mock_load_model.call_count, 2)
+        self.assertEqual(mock_load_safety_checker.call_count, 2)
+        self.assertEqual(mock_load_processor.call_count, 2)
+
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.TEXT_TO_IMAGE
+            ].safety_checker
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.TEXT_TO_IMAGE
+            ].processor
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.IMAGE_TO_IMAGE
+            ].safety_checker
+        )
+        self.assertIsNotNone(
+            miner.miner_config.model_configs[ModelType.CUSTOM][
+                TaskType.IMAGE_TO_IMAGE
+            ].processor
+        )
+        self.assertIsNotNone(miner.miner_config.model_configs)
 
     def test_load_model(self):
-        # ... (keep the existing test_load_model method as is)
+        mock_load_model = self.mocks["mock_load_model"]
+
+        task_config = TaskConfig(
+            model_type=ModelType.CUSTOM,
+            task_type=TaskType.TEXT_TO_IMAGE,
+            pipeline=AutoPipelineForText2Image,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16",
+            scheduler=DPMSolverMultistepScheduler,
+            safety_checker=None,
+            processor=None,
+        )
+
+        loader = ModelLoader(config=MagicMock())
+
+        logger.info("Loading model in test_load_model")
+        model = loader.load("dummy_model_name", task_config)
+
+        self.assertEqual(model, mock_load_model.return_value)
+        mock_load_model.assert_called_once_with("dummy_model_name", task_config)
 
     def test_get_miner_index(self):
         task_configs = [
