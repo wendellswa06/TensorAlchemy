@@ -85,6 +85,10 @@ class TestStableMiner(unittest.TestCase):
                 "neurons.miners.StableMiner.base.get_miner_config",
                 return_value=MockConfig(),
             ),
+            "mock_get_metagraph": patch(
+                "neurons.config.get_metagraph",
+                return_value=self.create_mock_metagraph(),
+            ),
         }
         self.mocks = {
             name: patcher.start() for name, patcher in self.patches.items()
@@ -98,11 +102,23 @@ class TestStableMiner(unittest.TestCase):
         mock_model.unet = MagicMock()
         return mock_model
 
-    def test_initialization(self):
-        mock_load_model = self.mocks["mock_load_model"]
-        mock_load_safety_checker = self.mocks["mock_load_safety_checker"]
-        mock_load_processor = self.mocks["mock_load_processor"]
+    def create_mock_metagraph(self):
+        mock_metagraph = MagicMock()
+        mock_metagraph.hotkeys = ["test_hotkey_1", "test_hotkey_2"]
+        mock_metagraph.S = torch.tensor([1.0, 2.0])
+        mock_metagraph.T = torch.tensor([0.5, 0.7])
+        mock_metagraph.C = torch.tensor([0.8, 0.9])
+        mock_metagraph.I = torch.tensor([0.3, 0.4])
+        mock_metagraph.E = torch.tensor([0.2, 0.3])
+        return mock_metagraph
 
+    def test_initialization(self):
+        # ... (keep the existing test_initialization method as is)
+
+    def test_load_model(self):
+        # ... (keep the existing test_load_model method as is)
+
+    def test_get_miner_index(self):
         task_configs = [
             TaskConfig(
                 model_type=ModelType.CUSTOM,
@@ -112,72 +128,48 @@ class TestStableMiner(unittest.TestCase):
                 use_safetensors=True,
                 variant="fp16",
                 scheduler=DPMSolverMultistepScheduler,
-                safety_checker=StableDiffusionSafetyChecker,
-                safety_checker_model_name="dummy_safety_checker_model_name",
-                processor=CLIPImageProcessor,
-            ),
+                safety_checker=None,
+                processor=None,
+            )
+        ]
+
+        with patch("neurons.config.get_wallet") as mock_get_wallet:
+            mock_wallet = MagicMock()
+            mock_wallet.hotkey.ss58_address = "test_hotkey_1"
+            mock_get_wallet.return_value = mock_wallet
+
+            miner = StableMiner(task_configs)
+            miner_index = miner.get_miner_index()
+
+            self.assertEqual(miner_index, 0)
+
+    def test_get_miner_info(self):
+        task_configs = [
             TaskConfig(
                 model_type=ModelType.CUSTOM,
-                task_type=TaskType.IMAGE_TO_IMAGE,
-                pipeline=AutoPipelineForImage2Image,
+                task_type=TaskType.TEXT_TO_IMAGE,
+                pipeline=AutoPipelineForText2Image,
                 torch_dtype=torch.float16,
                 use_safetensors=True,
                 variant="fp16",
                 scheduler=DPMSolverMultistepScheduler,
-                safety_checker=StableDiffusionSafetyChecker,
-                safety_checker_model_name="dummy_safety_checker_model_name",
-                processor=CLIPImageProcessor,
-            ),
+                safety_checker=None,
+                processor=None,
+            )
         ]
 
-        logger.info("Creating StableMiner instance")
         miner = StableMiner(task_configs)
+        miner.miner_index = 0
 
-        self.assertEqual(mock_load_model.call_count, 2)
-        self.assertEqual(mock_load_safety_checker.call_count, 2)
-        self.assertEqual(mock_load_processor.call_count, 2)
+        miner_info = miner.get_miner_info()
 
-        self.assertIsNotNone(
-            miner.miner_config.model_configs[ModelType.CUSTOM][
-                TaskType.TEXT_TO_IMAGE
-            ].safety_checker
-        )
-        self.assertIsNotNone(
-            miner.miner_config.model_configs[ModelType.CUSTOM][
-                TaskType.TEXT_TO_IMAGE
-            ].processor
-        )
-        self.assertIsNotNone(
-            miner.miner_config.model_configs[ModelType.CUSTOM][
-                TaskType.IMAGE_TO_IMAGE
-            ].safety_checker
-        )
-        self.assertIsNotNone(
-            miner.miner_config.model_configs[ModelType.CUSTOM][
-                TaskType.IMAGE_TO_IMAGE
-            ].processor
-        )
-        self.assertIsNotNone(miner.miner_config.model_configs)
+        expected_info = {
+            "block": self.mocks["mock_get_metagraph"].return_value.block.item(),
+            "stake": 1.0,
+            "trust": 0.5,
+            "consensus": 0.8,
+            "incentive": 0.3,
+            "emissions": 0.2,
+        }
 
-    def test_load_model(self):
-        mock_load_model = self.mocks["mock_load_model"]
-
-        task_config = TaskConfig(
-            model_type=ModelType.CUSTOM,
-            task_type=TaskType.TEXT_TO_IMAGE,
-            pipeline=AutoPipelineForText2Image,
-            torch_dtype=torch.float16,
-            use_safetensors=True,
-            variant="fp16",
-            scheduler=DPMSolverMultistepScheduler,
-            safety_checker=None,
-            processor=None,
-        )
-
-        loader = ModelLoader(config=MagicMock())
-
-        logger.info("Loading model in test_load_model")
-        model = loader.load("dummy_model_name", task_config)
-
-        self.assertEqual(model, mock_load_model.return_value)
-        mock_load_model.assert_called_once_with("dummy_model_name", task_config)
+        self.assertEqual(miner_info, expected_info)

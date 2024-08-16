@@ -31,6 +31,19 @@ class TestStableMinerAsBase:
         ]
 
     @pytest.fixture
+    def mock_metagraph(self):
+        mock_metagraph = MagicMock()
+        mock_metagraph.hotkeys = ["test_hotkey_1", "test_hotkey_2"]
+        mock_metagraph.S = torch.tensor([1.0, 2.0])
+        mock_metagraph.T = torch.tensor([0.5, 0.7])
+        mock_metagraph.C = torch.tensor([0.8, 0.9])
+        mock_metagraph.I = torch.tensor([0.3, 0.4])
+        mock_metagraph.E = torch.tensor([0.2, 0.3])
+        mock_metagraph.uids = [1, 2]
+        mock_metagraph.block.item.return_value = 1000
+        return mock_metagraph
+
+    @pytest.fixture
     @patch("neurons.config.get_config")
     @patch("neurons.miners.StableMiner.base.get_config")
     @patch("neurons.config.get_subtensor")
@@ -46,11 +59,12 @@ class TestStableMinerAsBase:
         mock_get_config,
         mock_config,
         task_configs,
+        mock_metagraph,
     ):
         mock_get_config.return_value = mock_config
         mock_get_subtensor.return_value = MagicMock()
         mock_get_wallet.return_value = MagicMock()
-        mock_get_metagraph.return_value = MagicMock()
+        mock_get_metagraph.return_value = mock_metagraph
         mock_axon.return_value.attach.return_value.start.return_value = (
             mock_axon.return_value
         )
@@ -73,67 +87,42 @@ class TestStableMinerAsBase:
             assert mock_axon.call_count == 1
             assert stable_miner.axon is not None
 
-    def test_loop_until_registered(self, stable_miner):
+    def test_loop_until_registered(self, stable_miner, mock_metagraph):
         with patch.object(
             StableMiner, "get_miner_index"
         ) as mock_get_miner_index:
             mock_get_miner_index.side_effect = [None, None, 0]
-            with patch("neurons.config.get_metagraph") as mock_get_metagraph:
-                mock_metagraph = MagicMock()
-                mock_metagraph.uids = [1]
-                mock_get_metagraph.return_value = mock_metagraph
-                with patch("neurons.config.get_wallet") as mock_get_wallet:
-                    mock_wallet = MagicMock()
-                    mock_wallet.hotkey.ss58_address = "test_hotkey"
-                    mock_get_wallet.return_value = mock_wallet
-                    with patch("time.sleep", return_value=None):
-                        stable_miner.loop_until_registered()
-                        assert stable_miner.miner_index == 0
+            with patch("neurons.config.get_wallet") as mock_get_wallet:
+                mock_wallet = MagicMock()
+                mock_wallet.hotkey.ss58_address = "test_hotkey_1"
+                mock_get_wallet.return_value = mock_wallet
+                with patch("time.sleep", return_value=None):
+                    stable_miner.loop_until_registered()
+                    assert stable_miner.miner_index == 0
 
-    def test_get_miner_index(self, stable_miner):
+    def test_get_miner_index(self, stable_miner, mock_metagraph):
         with patch("neurons.config.get_wallet") as mock_get_wallet:
             mock_wallet = MagicMock()
-            mock_wallet.hotkey.ss58_address = "test_hotkey"
+            mock_wallet.hotkey.ss58_address = "test_hotkey_1"
             mock_get_wallet.return_value = mock_wallet
-            with patch("neurons.config.get_metagraph") as mock_get_metagraph:
-                mock_metagraph = MagicMock()
-                mock_metagraph.hotkeys = ["test_hotkey"]
-                mock_get_metagraph.return_value = mock_metagraph
-                assert stable_miner.get_miner_index() == 0
+            assert stable_miner.get_miner_index() == 0
 
     def test_check_still_registered(self, stable_miner):
         with patch.object(StableMiner, "get_miner_index", return_value=1):
             assert stable_miner.check_still_registered() is True
 
-    def test_get_miner_info(self, stable_miner):
-        with patch("neurons.config.get_metagraph") as mock_get_metagraph:
-            mock_metagraph = MagicMock()
-            mock_metagraph.block.item.return_value = 1
-            for attr in [
-                "stake",
-                "trust",
-                "consensus",
-                "incentive",
-                "emission",
-            ]:
-                getattr(
-                    mock_metagraph, attr
-                ).__getitem__.return_value.item.return_value = 1.0
-            mock_get_metagraph.return_value = mock_metagraph
-
-            miner_info = stable_miner.get_miner_info()
-            expected_info = {
-                attr: 1.0
-                for attr in [
-                    "block",
-                    "stake",
-                    "trust",
-                    "consensus",
-                    "incentive",
-                    "emissions",
-                ]
-            }
-            assert miner_info == expected_info
+    def test_get_miner_info(self, stable_miner, mock_metagraph):
+        stable_miner.miner_index = 0
+        miner_info = stable_miner.get_miner_info()
+        expected_info = {
+            "block": 1000,
+            "stake": 1.0,
+            "trust": 0.5,
+            "consensus": 0.8,
+            "incentive": 0.3,
+            "emissions": 0.2,
+        }
+        assert miner_info == expected_info
 
     @patch("torchvision.transforms.Compose")
     def test_setup_model_args(self, mock_compose, stable_miner):
@@ -153,21 +142,17 @@ class TestStableMinerAsBase:
         assert model_args["guidance_scale"] == 7.5
 
     @patch("neurons.miners.StableMiner.base.get_coldkey_for_hotkey")
-    def test_base_priority(self, mock_get_coldkey_for_hotkey, stable_miner):
+    def test_base_priority(
+        self, mock_get_coldkey_for_hotkey, stable_miner, mock_metagraph
+    ):
         synapse = MagicMock(spec=IsAlive)
-        synapse.dendrite = MagicMock(hotkey="test_hotkey")
-        stable_miner.hotkey_whitelist = ["test_hotkey"]
+        synapse.dendrite = MagicMock(hotkey="test_hotkey_1")
+        stable_miner.hotkey_whitelist = ["test_hotkey_1"]
         stable_miner.coldkey_whitelist = ["test_coldkey"]
 
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
-        with patch("neurons.config.get_metagraph") as mock_get_metagraph:
-            mock_metagraph = MagicMock()
-            mock_metagraph.hotkeys.index.return_value = 0
-            mock_metagraph.S.__getitem__.return_value = 25000.0
-            mock_get_metagraph.return_value = mock_metagraph
-
-            priority = stable_miner._base_priority(synapse)
-            assert priority == 25000.0
+        priority = stable_miner._base_priority(synapse)
+        assert priority == 25000.0
 
     @patch("neurons.miners.StableMiner.base.get_coldkey_for_hotkey")
     @patch("neurons.miners.StableMiner.base.get_caller_stake")
@@ -175,13 +160,13 @@ class TestStableMinerAsBase:
         self, mock_get_caller_stake, mock_get_coldkey_for_hotkey, stable_miner
     ):
         synapse = MagicMock(spec=IsAlive)
-        synapse.dendrite = MagicMock(hotkey="test_hotkey")
+        synapse.dendrite = MagicMock(hotkey="test_hotkey_1")
         stable_miner.coldkey_whitelist = ["test_coldkey"]
-        stable_miner.hotkey_whitelist = ["test_hotkey"]
+        stable_miner.hotkey_whitelist = ["test_hotkey_1"]
         mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
         mock_get_caller_stake.return_value = 1000
         stable_miner.request_dict = {
-            "test_hotkey": {
+            "test_hotkey_1": {
                 "history": [time.perf_counter() - 2],
                 "delta": [2.0],
                 "count": 1,
