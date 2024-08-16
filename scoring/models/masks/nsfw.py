@@ -32,7 +32,9 @@ class NSFWRewardModel(BaseRewardModel):
         try:
             # Clip expects RGB int values in range (0, 255)
             scaled_tensors = [
-                tensor * 255 for tensor in synapse_to_tensors(response)
+                #
+                tensor * 255
+                for tensor in synapse_to_tensors(response)
             ]
 
             clip_input = self.processor(
