@@ -9,9 +9,9 @@ from typing import List
 
 from neurons.utils.image import synapse_to_image
 from neurons.validator.config import get_device
-from neurons.validator.scoring.models.base import BaseRewardModel
-from neurons.validator.scoring.models.types import RewardModelType
-from neurons.validator.scoring.models.rewards.enhanced_clip.utils import (
+from scoring.models.base import BaseRewardModel
+from scoring.models.types import RewardModelType
+from scoring.models.rewards.enhanced_clip.utils import (
     break_down_prompt,
     PromptBreakdown,
 )

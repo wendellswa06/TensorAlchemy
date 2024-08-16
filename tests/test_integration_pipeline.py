@@ -8,12 +8,12 @@ from neurons.protocol import ImageGeneration, ModelType
 from neurons.utils.image import image_tensor_to_base64, image_to_tensor
 from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.forward import update_moving_averages
-from neurons.validator.scoring.models import RewardModelType
-from neurons.validator.scoring.pipeline import (
+from scoring.models import RewardModelType
+from scoring.pipeline import (
     get_scoring_results,
     filter_rewards,
 )
-from neurons.validator.scoring.types import ScoringResults
+from scoring.types import ScoringResults
 from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
 
@@ -87,18 +87,18 @@ mock_configs = {
         "get_backend_client": mock_get_backend_client,
     },
     "neurons.validator.forward": {"get_metagraph": mock_get_metagraph},
-    "neurons.validator.scoring.models.base": {
+    "scoring.models.base": {
         "get_metagraph": mock_get_metagraph
     },
-    "neurons.validator.scoring.pipeline": {"get_metagraph": mock_get_metagraph},
-    "neurons.validator.scoring.models.rewards.human": {
+    "scoring.pipeline": {"get_metagraph": mock_get_metagraph},
+    "scoring.models.rewards.human": {
         "get_backend_client": mock_get_backend_client,
     },
-    "neurons.validator.scoring.models.rewards.image_reward": {"RM": mock_rm()},
-    "neurons.validator.scoring.models.masks.duplicate": {
+    "scoring.models.rewards.image_reward": {"RM": mock_rm()},
+    "scoring.models.masks.duplicate": {
         "get_metagraph": mock_get_metagraph,
     },
-    "neurons.validator.scoring.models.rewards.enhanced_clip.utils": {
+    "scoring.models.rewards.enhanced_clip.utils": {
         "openai_breakdown": mock_openai_response()
     },
 }

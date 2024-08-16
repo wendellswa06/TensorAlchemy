@@ -5,7 +5,7 @@ import torch
 import bittensor as bt
 from pydantic import ConfigDict, BaseModel, Field
 
-from neurons.validator.scoring.models.base import BaseRewardModel
+from scoring.models.base import BaseRewardModel
 
 
 class RewardModelType(str, Enum):

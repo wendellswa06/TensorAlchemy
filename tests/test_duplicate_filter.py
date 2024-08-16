@@ -8,7 +8,7 @@ import random
 
 from loguru import logger
 
-from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
+from scoring.models.masks.duplicate import DuplicateFilter
 
 from tests.fixtures import create_complex_image
 
@@ -36,10 +36,10 @@ def create_synapse(hotkey: str, images):
 @pytest.mark.asyncio
 async def test_no_duplicates(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         images1 = [
@@ -64,10 +64,10 @@ async def test_no_duplicates(duplicate_filter, mock_metagraph):
 @pytest.mark.asyncio
 async def test_with_duplicates(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         image = create_complex_image()
@@ -94,10 +94,10 @@ async def test_with_duplicates(duplicate_filter, mock_metagraph):
 @pytest.mark.asyncio
 async def test_slight_modification(mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         duplicate_filter = DuplicateFilter()
@@ -149,10 +149,10 @@ def apply_fixed_transform(image, seed: int = 10):
 @pytest.mark.asyncio
 async def test_multiple_images_per_synapse(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         images1 = [
@@ -180,10 +180,10 @@ async def test_multiple_images_per_synapse(duplicate_filter, mock_metagraph):
 @pytest.mark.asyncio
 async def test_partial_duplicates(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         shared_image = create_complex_image()
@@ -211,10 +211,10 @@ async def test_partial_duplicates(duplicate_filter, mock_metagraph):
 @pytest.mark.asyncio
 async def test_transformed_duplicates(mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         duplicate_filter = DuplicateFilter(
@@ -261,10 +261,10 @@ async def test_transformed_duplicates(mock_metagraph):
 @pytest.mark.asyncio
 async def test_different_resolutions(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         original_image = create_complex_image(size=(64, 64))
@@ -289,10 +289,10 @@ async def test_different_resolutions(duplicate_filter, mock_metagraph):
 @pytest.mark.asyncio
 async def test_multiple_duplicates(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         image1 = create_complex_image()
@@ -339,10 +339,10 @@ def load_and_preprocess_image(file_path):
 @pytest.mark.asyncio
 async def test_specific_different_images(duplicate_filter, mock_metagraph):
     with patch(
-        "neurons.validator.scoring.models.masks.duplicate.get_metagraph",
+        "scoring.models.masks.duplicate.get_metagraph",
         return_value=mock_metagraph,
     ), patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_metagraph,
     ):
         # Load the specific images

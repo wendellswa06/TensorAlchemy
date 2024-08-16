@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Dict
 
 from neurons.validator.forward import update_moving_averages
-from neurons.validator.scoring.types import ScoringResults
+from scoring.types import ScoringResults
 from neurons.constants import MOVING_AVERAGE_ALPHA
 
 

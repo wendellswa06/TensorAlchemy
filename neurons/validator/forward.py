@@ -26,7 +26,7 @@ from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
-from neurons.validator.scoring.models.types import RewardModelType
+from scoring.models.types import RewardModelType
 from neurons.validator.config import (
     get_config,
     get_device,
@@ -34,11 +34,11 @@ from neurons.validator.config import (
     get_backend_client,
     get_blacklist,
 )
-from neurons.validator.scoring.types import (
+from scoring.types import (
     ScoringResult,
     ScoringResults,
 )
-from neurons.validator.scoring.pipeline import (
+from scoring.pipeline import (
     get_scoring_results,
     apply_masking_functions,
 )

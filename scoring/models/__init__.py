@@ -5,7 +5,7 @@ import bittensor as bt
 from neurons.protocol import ModelType
 
 
-from neurons.validator.scoring.models.types import (
+from scoring.models.types import (
     RewardModelType,
     ModelStorage,
     PackedRewardModel,
@@ -18,14 +18,14 @@ MASKING_MODELS: ModelStorage = None
 
 
 def get_reward_models() -> ModelStorage:
-    from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
-    from neurons.validator.scoring.models.rewards.human import (
+    from scoring.models.empty import EmptyScoreRewardModel
+    from scoring.models.rewards.human import (
         HumanValidationRewardModel,
     )
-    from neurons.validator.scoring.models.rewards.image_reward import (
+    from scoring.models.rewards.image_reward import (
         ImageRewardModel,
     )
-    from neurons.validator.scoring.models.rewards.enhanced_clip import (
+    from scoring.models.rewards.enhanced_clip import (
         EnhancedClipRewardModel,
     )
 
@@ -64,9 +64,9 @@ def should_check_duplicates(
 
 
 def get_masking_models() -> ModelStorage:
-    from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
-    from neurons.validator.scoring.models.masks.duplicate import DuplicateFilter
-    from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
+    from scoring.models.masks.nsfw import NSFWRewardModel
+    from scoring.models.masks.duplicate import DuplicateFilter
+    from scoring.models.masks.blacklist import BlacklistFilter
 
     global MASKING_MODELS
     if not MASKING_MODELS:

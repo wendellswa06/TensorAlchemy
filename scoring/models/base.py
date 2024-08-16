@@ -10,8 +10,8 @@ from loguru import logger
 from neurons.validator.config import get_device, get_metagraph
 
 if TYPE_CHECKING:
-    from neurons.validator.scoring.types import ScoringResult
-    from neurons.validator.scoring.models.types import RewardModelType
+    from scoring.types import ScoringResult
+    from scoring.models.types import RewardModelType
 
 
 class BaseRewardModel:
@@ -110,7 +110,7 @@ class BaseRewardModel:
         if get_metagraph().n > 1:
             normalized_rewards = self.normalize_rewards(rewards)
 
-        from neurons.validator.scoring.types import ScoringResult
+        from scoring.types import ScoringResult
 
         # Find the indices of values that were touched during
         # the scoring run. This allows us to scatter the rewards

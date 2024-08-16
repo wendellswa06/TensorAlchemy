@@ -57,15 +57,15 @@ def patch_all_dependencies(func):
         return_value=mock_client,
     )
     @patch(
-        "neurons.validator.scoring.models.base.get_metagraph",
+        "scoring.models.base.get_metagraph",
         return_value=mock_meta,
     )
     @patch(
-        "neurons.validator.scoring.pipeline.get_metagraph",
+        "scoring.pipeline.get_metagraph",
         return_value=mock_meta,
     )
     @patch(
-        "neurons.validator.scoring.models.rewards.human.get_backend_client",
+        "scoring.models.rewards.human.get_backend_client",
         return_value=mock_client,
     )
     async def wrapper(*args, **kwargs):
@@ -79,17 +79,17 @@ def patch_all_dependencies(func):
 async def test_apply_human_voting_weight(*args):
     # Import here to ensure patches are applied first
     from neurons.validator.config import get_metagraph, get_device
-    from neurons.validator.scoring.pipeline import (
+    from scoring.pipeline import (
         apply_function,
         apply_functions,
     )
-    from neurons.validator.scoring.models.types import PackedRewardModel
-    from neurons.validator.scoring.models.empty import EmptyScoreRewardModel
-    from neurons.validator.scoring.models.types import RewardModelType
-    from neurons.validator.scoring.models.rewards.human import (
+    from scoring.models.types import PackedRewardModel
+    from scoring.models.empty import EmptyScoreRewardModel
+    from scoring.models.types import RewardModelType
+    from scoring.models.rewards.human import (
         HumanValidationRewardModel,
     )
-    from neurons.validator.scoring.types import (
+    from scoring.types import (
         ScoringResults,
     )
 

@@ -3,7 +3,7 @@ from typing import List, Optional
 import torch
 from pydantic import ConfigDict, BaseModel, Field
 
-from neurons.validator.scoring.models.types import RewardModelType
+from scoring.models.types import RewardModelType
 
 
 def combine_uids(

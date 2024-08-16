@@ -8,8 +8,8 @@ from loguru import logger
 
 from neurons.utils.image import synapse_to_tensors
 from neurons.validator.config import get_metagraph
-from neurons.validator.scoring.models.base import BaseRewardModel
-from neurons.validator.scoring.models.types import RewardModelType
+from scoring.models.base import BaseRewardModel
+from scoring.models.types import RewardModelType
 
 
 class DuplicateFilter(BaseRewardModel):
