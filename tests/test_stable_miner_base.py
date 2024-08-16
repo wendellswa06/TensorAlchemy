@@ -31,7 +31,8 @@ class TestStableMinerAsBase:
         ]
 
     @pytest.fixture
-    @patch("neurons.miners.StableMiner.base.get_bt_miner_config")
+    @patch("neurons.config.get_config")
+    @patch("neurons.miners.StableMiner.base.get_config")
     @patch("bittensor.subtensor")
     @patch("bittensor.wallet")
     @patch("bittensor.metagraph")
@@ -42,11 +43,11 @@ class TestStableMinerAsBase:
         mock_metagraph,
         mock_wallet,
         mock_subtensor,
-        mock_get_bt_miner_config,
+        mock_get_config,
         mock_config,
         task_configs,
     ):
-        mock_get_bt_miner_config.return_value = mock_config
+        mock_get_config.return_value = mock_config
         mock_subtensor.return_value = MagicMock()
         mock_wallet.return_value = MagicMock()
         mock_metagraph.return_value = MagicMock()
@@ -61,12 +62,6 @@ class TestStableMinerAsBase:
             miner.metagraph = mock_metagraph.return_value
             return miner
 
-    def test_init(self, stable_miner):
-        assert stable_miner.bt_config is not None
-        assert stable_miner.wallet is not None
-        assert stable_miner.subtensor is not None
-        assert stable_miner.metagraph is not None
-
     @patch("bittensor.axon")
     @patch(
         "bittensor.utils.networking.get_external_ip", return_value="127.0.0.1"
@@ -76,8 +71,6 @@ class TestStableMinerAsBase:
         self, mock_serve_axon, mock_get_external_ip, mock_axon, stable_miner
     ):
         stable_miner.wallet = MagicMock()
-        stable_miner.bt_config.axon.port = 1234
-        stable_miner.bt_config.axon.external_ip = "127.0.0.1"
         stable_miner.start_axon()
         assert mock_axon.call_count == 1
         assert stable_miner.axon is not None
@@ -88,7 +81,6 @@ class TestStableMinerAsBase:
         ) as mock_get_miner_index:
             mock_get_miner_index.side_effect = [None, None, 0]
             stable_miner.metagraph.uids = [1]
-            stable_miner.bt_config.wallet.hotkey = "test_hotkey"
             stable_miner.wallet.hotkey.ss58_address = "test_hotkey"
 
             with patch("time.sleep", return_value=None):

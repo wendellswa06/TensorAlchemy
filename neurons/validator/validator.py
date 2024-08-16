@@ -252,7 +252,7 @@ class StableValidator:
         asyncio.run(self.sync())
 
         # Init stats
-        self.stats = get_defaults(self)
+        self.stats = get_defaults()
 
         # Get vali index
         self.validator_index = self.get_validator_index()

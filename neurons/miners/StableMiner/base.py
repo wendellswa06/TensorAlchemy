@@ -13,10 +13,9 @@ from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
 from neurons.constants import VPERMIT_TAO
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
-from neurons.miners.config import get_bt_miner_config as get_config
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
 
-from neurons.config import get_wallet, get_metagraph, get_subtensor
+from neurons.config import get_config, get_wallet, get_metagraph, get_subtensor
 from neurons.utils import BackgroundTimer, background_loop
 from neurons.utils.defaults import Stats, get_defaults
 from neurons.utils.image import (
@@ -38,8 +37,6 @@ class BaseMiner(ABC):
         # Start the batch streaming background loop
         manager = Manager()
         self.should_quit: Event = manager.Event()
-
-        self.bt_config = get_config()
 
         if get_config().logging.debug:
             bt.debug()
@@ -96,19 +93,16 @@ class BaseMiner(ABC):
         self.mapping: Dict[str, Dict] = {}
 
     def initialize_subtensor_connection(self) -> None:
-        logger.info("Establishing subtensor connection")
-        self.subtensor: bt.subtensor = bt.subtensor(config=self.bt_config)
+        get_subtensor()
 
     def initialize_metagraph(self) -> None:
-        self.metagraph: bt.metagraph = self.subtensor.metagraph(
-            netuid=self.bt_config.netuid
-        )
+        get_metagraph()
 
     def initialize_wallet(self) -> None:
-        self.wallet: bt.wallet = bt.wallet(config=self.bt_config)
+        get_wallet()
 
     def initialize_defaults(self) -> None:
-        self.stats: Stats = get_defaults(self)
+        self.stats: Stats = get_defaults()
 
     def initialize_transform_function(self) -> None:
         self.transform: transforms.Compose = transforms.Compose(
@@ -128,7 +122,7 @@ class BaseMiner(ABC):
 
     def start_axon(self) -> None:
         # Serve the axon
-        logger.info(f"Serving axon on port {self.bt_config.axon.port}.")
+        logger.info(f"Serving axon on port {get_config().axon.port}.")
         self.create_axon()
         self.register_axon()
 
@@ -138,9 +132,9 @@ class BaseMiner(ABC):
                 bt.axon(
                     wallet=get_wallet(),
                     ip=bt.utils.networking.get_external_ip(),
-                    external_ip=self.bt_config.axon.get("external_ip")
+                    external_ip=get_config().axon.get("external_ip")
                     or bt.utils.networking.get_external_ip(),
-                    config=self.bt_config,
+                    config=get_config(),
                 )
                 .attach(
                     forward_fn=self.is_alive,
@@ -162,7 +156,7 @@ class BaseMiner(ABC):
     def register_axon(self) -> None:
         try:
             get_subtensor().serve_axon(
-                axon=self.axon, netuid=self.bt_config.netuid
+                axon=self.axon, netuid=get_config().netuid
             )
         except Exception as e:
             logger.error(f"Failed to register axon: {e}")
@@ -195,7 +189,7 @@ class BaseMiner(ABC):
         if self.miner_index is not None:
             logger.info(
                 f"Miner {get_wallet().hotkey} is registered with uid "
-                f"{self.metagraph.uids[self.miner_index]}"
+                f"{get_metagraph().uids[self.miner_index]}"
             )
             return True
         return False
@@ -206,29 +200,29 @@ class BaseMiner(ABC):
             "Sleeping for 120 seconds..."
         )
         time.sleep(120)
-        self.metagraph.sync(subtensor=get_subtensor())
+        get_metagraph().sync(subtensor=get_subtensor())
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> List[bool]:
         clip_input = self.processor(
             [self.transform(image) for image in images],
             return_tensors="pt",
-        ).to(self.bt_config.miner.device)
+        ).to(get_config().miner.device)
 
         return self.safety_checker.forward(
             clip_input.pixel_values.to(
-                self.bt_config.miner.device,
+                get_config().miner.device,
             ),
         )
 
     def get_miner_info(self) -> Dict[str, Union[int, float]]:
         try:
             return {
-                "block": self.metagraph.block.item(),
-                "stake": self.metagraph.stake[self.miner_index].item(),
-                "trust": self.metagraph.trust[self.miner_index].item(),
-                "consensus": self.metagraph.consensus[self.miner_index].item(),
-                "incentive": self.metagraph.incentive[self.miner_index].item(),
-                "emissions": self.metagraph.emission[self.miner_index].item(),
+                "block": get_metagraph().block.item(),
+                "stake": get_metagraph().stake[self.miner_index].item(),
+                "trust": get_metagraph().trust[self.miner_index].item(),
+                "consensus": get_metagraph().consensus[self.miner_index].item(),
+                "incentive": get_metagraph().incentive[self.miner_index].item(),
+                "emissions": get_metagraph().emission[self.miner_index].item(),
             }
         except Exception as e:
             logger.error(f"Error in get_miner_info: {e}")
@@ -236,7 +230,7 @@ class BaseMiner(ABC):
 
     def get_miner_index(self) -> Optional[int]:
         try:
-            return self.metagraph.hotkeys.index(
+            return get_metagraph().hotkeys.index(
                 get_wallet().hotkey.ss58_address
             )
         except ValueError:
@@ -247,17 +241,17 @@ class BaseMiner(ABC):
 
     def get_incentive(self) -> float:
         if self.miner_index is not None:
-            return self.metagraph.I[self.miner_index].item() * 100_000
+            return get_metagraph().I[self.miner_index].item() * 100_000
         return 0.0
 
     def get_trust(self) -> float:
         if self.miner_index is not None:
-            return self.metagraph.T[self.miner_index].item() * 100
+            return get_metagraph().T[self.miner_index].item() * 100
         return 0.0
 
     def get_consensus(self) -> float:
         if self.miner_index is not None:
-            return self.metagraph.C[self.miner_index].item() * 100_000
+            return get_metagraph().C[self.miner_index].item() * 100_000
         return 0.0
 
     async def is_alive(self, synapse: IsAlive) -> IsAlive:
@@ -353,7 +347,7 @@ class BaseMiner(ABC):
                 seed: int = synapse.seed
                 model_args["generator"] = [
                     torch.Generator(
-                        device=self.bt_config.miner.device
+                        device=get_config().miner.device
                     ).manual_seed(seed)
                 ]
 
@@ -408,14 +402,14 @@ class BaseMiner(ABC):
     def generate_with_refiner(
         self, model_args: Dict[str, Any], model_config: ModelConfig
     ) -> List:
-        model = model_config.model.to(self.bt_config.miner.device)
+        model = model_config.model.to(get_config().miner.device)
         refiner = (
-            model_config.refiner.to(self.bt_config.miner.device)
+            model_config.refiner.to(get_config().miner.device)
             if model_config.refiner
             else None
         )
 
-        if refiner and self.bt_config.refiner.enable:
+        if refiner and get_config().refiner.enable:
             # Init refiner args
             refiner_args = self.setup_refiner_args(model_args)
             images = model(**model_args).images
@@ -480,10 +474,10 @@ class BaseMiner(ABC):
                 )
 
             try:
-                caller_uid: int = self.metagraph.hotkeys.index(
+                caller_uid: int = get_metagraph().hotkeys.index(
                     synapse.dendrite.hotkey,
                 )
-                priority = max(priority, float(self.metagraph.S[caller_uid]))
+                priority = max(priority, float(get_metagraph().S[caller_uid]))
                 logger.info(
                     f"Prioritizing key {synapse.dendrite.hotkey}"
                     + f" with value: {priority}."

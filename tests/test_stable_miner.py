@@ -81,8 +81,8 @@ class TestStableMiner(unittest.TestCase):
                 "neurons.miners.StableMiner.base.BaseMiner.loop",
                 return_value=None,
             ),
-            "mock_get_bt_miner_config": patch(
-                "neurons.miners.StableMiner.base.get_bt_miner_config",
+            "mock_get_miner_config": patch(
+                "neurons.miners.StableMiner.base.get_miner_config",
                 return_value=MockConfig(),
             ),
         }

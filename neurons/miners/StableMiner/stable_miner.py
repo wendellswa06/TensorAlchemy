@@ -4,6 +4,7 @@ from typing import List, Optional
 from loguru import logger
 
 from neurons.protocol import ModelType
+from neurons.config import get_config
 
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import (
@@ -49,7 +50,7 @@ class StableMiner(BaseMiner):
         self.log_gpu_memory_usage("after freeing cache")
         logger.info(f"Loading model for task: {task_config.task_type}")
         model = self.load_model(
-            self.bt_config.miner.custom_model, task_config.task_type
+            get_config().miner.custom_model, task_config.task_type
         )
 
         if task_config.model_type not in self.miner_config.model_configs:
@@ -69,7 +70,7 @@ class StableMiner(BaseMiner):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
             ].safety_checker = ModelLoader(
-                self.bt_config.miner
+                get_config().miner
             ).load_safety_checker(
                 task_config.safety_checker,
                 task_config.safety_checker_model_name,
@@ -87,7 +88,7 @@ class StableMiner(BaseMiner):
         ):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].processor = ModelLoader(self.bt_config.miner).load_processor(
+            ].processor = ModelLoader(get_config().miner).load_processor(
                 task_config.processor
             )
             # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
@@ -96,14 +97,14 @@ class StableMiner(BaseMiner):
             ][task_config.task_type].processor
 
         if (
-            self.bt_config.refiner.enable
+            get_config().refiner.enable
             and task_config.refiner_class
             and task_config.refiner_model_name
         ):
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].refiner = ModelLoader(self.bt_config).load_refiner(
+            ].refiner = ModelLoader(get_config()).load_refiner(
                 model, task_config
             )
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
@@ -136,7 +137,7 @@ class StableMiner(BaseMiner):
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
             task_config = self.get_config_for_task_type(task_type)
-            model_loader = ModelLoader(self.bt_config)
+            model_loader = ModelLoader(get_config())
             model = model_loader.load(model_name, task_config)
             logger.info(f"Model {model_name} loaded successfully.")
             return model
@@ -187,7 +188,7 @@ class StableMiner(BaseMiner):
 
     def optimize_models(self) -> None:
         logger.info("Optimizing models...")
-        if not self.bt_config.miner.optimize:
+        if not get_config().miner.optimize:
             logger.info("Model optimization is disabled.")
             return
 
