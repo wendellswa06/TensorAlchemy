@@ -334,7 +334,7 @@ class StableMiner(BaseMiner):
 
     def nsfw_image_filter(self, images: List[torch.Tensor]) -> List[bool]:
         clip_input = self.processor(
-            [self.transform(image) for image in images],
+            [image for image in images],
             return_tensors="pt",
         ).to(get_config().miner.device)
 
