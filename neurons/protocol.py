@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class ModelType(str, Enum):
+    SCORING = "SCORING"
     ALCHEMY = "ALCHEMY"
     CUSTOM = "CUSTOM"
 

@@ -101,6 +101,12 @@ def get_reward_functions(model_type: ModelType) -> List[PackedRewardModel]:
     if model_type == ModelType.ALCHEMY:
         raise NotImplementedError("Alchemy model not yet imlepmented")
 
+    if model_type == ModelType.SCORING:
+        return [
+            get_function(get_reward_models(), RewardModelType.ENHANCED_CLIP),
+            get_function(get_reward_models(), RewardModelType.IMAGE),
+        ]
+
     return [
         get_function(get_reward_models(), RewardModelType.ENHANCED_CLIP),
         get_function(get_reward_models(), RewardModelType.IMAGE),
@@ -108,7 +114,13 @@ def get_reward_functions(model_type: ModelType) -> List[PackedRewardModel]:
     ]
 
 
-def get_masking_functions(_model_type: ModelType) -> List[PackedRewardModel]:
+def get_masking_functions(model_type: ModelType) -> List[PackedRewardModel]:
+    if model_type == ModelType.ALCHEMY:
+        raise NotImplementedError("Alchemy model not yet imlepmented")
+
+    if model_type == ModelType.SCORING:
+        return []
+
     return [
         get_function(get_masking_models(), RewardModelType.NSFW),
         get_function(get_masking_models(), RewardModelType.BLACKLIST),
