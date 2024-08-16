@@ -44,9 +44,9 @@ from neurons.config import (
     get_metagraph,
     get_subtensor,
     get_backend_client,
-    update_validator_settings,
     validator_run_id,
 )
+from neurons.validator.config import update_validator_settings
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
 from neurons.validator.forward import run_step
