@@ -3,7 +3,7 @@ from loguru import logger
 from transformers import CLIPImageProcessor
 
 from neurons.utils.image import synapse_to_tensors
-from neurons.safety import StableDiffusionSafetyChecker
+from scoring.models.safety import StableDiffusionSafetyChecker
 
 from neurons.validator.config import get_device
 from scoring.models.base import BaseRewardModel
@@ -40,7 +40,7 @@ class NSFWRewardModel(BaseRewardModel):
                 return_tensors="pt",
             ).to(get_device())
 
-            _, has_nsfw_concept = self.safetychecker.forward(
+            has_nsfw_concept = self.safetychecker.forward(
                 images=response.images,
                 clip_input=clip_input.pixel_values.to(get_device()),
             )

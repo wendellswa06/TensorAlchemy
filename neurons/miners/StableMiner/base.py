@@ -207,13 +207,12 @@ class BaseMiner(ABC):
             [self.transform(image) for image in images],
             return_tensors="pt",
         ).to(self.bt_config.miner.device)
-        images, nsfw = self.safety_checker.forward(
+        return self.safety_checker.forward(
             images=images,
             clip_input=clip_input.pixel_values.to(
                 self.bt_config.miner.device,
             ),
         )
-        return nsfw
 
     def get_miner_info(self) -> Dict[str, Union[int, float]]:
         try:

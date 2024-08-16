@@ -11,7 +11,7 @@ from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig, MinerConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
 from neurons.protocol import ModelType
-from neurons.safety import StableDiffusionSafetyChecker
+from scoring.models.safety import StableDiffusionSafetyChecker
 from transformers import CLIPImageProcessor
 from loguru import logger
 
