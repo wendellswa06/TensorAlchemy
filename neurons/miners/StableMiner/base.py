@@ -215,14 +215,16 @@ class BaseMiner(ABC):
         )
 
     def get_miner_info(self) -> Dict[str, Union[int, float]]:
+        metagraph: bt.metagraph = get_metagraph()
+
         try:
             return {
-                "block": get_metagraph().block.item(),
-                "stake": get_metagraph().stake[self.miner_index].item(),
-                "trust": get_metagraph().trust[self.miner_index].item(),
-                "consensus": get_metagraph().consensus[self.miner_index].item(),
-                "incentive": get_metagraph().incentive[self.miner_index].item(),
-                "emissions": get_metagraph().emission[self.miner_index].item(),
+                "block": metagraph.block.item(),
+                "stake": metagraph.stake[self.miner_index].item(),
+                "trust": metagraph.trust[self.miner_index].item(),
+                "consensus": metagraph.consensus[self.miner_index].item(),
+                "incentive": metagraph.incentive[self.miner_index].item(),
+                "emissions": metagraph.emission[self.miner_index].item(),
             }
         except Exception as e:
             logger.error(f"Error in get_miner_info: {e}")
