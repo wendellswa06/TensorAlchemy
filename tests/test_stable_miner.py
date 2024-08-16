@@ -66,8 +66,20 @@ class TestStableMiner(unittest.TestCase):
                 "neurons.miners.StableMiner.stable_miner.ModelLoader.load_processor",
                 return_value=MagicMock(),
             ),
-            "mock_subtensor": patch("bittensor.subtensor", autospec=True),
-            "mock_wallet": patch("bittensor.wallet", autospec=True),
+            "mock_get_subtensor": patch(
+                "neurons.config.get_subtensor", return_value=MagicMock()
+            ),
+            "mock_get_wallet": patch(
+                "neurons.config.get_wallet", return_value=MagicMock()
+            ),
+            "mock_get_metagraph": patch(
+                "neurons.config.get_metagraph",
+                return_value=self.create_mock_metagraph(),
+            ),
+            "mock_get_metagraph": patch(
+                "neurons.miners.StableMiner.base.get_metagraph",
+                return_value=self.create_mock_metagraph(),
+            ),
             "mock_compile": patch("torch.compile", autospec=True),
             "mock_start_axon": patch(
                 "neurons.miners.StableMiner.stable_miner.StableMiner.start_axon",
@@ -81,13 +93,9 @@ class TestStableMiner(unittest.TestCase):
                 "neurons.miners.StableMiner.base.BaseMiner.loop",
                 return_value=None,
             ),
-            "mock_get_miner_config": patch(
-                "neurons.miners.StableMiner.base.get_miner_config",
+            "mock_get_config": patch(
+                "neurons.config.get_config",
                 return_value=MockConfig(),
-            ),
-            "mock_get_metagraph": patch(
-                "neurons.config.get_metagraph",
-                return_value=self.create_mock_metagraph(),
             ),
         }
         self.mocks = {

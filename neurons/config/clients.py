@@ -86,7 +86,7 @@ def get_subtensor(config: Optional[bt.config] = None) -> bt.subtensor:
     from neurons.constants import IS_CI_ENV
 
     if IS_CI_ENV:
-        raise NotImplementedError("Subtensor must be mocked in CI tests")
+        raise NotImplementedError("get_subtensor() must be mocked in CI tests")
 
     if subtensor is None:
         subtensor = bt.subtensor(config=config or get_config())
@@ -109,7 +109,7 @@ def get_metagraph(**kwargs) -> bt.metagraph:
     from neurons.constants import IS_CI_ENV
 
     if IS_CI_ENV:
-        raise NotImplementedError("Metagraph must be mocked in CI tests")
+        raise NotImplementedError("get_metagraph() must be mocked in CI tests")
 
     if metagraph is None:
         config = get_config()

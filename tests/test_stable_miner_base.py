@@ -1,214 +1,234 @@
-import time
 import pytest
 from unittest.mock import MagicMock, patch
-import torch
-from diffusers import DiffusionPipeline
+import asyncio
 
-from neurons.miners.StableMiner.stable_miner import StableMiner
-from neurons.protocol import IsAlive, ImageGeneration
-from neurons.miners.StableMiner.schema import TaskConfig, ModelType, TaskType
+from neurons.miners.StableMiner.base import BaseMiner
+from neurons.protocol import IsAlive, ImageGeneration, ModelType
 
 
-class TestStableMinerAsBase:
+class MockBaseMiner(BaseMiner):
+    def get_model_config(self, model_type: ModelType, task_type: str):
+        return MagicMock()
+
+    async def _attempt_generate_images(self, synapse, model_config):
+        return ["mock_image_1", "mock_image_2"]
+
+
+class TestBaseMiner:
     @pytest.fixture
     def mock_config(self):
         config = MagicMock()
+        config.axon = MagicMock()
         config.axon.port = 1234
         config.axon.get.return_value = None
+        config.netuid = 1
         return config
 
     @pytest.fixture
-    def task_configs(self):
-        return [
-            TaskConfig(
-                task_type=TaskType.TEXT_TO_IMAGE,
-                model_type=ModelType.CUSTOM,
-                pipeline=DiffusionPipeline,
-                torch_dtype=torch.float32,
-                use_safetensors=True,
-                variant="default",
-            )
-        ]
-
-    @pytest.fixture
     def mock_metagraph(self):
-        mock_metagraph = MagicMock()
-        mock_metagraph.hotkeys = ["test_hotkey_1", "test_hotkey_2"]
-        mock_metagraph.S = torch.tensor([1.0, 2.0])
-        mock_metagraph.T = torch.tensor([0.5, 0.7])
-        mock_metagraph.C = torch.tensor([0.8, 0.9])
-        mock_metagraph.I = torch.tensor([0.3, 0.4])
-        mock_metagraph.E = torch.tensor([0.2, 0.3])
-        mock_metagraph.uids = [1, 2]
-        mock_metagraph.block.item.return_value = 1000
-        return mock_metagraph
+        metagraph = MagicMock()
+        metagraph.hotkeys = ["test_hotkey_1", "test_hotkey_2"]
+        metagraph.S = [100.0, 200.0]
+        metagraph.uids = [1, 2]
+        return metagraph
 
     @pytest.fixture
     def mock_subtensor(self):
-        mock_subtensor = MagicMock()
-        mock_subtensor.network = "mock_network"
-        mock_subtensor.chain_endpoint = "mock_endpoint"
-        return mock_subtensor
+        subtensor = MagicMock()
+        return subtensor
 
     @pytest.fixture
-    @patch("neurons.config.get_config")
-    @patch("neurons.miners.StableMiner.base.get_config")
-    @patch("neurons.miners.StableMiner.base.get_subtensor")
-    @patch("neurons.miners.StableMiner.base.get_metagraph")
-    @patch("neurons.config.get_subtensor")
-    @patch("neurons.config.get_wallet")
-    @patch("neurons.config.get_metagraph")
-    @patch("bittensor.axon")
-    def stable_miner(
-        self,
-        mock_axon,
-        mock_get_metagraph,
-        mock_get_wallet,
-        mock_get_subtensor,
-        mock_get_config,
-        mock_config,
-        task_configs,
-        mock_metagraph,
-        mock_subtensor,
+    def mock_wallet(self):
+        wallet = MagicMock()
+        return wallet
+
+    @pytest.fixture
+    def mock_components(
+        self, mock_config, mock_metagraph, mock_subtensor, mock_wallet
     ):
-        mock_get_config.return_value = mock_config
-        mock_get_subtensor.return_value = mock_subtensor
-        mock_get_wallet.return_value = MagicMock()
-        mock_get_metagraph.return_value = mock_metagraph
-        mock_axon.return_value.attach.return_value.start.return_value = (
-            mock_axon.return_value
-        )
+        with patch(
+            "neurons.config.get_config",
+            return_value=mock_config,
+        ), patch(
+            "neurons.config.get_wallet",
+            return_value=mock_wallet,
+        ), patch(
+            "neurons.config.get_subtensor",
+            return_value=mock_subtensor,
+        ), patch(
+            "neurons.config.get_metagraph",
+            return_value=mock_metagraph,
+        ), patch(
+            "neurons.miners.StableMiner.base.get_config",
+            return_value=mock_config,
+        ), patch(
+            "neurons.miners.StableMiner.base.get_wallet",
+            return_value=mock_wallet,
+        ), patch(
+            "neurons.miners.StableMiner.base.get_subtensor",
+            return_value=mock_subtensor,
+        ), patch(
+            "neurons.miners.StableMiner.base.get_metagraph",
+            return_value=mock_metagraph,
+        ):
+            yield {
+                "config": mock_config,
+                "wallet": mock_wallet,
+                "subtensor": mock_subtensor,
+                "metagraph": mock_metagraph,
+            }
 
-        with patch.object(StableMiner, "loop", return_value=None):
-            miner = StableMiner(task_configs)
-            return miner
+    @pytest.fixture
+    def base_miner(self, mock_components):
+        with patch.object(BaseMiner, "loop", return_value=None), patch(
+            "bittensor.axon"
+        ) as mock_axon, patch.object(
+            BaseMiner, "loop_until_registered", return_value=None
+        ), patch(
+            "neurons.miners.StableMiner.base.get_metagraph",
+            return_value=mock_components["metagraph"],
+        ), patch(
+            "neurons.miners.StableMiner.utils.get_metagraph",
+            return_value=mock_components["metagraph"],
+        ):
+            mock_axon.return_value.attach.return_value.start.return_value = (
+                mock_axon.return_value
+            )
+            miner = MockBaseMiner()
+            yield miner
 
-    @patch("bittensor.axon")
-    @patch(
-        "bittensor.utils.networking.get_external_ip", return_value="127.0.0.1"
-    )
-    @patch("bittensor.subtensor.serve_axon")
-    def test_start_axon(
-        self,
-        mock_serve_axon,
-        mock_get_external_ip,
-        mock_axon,
-        stable_miner,
-        mock_subtensor,
-    ):
-        with patch("neurons.config.get_wallet") as mock_get_wallet:
-            mock_get_wallet.return_value = MagicMock()
-            stable_miner.start_axon()
-            assert mock_axon.call_count == 1
-            assert stable_miner.axon is not None
-        mock_serve_axon.assert_called_once_with(
-            axon=stable_miner.axon, netuid=mock_subtensor.network
-        )
+    def test_initialize_components(self, base_miner):
+        assert isinstance(base_miner.event, dict)
+        assert isinstance(base_miner.mapping, dict)
+        assert base_miner.background_steps == 1
+        assert base_miner.background_timer is not None
 
-    def test_loop_until_registered(
-        self, stable_miner, mock_metagraph, mock_subtensor
-    ):
-        with patch.object(
-            StableMiner, "get_miner_index"
-        ) as mock_get_miner_index:
-            mock_get_miner_index.side_effect = [None, None, 0]
-            with patch("neurons.config.get_wallet") as mock_get_wallet:
-                mock_wallet = MagicMock()
-                mock_wallet.hotkey.ss58_address = "test_hotkey_1"
-                mock_get_wallet.return_value = mock_wallet
-                with patch("time.sleep", return_value=None):
-                    stable_miner.loop_until_registered()
-                    assert stable_miner.miner_index == 0
-        mock_metagraph.sync.assert_called_with(subtensor=mock_subtensor)
+    def test_is_whitelisted(self, base_miner):
+        base_miner.hotkey_whitelist = {"whitelisted_hotkey"}
+        base_miner.coldkey_whitelist = {"whitelisted_coldkey"}
 
-    def test_get_miner_index(self, stable_miner, mock_metagraph):
-        with patch("neurons.config.get_wallet") as mock_get_wallet:
-            mock_wallet = MagicMock()
-            mock_wallet.hotkey.ss58_address = "test_hotkey_1"
-            mock_get_wallet.return_value = mock_wallet
-            assert stable_miner.get_miner_index() == 0
-
-    def test_check_still_registered(self, stable_miner):
-        with patch.object(StableMiner, "get_miner_index", return_value=1):
-            assert stable_miner.check_still_registered() is True
-
-    def test_get_miner_info(self, stable_miner, mock_metagraph):
-        stable_miner.miner_index = 0
-        miner_info = stable_miner.get_miner_info()
-        expected_info = {
-            "block": 1000,
-            "stake": 1.0,
-            "trust": 0.5,
-            "consensus": 0.8,
-            "incentive": 0.3,
-            "emissions": 0.2,
-        }
-        assert miner_info == expected_info
-
-    @patch("torchvision.transforms.Compose")
-    def test_setup_model_args(self, mock_compose, stable_miner):
-        synapse = MagicMock(spec=ImageGeneration)
-        synapse.prompt = "test_prompt"
-        synapse.width = 512
-        synapse.height = 512
-        synapse.num_images_per_prompt = 1
-        synapse.guidance_scale = 7.5
-        model_config = MagicMock()
-        model_config.args = {}
-        model_args = stable_miner.setup_model_args(synapse, model_config)
-        assert model_args["prompt"] == ["test_prompt"]
-        assert model_args["width"] == 512
-        assert model_args["height"] == 512
-        assert model_args["num_images_per_prompt"] == 1
-        assert model_args["guidance_scale"] == 7.5
+        assert base_miner.is_whitelisted(caller_hotkey="whitelisted_hotkey")
+        assert base_miner.is_whitelisted(caller_coldkey="whitelisted_coldkey")
+        assert not base_miner.is_whitelisted(caller_hotkey="random_hotkey")
 
     @patch("neurons.miners.StableMiner.base.get_coldkey_for_hotkey")
-    def test_base_priority(
-        self, mock_get_coldkey_for_hotkey, stable_miner, mock_metagraph
-    ):
-        synapse = MagicMock(spec=IsAlive)
-        synapse.dendrite = MagicMock(hotkey="test_hotkey_1")
-        stable_miner.hotkey_whitelist = ["test_hotkey_1"]
-        stable_miner.coldkey_whitelist = ["test_coldkey"]
+    def test_base_priority(self, mock_get_coldkey, base_miner, mock_components):
+        mock_get_coldkey.return_value = "test_coldkey"
+        base_miner.hotkey_whitelist = {"whitelisted_hotkey"}
 
-        mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
-        priority = stable_miner._base_priority(synapse)
+        synapse = MagicMock(spec=IsAlive)
+        synapse.dendrite = MagicMock()
+        synapse.dendrite.hotkey = "whitelisted_hotkey"
+
+        priority = base_miner._base_priority(synapse)
         assert priority == 25000.0
+
+        synapse.dendrite.hotkey = "test_hotkey_1"
+        priority = base_miner._base_priority(synapse)
+        assert priority == 100.0
 
     @patch("neurons.miners.StableMiner.base.get_coldkey_for_hotkey")
     @patch("neurons.miners.StableMiner.base.get_caller_stake")
     def test_base_blacklist(
-        self, mock_get_caller_stake, mock_get_coldkey_for_hotkey, stable_miner
+        self, mock_get_caller_stake, mock_get_coldkey, base_miner
     ):
-        synapse = MagicMock(spec=IsAlive)
-        synapse.dendrite = MagicMock(hotkey="test_hotkey_1")
-        stable_miner.coldkey_whitelist = ["test_coldkey"]
-        stable_miner.hotkey_whitelist = ["test_hotkey_1"]
-        mock_get_coldkey_for_hotkey.return_value = "test_coldkey"
+        mock_get_coldkey.return_value = "test_coldkey"
         mock_get_caller_stake.return_value = 1000
-        stable_miner.request_dict = {
-            "test_hotkey_1": {
-                "history": [time.perf_counter() - 2],
-                "delta": [2.0],
-                "count": 1,
-                "rate_limited_count": 0,
-            }
-        }
-        is_blacklisted, reason = stable_miner._base_blacklist(synapse)
+
+        synapse = MagicMock(spec=ImageGeneration)
+        synapse.dendrite = MagicMock()
+        synapse.dendrite.hotkey = "test_hotkey"
+
+        base_miner.coldkey_whitelist = {"test_coldkey"}
+        is_blacklisted, reason = base_miner._base_blacklist(synapse)
+        assert not is_blacklisted
         assert reason == "Whitelisted coldkey recognized."
-        assert is_blacklisted is False
 
-    @patch.object(StableMiner, "_base_priority", return_value=100)
-    def test_priority_is_alive(self, mock_base_priority, stable_miner):
-        synapse = MagicMock(spec=IsAlive)
-        priority = stable_miner.priority_is_alive(synapse)
-        assert priority == 100
+        base_miner.coldkey_whitelist = set()
+        base_miner.hotkey_whitelist = {"test_hotkey"}
+        is_blacklisted, reason = base_miner._base_blacklist(synapse)
+        assert not is_blacklisted
+        assert reason == "Whitelisted hotkey recognized."
 
-    @patch.object(
-        StableMiner, "_base_blacklist", return_value=(False, "Allowed")
-    )
-    def test_blacklist_is_alive(self, mock_base_blacklist, stable_miner):
+        base_miner.hotkey_whitelist = set()
+        mock_get_caller_stake.return_value = None
+        is_blacklisted, reason = base_miner._base_blacklist(synapse)
+        assert is_blacklisted
+        assert "Blacklisted a non-registered hotkey's" in reason
+
+    def test_start_axon(self, base_miner, mock_components):
+        with patch.object(
+            BaseMiner, "create_axon"
+        ) as mock_create_axon, patch.object(
+            BaseMiner, "register_axon"
+        ) as mock_register_axon:
+            base_miner.start_axon()
+            mock_create_axon.assert_called_once()
+            mock_register_axon.assert_called_once()
+
+    @patch("neurons.miners.StableMiner.base.get_wallet")
+    @patch("neurons.miners.StableMiner.base.get_config")
+    def test_create_axon(self, mock_get_config, mock_get_wallet, base_miner):
+        with patch("bittensor.axon") as mock_axon:
+            mock_axon.return_value.attach.return_value.start.return_value = (
+                mock_axon.return_value
+            )
+            base_miner.create_axon()
+            assert base_miner.axon is not None
+            mock_axon.assert_called_once()
+
+    @patch("neurons.miners.StableMiner.base.get_subtensor")
+    @patch("neurons.miners.StableMiner.base.get_config")
+    def test_register_axon(
+        self, mock_get_config, mock_get_subtensor, base_miner
+    ):
+        base_miner.axon = MagicMock()
+        mock_subtensor = MagicMock()
+        mock_get_subtensor.return_value = mock_subtensor
+        mock_get_config.return_value.netuid = 1
+
+        base_miner.register_axon()
+        mock_subtensor.serve_axon.assert_called_once_with(
+            axon=base_miner.axon, netuid=1
+        )
+
+    @pytest.mark.asyncio
+    async def test_is_alive(self, base_miner):
         synapse = MagicMock(spec=IsAlive)
-        is_blacklisted, reason = stable_miner.blacklist_is_alive(synapse)
-        assert is_blacklisted is False
-        assert reason == "Allowed"
+        result = await base_miner.is_alive(synapse)
+        assert result.completion == "True"
+
+    def test_get_miner_index(self, base_miner, mock_components):
+        mock_components["wallet"].hotkey.ss58_address = "test_hotkey_1"
+        assert base_miner.get_miner_index() == 0
+
+        mock_components["wallet"].hotkey.ss58_address = "non_existent_hotkey"
+        assert base_miner.get_miner_index() is None
+
+    def test_check_still_registered(self, base_miner):
+        with patch.object(BaseMiner, "get_miner_index", return_value=5):
+            assert base_miner.check_still_registered() is True
+        with patch.object(BaseMiner, "get_miner_index", return_value=None):
+            assert base_miner.check_still_registered() is False
+
+    @pytest.mark.asyncio
+    async def test_generate_image(self, base_miner):
+        synapse = MagicMock(spec=ImageGeneration)
+        synapse.model_type = ModelType.CUSTOM
+        synapse.generation_type = "TEXT_TO_IMAGE"
+        synapse.timeout = 60
+
+        result = await base_miner.generate_image(synapse)
+
+        assert result == synapse
+        assert result.images == ["mock_image_1", "mock_image_2"]
+
+    def test_log_generation_time(self, base_miner):
+        start_time = 1000
+        base_miner.stats.total_requests = 1
+        base_miner.stats.generation_time = 0
+
+        with patch("time.perf_counter", return_value=1010):
+            base_miner._log_generation_time(start_time)
+
+        assert base_miner.stats.generation_time == 10
