@@ -5,6 +5,7 @@ import time
 import traceback
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union
+from multiprocessing import Manager, Event
 
 import torch
 import torchvision.transforms as transforms
@@ -12,8 +13,10 @@ from diffusers.callbacks import SDXLCFGCutoffCallback
 from loguru import logger
 from neurons.constants import VPERMIT_TAO
 from neurons.miners.StableMiner.schema import ModelConfig, TaskType
-from neurons.miners.config import get_bt_miner_config
+from neurons.miners.config import get_bt_miner_config as get_config
 from neurons.protocol import ImageGeneration, IsAlive, ModelType
+
+from neurons.config import get_wallet, get_metagraph, get_subtensor
 from neurons.utils import BackgroundTimer, background_loop
 from neurons.utils.defaults import Stats, get_defaults
 from neurons.utils.image import (
@@ -32,10 +35,13 @@ import bittensor as bt
 
 class BaseMiner(ABC):
     def __init__(self) -> None:
-        self.storage_client: Any = None
-        self.bt_config = get_bt_miner_config()
+        # Start the batch streaming background loop
+        manager = Manager()
+        self.should_quit: Event = manager.Event()
 
-        if self.bt_config.logging.debug:
+        self.bt_config = get_config()
+
+        if get_config().logging.debug:
             bt.debug()
             logger.info("Enabling debug mode...")
 
@@ -115,7 +121,7 @@ class BaseMiner(ABC):
         self.background_timer: BackgroundTimer = BackgroundTimer(
             300,
             background_loop,
-            [self, False],
+            [self.should_quit],
         )
         self.background_timer.daemon = True
         self.background_timer.start()
@@ -130,7 +136,7 @@ class BaseMiner(ABC):
         try:
             self.axon: bt.axon = (
                 bt.axon(
-                    wallet=self.wallet,
+                    wallet=get_wallet(),
                     ip=bt.utils.networking.get_external_ip(),
                     external_ip=self.bt_config.axon.get("external_ip")
                     or bt.utils.networking.get_external_ip(),
@@ -155,7 +161,7 @@ class BaseMiner(ABC):
 
     def register_axon(self) -> None:
         try:
-            self.subtensor.serve_axon(
+            get_subtensor().serve_axon(
                 axon=self.axon, netuid=self.bt_config.netuid
             )
         except Exception as e:
@@ -188,7 +194,7 @@ class BaseMiner(ABC):
         self.miner_index = self.get_miner_index()
         if self.miner_index is not None:
             logger.info(
-                f"Miner {self.bt_config.wallet.hotkey} is registered with uid "
+                f"Miner {get_wallet().hotkey} is registered with uid "
                 f"{self.metagraph.uids[self.miner_index]}"
             )
             return True
@@ -196,11 +202,11 @@ class BaseMiner(ABC):
 
     def handle_unregistered_miner(self) -> None:
         logger.warning(
-            f"Miner {self.bt_config.wallet.hotkey} is not registered. "
+            f"Miner {get_wallet().hotkey} is not registered. "
             "Sleeping for 120 seconds..."
         )
         time.sleep(120)
-        self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph.sync(subtensor=get_subtensor())
 
     def nsfw_image_filter(self, images: List[bt.Tensor]) -> List[bool]:
         clip_input = self.processor(
@@ -230,7 +236,9 @@ class BaseMiner(ABC):
 
     def get_miner_index(self) -> Optional[int]:
         try:
-            return self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+            return self.metagraph.hotkeys.index(
+                get_wallet().hotkey.ss58_address
+            )
         except ValueError:
             return None
 
@@ -621,10 +629,12 @@ class BaseMiner(ABC):
     def loop(self) -> None:
         logger.info("Starting miner loop.", color="green")
         step: int = 0
-        while True:
+        while not self.should_quit.is_set():
             try:
                 # Check the miner is still registered
                 is_registered: bool = self.check_still_registered()
+
+                metagraph: bt.metagraph = get_metagraph()
 
                 if not is_registered:
                     logger.info(
@@ -634,7 +644,7 @@ class BaseMiner(ABC):
 
                     # Ensure the metagraph is synced
                     # before the next registration check
-                    self.metagraph.sync(subtensor=self.subtensor)
+                    metagraph.sync(subtensor=get_subtensor())
                     continue
 
                 # Output current statistics and set weights
@@ -642,13 +652,13 @@ class BaseMiner(ABC):
                     # Output metrics
                     log: str = (
                         f"Step: {step} | "
-                        f"Block: {self.metagraph.block.item()} | "
-                        f"Stake: {self.metagraph.S[self.miner_index]:.2f} | "
-                        f"Rank: {self.metagraph.R[self.miner_index]:.2f} | "
-                        f"Trust: {self.metagraph.T[self.miner_index]:.2f} | "
-                        f"Consensus: {self.metagraph.C[self.miner_index]:.2f} | "
-                        f"Incentive: {self.metagraph.I[self.miner_index]:.2f} | "
-                        f"Emission: {self.metagraph.E[self.miner_index]:.2f}"
+                        f"Block: {metagraph.block.item()} | "
+                        f"Stake: {metagraph.S[self.miner_index]:.2f} | "
+                        f"Rank: {metagraph.R[self.miner_index]:.2f} | "
+                        f"Trust: {metagraph.T[self.miner_index]:.2f} | "
+                        f"Consensus: {metagraph.C[self.miner_index]:.2f} | "
+                        f"Incentive: {metagraph.I[self.miner_index]:.2f} | "
+                        f"Emission: {metagraph.E[self.miner_index]:.2f}"
                     )
                     logger.info(log, color="green")
 

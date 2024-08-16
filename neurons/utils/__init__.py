@@ -3,6 +3,7 @@ import inspect
 import asyncio
 import traceback
 import multiprocessing
+from multiprocessing import Event
 
 import _thread
 from threading import Timer
@@ -11,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from loguru import logger
 from neurons.utils.log import configure_logging
 from neurons.config.lists import get_warninglist
+from neurons.config import get_metagraph, get_subtensor, get_wallet
 
 
 # Background Loop
@@ -103,7 +105,7 @@ def get_coldkey_for_hotkey(self, hotkey):
 background_steps: int = 0
 
 
-def background_loop(self, is_validator: bool):
+def background_loop(should_quit: Event) -> None:
     """
     Handles terminating the miner after deregistration and
     updating the blacklist and whitelist.
@@ -120,9 +122,7 @@ def background_loop(self, is_validator: bool):
     if background_steps % 5 != 0:
         return
 
-    neuron_type = "Validator" if is_validator else "Miner"
-
-    my_hotkey: str = self.wallet.hotkey.ss58_address
+    my_hotkey: str = get_wallet().hotkey.ss58_address
     hotkeys, _coldkeys = asyncio.run(get_warninglist())
 
     try:
@@ -134,11 +134,11 @@ def background_loop(self, is_validator: bool):
                 + f" | Date for rectification: {hotkey_warning}",
             )
 
-        self.metagraph.sync(subtensor=self.subtensor)
-        if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-            logger.info(f">>> {neuron_type} has deregistered... terminating.")
+        get_metagraph().sync(subtensor=get_subtensor())
+        if get_wallet().hotkey.ss58_address not in get_metagraph().hotkeys:
+            logger.info(">>> Axon has deregistered... terminating.")
             try:
-                _thread.interrupt_main()
+                should_quit.set()
             except Exception as e:
                 logger.info(
                     f"An error occurred trying to terminate the main thread: {e}."

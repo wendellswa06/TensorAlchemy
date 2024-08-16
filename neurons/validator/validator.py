@@ -302,7 +302,7 @@ class StableValidator:
                 BackgroundTimer,
                 60,
                 background_loop,
-                [self, True],
+                [self.should_quit],
             ),
             (
                 "upload_images_process",
