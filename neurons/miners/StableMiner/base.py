@@ -207,9 +207,9 @@ class BaseMiner(ABC):
             [self.transform(image) for image in images],
             return_tensors="pt",
         ).to(self.bt_config.miner.device)
+
         return self.safety_checker.forward(
-            images=images,
-            clip_input=clip_input.pixel_values.to(
+            clip_input.pixel_values.to(
                 self.bt_config.miner.device,
             ),
         )

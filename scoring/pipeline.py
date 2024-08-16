@@ -244,6 +244,7 @@ def filter_rewards(
 
     for uid, count in isalive_dict.items():
         if count >= isalive_threshold:
+            print("FILTERING", uid, count)
             rewards[uid] = 0.0
 
     return rewards

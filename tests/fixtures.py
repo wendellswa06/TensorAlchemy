@@ -72,6 +72,10 @@ TEST_IMAGES = {
         [3, 64, 64],
         dtype=torch.float,
     ),
+    "WHITE": torch.ones(
+        [3, 64, 64],
+        dtype=torch.float,
+    ),
     "COMPLEX_A": image_to_tensor(create_complex_image()),
     "COMPLEX_B": image_to_tensor(create_complex_image()),
     "COMPLEX_C": image_to_tensor(create_complex_image()),

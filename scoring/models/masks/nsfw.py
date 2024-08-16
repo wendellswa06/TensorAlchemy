@@ -41,8 +41,7 @@ class NSFWRewardModel(BaseRewardModel):
             ).to(get_device())
 
             has_nsfw_concept = self.safetychecker.forward(
-                images=response.images,
-                clip_input=clip_input.pixel_values.to(get_device()),
+                clip_input.pixel_values.to(get_device()),
             )
 
             return 1.0 if any(has_nsfw_concept) else 0.0

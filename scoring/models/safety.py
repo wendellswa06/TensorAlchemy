@@ -22,13 +22,17 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
         super().__init__(config)
         self.vision_model = CLIPVisionModel(config.vision_config)
         self.visual_projection = nn.Linear(
-            config.vision_config.hidden_size, config.projection_dim, bias=False
+            config.vision_config.hidden_size,
+            config.projection_dim,
+            bias=False,
         )
         self.concept_embeds = nn.Parameter(
-            torch.ones(20, config.projection_dim), requires_grad=False
+            torch.ones(17, config.projection_dim),
+            requires_grad=False,
         )
         self.concept_thresholds = nn.Parameter(
-            torch.ones(20), requires_grad=False
+            torch.ones(17),
+            requires_grad=False,
         )
 
     def forward(self, clip_input: torch.Tensor) -> List[bool]:
