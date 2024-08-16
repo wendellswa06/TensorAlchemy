@@ -17,7 +17,17 @@ class DuplicateFilter(BaseRewardModel):
     def name(self) -> RewardModelType:
         return RewardModelType.DUPLICATE
 
-    def __init__(self, hash_size: int = 8, threshold_ratio: float = 0.1):
+    def __init__(
+        self,
+        # How many bytes to use for the entire image
+        # More bytes is a higher resolution hash
+        hash_size: int = 12,
+        # How similar should they be to trigger
+        # Less than this threshold = trigger
+        # HIGHER is more strict
+        # LOWER  is less strict
+        threshold_ratio: float = 0.09,
+    ):
         super().__init__()
         self.hash_size = hash_size
         self.threshold_ratio = threshold_ratio
