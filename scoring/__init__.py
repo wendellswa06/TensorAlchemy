@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import Dict, List
 
 import bittensor as bt
 from loguru import logger
@@ -38,7 +38,13 @@ async def score_images(synapses: List[bt.Synapse]) -> ScoringResults:
     logger.info(f"Scoring images for {len(synapses)} synapses")
     try:
         results = await get_scoring_results(
-            ModelType.CUSTOM, synapses[0], synapses
+            # SCORING type will only run the scoring models
+            # automatically skipping human validation etc
+            #
+            # see scoring.models.__init__.py
+            ModelType.SCORING,
+            synapses[0],
+            synapses,
         )
         logger.success("Successfully scored images.")
         return results
@@ -48,7 +54,8 @@ async def score_images(synapses: List[bt.Synapse]) -> ScoringResults:
 
 
 async def score_imageset(
-    prompt: str, images: List[ImageType]
+    prompt: str,
+    images: List[ImageType],
 ) -> ScoringResults:
     synapses = []
 
@@ -56,10 +63,35 @@ async def score_imageset(
         synapses.append(generate_synapse(prompt, image_to_base64(image)))
 
     class MetagraphMock:
-        "We will pass in a mocked metagraph"
+        """
+        We will pass in a mocked metagraph
+        Reason: pipeline scores by hotkey for each item
+        """
+
         n = len(synapses)
         hotkeys = [s.axon.hotkey for s in synapses]
 
     clients.metagraph = MetagraphMock()
 
     return await score_images(synapses)
+
+
+async def score_named_imageset(
+    prompt: str,
+    images: Dict[str, ImageType],
+) -> Dict[str, float]:
+    # Call the score_imageset function with the list of images
+    results: ScoringResults = await score_imageset(
+        prompt,
+        list(images.values()),
+    )
+
+    # Create a new dictionary to store named results
+    to_return = {}
+
+    # Pair the results with their original names
+    for name, score in zip(images.keys(), results.combined_scores):
+        to_return[name] = score
+
+    # Create a new ScoringResults object with named scores
+    return to_return
