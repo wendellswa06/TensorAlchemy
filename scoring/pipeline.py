@@ -51,7 +51,7 @@ async def apply_function(
     logger.info(
         #
         function.name
-        + f" - {summarize_rewards(result.scores)}"
+        + f": {summarize_rewards(result.scores)}"
     )
 
     # Build up a new score instead of re-using the one above

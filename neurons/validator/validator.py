@@ -91,7 +91,7 @@ async def upload_image(
     batch: Batch = batches_upload_queue.get(block=False)
     logger.info(
         #
-        f"uploading ({len(batch.computes)} compute "
+        f"uploading ({len(batch.computes)}) computes "
         + f"for batch {batch.batch_id} ..."
     )
     await backend_client.post_batch(batch)
