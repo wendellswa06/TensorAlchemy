@@ -184,6 +184,20 @@ class TensorAlchemyBackendClient:
                 f"{response.status_code}: {self._error_response_text(response)}"
             )
 
+    async def fail_task(self, task_id: str, timeout: int = 10) -> Response:
+        """Task failed for some reason"""
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.api_url}/tasks/{task_id}/fail",
+                    timeout=timeout,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to fail task {str(e)}")
+
+        return response
+
     async def post_batch(self, batch: Batch, timeout: int = 10) -> Response:
         """Post batch of images"""
         try:
