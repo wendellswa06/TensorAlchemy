@@ -97,20 +97,18 @@ async def upload_image(
     await backend_client.post_batch(batch)
 
 
-def upload_images_loop(
+async def upload_images_loop(
     _should_quit: Event,
     batches_upload_queue: Queue,
 ) -> None:
     # Send new batches to the Human Validation Bot
     try:
         backend_client: TensorAlchemyBackendClient = get_backend_client()
-        asyncio.run(
-            asyncio.gather(
-                *[
-                    upload_image(backend_client, batches_upload_queue)
-                    for _i in range(32)
-                ]
-            )
+        await asyncio.gather(
+            *[
+                upload_image(backend_client, batches_upload_queue)
+                for _i in range(32)
+            ]
         )
 
     except queue.Empty:

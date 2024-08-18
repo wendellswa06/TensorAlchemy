@@ -40,11 +40,11 @@ class TensorAlchemyBackendClient:
 
         self.api_url = MAINNET_URL
 
-        if self.config.alchemy.host == "develop":
+        if self.config.netuid == 25:
             self.api_url = DEVELOP_URL
 
-        elif self.config.alchemy.host == "testnet":
-            self.api_url = TESTNET_URL
+            if self.config.alchemy.host == "testnet":
+                self.api_url = TESTNET_URL
 
         logger.info(f"Using backend server {self.api_url}")
 
@@ -101,6 +101,7 @@ class TensorAlchemyBackendClient:
                 response = await client.get(
                     f"{self.api_url}/tasks", timeout=timeout
                 )
+
         except httpx.ReadTimeout as ex:
             raise GetTaskError(f"/tasks read timeout ({timeout}s)") from ex
         except Exception as ex:
@@ -123,7 +124,7 @@ class TensorAlchemyBackendClient:
             return None
 
         if response.status_code == 401:
-            if task.get("code") == "VALIDATOR_NOT_FOUND_YET":
+            if task.get("code") == "PENDING_SYNC_METAGRAPH":
                 return None
             if task.get("code") == "VALIDATOR_HAS_NOT_ENOUGH_STAKE":
                 return None
@@ -192,6 +193,7 @@ class TensorAlchemyBackendClient:
                     json=batch.model_dump(),
                     timeout=timeout,
                 )
+
         except Exception as e:
             logger.error(f"Failed to upload batch {str(e)}")
 
