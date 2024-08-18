@@ -185,12 +185,16 @@ class TensorAlchemyBackendClient:
 
     async def post_batch(self, batch: Batch, timeout: int = 10) -> Response:
         """Post batch of images"""
-        async with self._client() as client:
-            response = await client.post(
-                f"{self.api_url}/batches",
-                json=batch.model_dump(),
-                timeout=timeout,
-            )
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.api_url}/batches",
+                    json=batch.model_dump(),
+                    timeout=timeout,
+                )
+        except Exception as e:
+            logger.error(f"Failed to upload batch {str(e)}")
+
         return response
 
     async def post_weights(
