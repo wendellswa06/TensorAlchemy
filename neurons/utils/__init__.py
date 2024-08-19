@@ -1,11 +1,11 @@
 import sys
+import time
 import inspect
 import asyncio
 import traceback
 import multiprocessing
 from multiprocessing import Event
 
-import _thread
 from threading import Timer
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
@@ -84,6 +84,11 @@ class MultiprocessBackgroundTimer(multiprocessing.Process):
                         self.function, *self.args, **self.kwargs
                     )
                 self.finished.wait(self.interval)
+            except EOFError:
+                logger.error(
+                    f"EOFError occurred in {self.function.__name__}. Attempting to recover..."
+                )
+                time.sleep(5)
             except Exception:
                 logger.error(traceback.format_exc())
 
