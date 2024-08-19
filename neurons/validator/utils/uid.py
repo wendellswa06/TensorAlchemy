@@ -211,6 +211,8 @@ async def get_all_active_uids() -> List[int]:
         all_active_uids.extend(active_uids)
 
     logger.info(f"Found {len(all_active_uids)} active UIDs")
+    logger.info(f"Active miners: {all_active_uids}")
+
     return all_active_uids
 
 

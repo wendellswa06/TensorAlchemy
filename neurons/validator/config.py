@@ -70,7 +70,7 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--alchemy.async_timeout",
         type=float,
-        default=1.2,
+        default=2.0,
         help="Async timeout for the validator",
     )
     parser.add_argument(
