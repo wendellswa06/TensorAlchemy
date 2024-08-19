@@ -15,7 +15,7 @@ Action required:
 2. Verify your network connectivity.
 3. Ensure your Subtensor node is up-to-date and running correctly.
 
-Relevant subtensor issue: https://github.com/opentensor/subtensor/issues/655
+Please try to update your subtensor to the latest version!
 
 The validator will attempt to restart to resolve this issue.
 If the problem persists, please consult the Bittensor documentation or

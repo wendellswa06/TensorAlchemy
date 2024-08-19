@@ -8,12 +8,12 @@ from neurons.protocol import ImageGeneration, ModelType
 from neurons.utils.image import image_tensor_to_base64, image_to_tensor
 from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.forward import update_moving_averages
-from neurons.validator.scoring.models import RewardModelType
-from neurons.validator.scoring.pipeline import (
+from scoring.models import RewardModelType
+from scoring.pipeline import (
     get_scoring_results,
     filter_rewards,
 )
-from neurons.validator.scoring.types import ScoringResults
+from scoring.types import ScoringResults
 from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
 
@@ -24,22 +24,27 @@ class MockScoringModel:
     def inference_rank(self, prompt: str, images):
         image_scores = {
             "BLACK": -2.26,
-            "COMPLEX_A": -1.0,
-            "COMPLEX_D": 0.3,
-            "COMPLEX_G": 0.4,
-            "COMPLEX_B": 0.5,
+            "WHITE": -1.0,
+            "COMPLEX_A": 0.1,
+            "COMPLEX_B": 0.2,
+            "COMPLEX_C": 0.3,
+            "COMPLEX_D": 0.4,
+            "COMPLEX_E": 0.5,
             "COMPLEX_F": 0.6,
-            "COMPLEX_C": 0.7,
-            "COMPLEX_E": 0.8,
-            "REAL_IMAGE_LOW_INFERENCE": 0.9,
+            "COMPLEX_G": 0.7,
+            "REAL_IMAGE_LOW_INFERENCE": 0.8,
             "REAL_IMAGE": 1.27,
         }
         image_tensor = image_to_tensor(images[0])
 
         for key, score in image_scores.items():
-            if image_tensor.shape == TEST_IMAGES[key].shape and torch.allclose(
-                image_tensor, TEST_IMAGES[key], atol=1e-2
-            ):
+            is_close: bool = torch.allclose(
+                image_tensor,
+                TEST_IMAGES[key],
+                atol=1e-2,
+            )
+
+            if image_tensor.shape == TEST_IMAGES[key].shape and is_close:
                 return 1, [score]
 
         raise ValueError(f"Score not set for image {image_tensor}")
@@ -80,25 +85,27 @@ def mock_openai_response():
     )
 
 
+def mock_local_get_metagraph(n: int = 11):
+    return mock_get_metagraph(n=n)
+
+
 # Patch configuration
 mock_configs = {
-    "neurons.validator.config": {
-        "get_metagraph": mock_get_metagraph,
+    "neurons.config": {
+        "get_metagraph": mock_local_get_metagraph,
         "get_backend_client": mock_get_backend_client,
     },
-    "neurons.validator.forward": {"get_metagraph": mock_get_metagraph},
-    "neurons.validator.scoring.models.base": {
-        "get_metagraph": mock_get_metagraph
-    },
-    "neurons.validator.scoring.pipeline": {"get_metagraph": mock_get_metagraph},
-    "neurons.validator.scoring.models.rewards.human": {
+    "neurons.validator.forward": {"get_metagraph": mock_local_get_metagraph},
+    "scoring.models.base": {"get_metagraph": mock_local_get_metagraph},
+    "scoring.pipeline": {"get_metagraph": mock_local_get_metagraph},
+    "scoring.models.rewards.human": {
         "get_backend_client": mock_get_backend_client,
     },
-    "neurons.validator.scoring.models.rewards.image_reward": {"RM": mock_rm()},
-    "neurons.validator.scoring.models.masks.duplicate": {
-        "get_metagraph": mock_get_metagraph,
+    "scoring.models.rewards.image_reward": {"RM": mock_rm()},
+    "scoring.models.masks.duplicate": {
+        "get_metagraph": mock_local_get_metagraph,
     },
-    "neurons.validator.scoring.models.rewards.enhanced_clip.utils": {
+    "scoring.models.rewards.enhanced_clip.utils": {
         "openai_breakdown": mock_openai_response()
     },
 }
@@ -127,21 +134,27 @@ def generate_synapse(hotkey: str, image_content: torch.Tensor) -> bt.Synapse:
 async def run_pipeline_test():
     responses = []
     image_types = [
-        "COMPLEX_A",
+        # NOTE: Random order
+        #       we will expect the sorted order
+        #       of ascending scores later to be alphabetical
         "BLACK",
-        "COMPLEX_B",
-        "REAL_IMAGE",
-        "REAL_IMAGE_LOW_INFERENCE",
-        "COMPLEX_C",
-        "COMPLEX_D",
-        "COMPLEX_E",
+        "WHITE",
         "COMPLEX_F",
+        "REAL_IMAGE_LOW_INFERENCE",
+        "REAL_IMAGE",
+        "COMPLEX_A",
+        "COMPLEX_C",
+        "COMPLEX_B",
+        "COMPLEX_D",
         "COMPLEX_G",
+        "COMPLEX_E",
     ]
 
-    for i, hotkey in enumerate(mock_get_metagraph().hotkeys):
+    for i, hotkey in enumerate(mock_local_get_metagraph().hotkeys):
         image_content = TEST_IMAGES[image_types[i]]
         responses.append(generate_synapse(hotkey, image_content))
+
+    assert len(responses) == len(image_types), "Incorrect synapse builder"
 
     results: ScoringResults = await get_scoring_results(
         ModelType.CUSTOM,
@@ -158,22 +171,29 @@ async def run_pipeline_test():
     # Verify ImageReward scores
     image_reward_scores = results.get_score(RewardModelType.IMAGE).scores
 
+    assert len(image_reward_scores) == len(
+        image_types
+    ), "Incorrect length of responses"
+
     # Define expected order of scores based on image quality
     expected_order = [
         "BLACK",
+        "WHITE",
         "COMPLEX_A",
-        "COMPLEX_D",
-        "COMPLEX_G",
         "COMPLEX_B",
-        "COMPLEX_F",
         "COMPLEX_C",
+        "COMPLEX_D",
         "COMPLEX_E",
+        "COMPLEX_F",
+        "COMPLEX_G",
         "REAL_IMAGE_LOW_INFERENCE",
         "REAL_IMAGE",
     ]
 
     # Get indices that would sort the scores in ascending order
     _, sorted_indices = torch.sort(image_reward_scores, descending=False)
+
+    print(image_reward_scores)
 
     # Check if the order of hotkeys
     # matches the expected order of image qualities
@@ -200,11 +220,11 @@ async def run_pipeline_test():
 
     # Check relative relationships
     assert (
-        image_reward_scores[3] > image_reward_scores[4]
+        image_reward_scores[4] > image_reward_scores[3]
     ), "REAL_IMAGE score should be higher than REAL_IMAGE_LOW_INFERENCE"
     assert (
-        image_reward_scores[1] < image_reward_scores[2]
-    ), "BLACK image score should be lower than COMPLEX_B"
+        image_reward_scores[0] < image_reward_scores[2]
+    ), "BLACK image score should be lower than COMPLEX_A"
 
     # Check that scores for good images are significantly higher than bad ones
     good_images = image_reward_scores[[2, 3, 4, 5, 7, 8]]
@@ -241,20 +261,21 @@ async def run_pipeline_test():
 
     assert results.combined_scores[1] == 0, "Black image not masked"
 
-    for i in [0, 2, 3, 4]:
+    for i in range(2, 11):
         assert results.combined_scores[i].item() > 0, (
             f"Valid image {i} incorrectly masked. "
             f"Score: {results.combined_scores[i]}"
         )
 
-    isalive_dict = {0: 10, 2: 5}
-    isalive_threshold = 8
-    filtered_rewards = filter_rewards(
-        isalive_dict, isalive_threshold, results.combined_scores
-    )
+    from neurons.validator.utils.uid import get_isalive_dict
+
+    isalive_dict = get_isalive_dict()
+    isalive_dict[0] = 10
+    isalive_dict[2] = 5
+
+    filtered_rewards = filter_rewards(results.combined_scores.clone())
 
     logger.info(f"isalive_dict: {isalive_dict}")
-    logger.info(f"isalive_threshold: {isalive_threshold}")
     logger.info(f"Final filtered rewards: {filtered_rewards}")
 
     assert filtered_rewards[0] == 0, (
@@ -334,7 +355,7 @@ async def test_full_pipeline_integration_multiple_runs(num_runs):
 async def test_full_pipeline_integration_with_moving_averages(num_runs):
     all_results = []
     all_filtered_rewards = []
-    moving_average_scores = torch.zeros(10)
+    moving_average_scores = torch.zeros(11)
     ma_history = [moving_average_scores.clone()]
 
     mock_backend_client = MockBackendClient()

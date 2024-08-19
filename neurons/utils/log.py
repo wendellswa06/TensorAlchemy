@@ -42,6 +42,7 @@ def summarize_rewards(reward_tensor: torch.Tensor) -> str:
     non_zero = reward_tensor[reward_tensor != 0]
     if len(non_zero) == 0:
         return "All zeros"
+
     return (
         f"Non-zero: {len(non_zero)}/{len(reward_tensor)}, "
         f"Mean: {reward_tensor.mean():.4f}, "
@@ -55,7 +56,7 @@ def get_subtensor_network_from_netuid(netuid: int) -> str:
 
 
 def configure_loki_logger():
-    from neurons.validator.config import get_config, validator_run_id
+    from neurons.config import get_config, validator_run_id
     from neurons.miners.StableMiner.utils.version import (
         get_miner_version,
         get_miner_spec_version,

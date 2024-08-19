@@ -82,8 +82,15 @@ def get_subtensor(config: Optional[bt.config] = None) -> bt.subtensor:
         bt.subtensor: The global subtensor.
     """
     global subtensor
+
+    from neurons.constants import IS_CI_ENV
+
+    if IS_CI_ENV:
+        raise NotImplementedError("get_subtensor() must be mocked in CI tests")
+
     if subtensor is None:
         subtensor = bt.subtensor(config=config or get_config())
+
     return subtensor
 
 
@@ -98,12 +105,19 @@ def get_metagraph(**kwargs) -> bt.metagraph:
         bt.metagraph: The global metagraph.
     """
     global metagraph
+
+    from neurons.constants import IS_CI_ENV
+
+    if IS_CI_ENV:
+        raise NotImplementedError("get_metagraph() must be mocked in CI tests")
+
     if metagraph is None:
         config = get_config()
         netuid: int = config.netuid or 26
-        network: str = get_subtensor().network or "finney"
+        network: str = get_subtensor().chain_endpoint or "finney"
         logger.info(f"Creating connection to metagraph: {netuid=}: {network=}")
         metagraph = bt.metagraph(netuid=netuid, network=network, **kwargs)
+
     return metagraph
 
 

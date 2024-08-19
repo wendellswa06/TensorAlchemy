@@ -3,11 +3,11 @@ from loguru import logger
 from transformers import CLIPImageProcessor
 
 from neurons.utils.image import synapse_to_tensors
-from neurons.safety import StableDiffusionSafetyChecker
+from scoring.models.safety import StableDiffusionSafetyChecker
 
-from neurons.validator.config import get_device
-from neurons.validator.scoring.models.base import BaseRewardModel
-from neurons.validator.scoring.models.types import RewardModelType
+from neurons.config import get_device
+from scoring.models.base import BaseRewardModel
+from scoring.models.types import RewardModelType
 
 
 class NSFWRewardModel(BaseRewardModel):
@@ -32,7 +32,9 @@ class NSFWRewardModel(BaseRewardModel):
         try:
             # Clip expects RGB int values in range (0, 255)
             scaled_tensors = [
-                tensor * 255 for tensor in synapse_to_tensors(response)
+                #
+                tensor * 255
+                for tensor in synapse_to_tensors(response)
             ]
 
             clip_input = self.processor(
@@ -40,9 +42,8 @@ class NSFWRewardModel(BaseRewardModel):
                 return_tensors="pt",
             ).to(get_device())
 
-            _, has_nsfw_concept = self.safetychecker.forward(
-                images=response.images,
-                clip_input=clip_input.pixel_values.to(get_device()),
+            has_nsfw_concept = self.safetychecker.forward(
+                clip_input.pixel_values.to(get_device()),
             )
 
             return 1.0 if any(has_nsfw_concept) else 0.0

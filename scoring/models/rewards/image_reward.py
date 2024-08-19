@@ -8,9 +8,9 @@ from loguru import logger
 
 from neurons.utils.image import synapse_to_images
 
-from neurons.validator.config import get_device
-from neurons.validator.scoring.models.base import BaseRewardModel
-from neurons.validator.scoring.models.types import RewardModelType
+from neurons.config import get_device
+from scoring.models.base import BaseRewardModel
+from scoring.models.types import RewardModelType
 
 
 class ImageRewardModel(BaseRewardModel):
@@ -30,8 +30,7 @@ class ImageRewardModel(BaseRewardModel):
                 if not images:
                     raise ValueError("No images")
 
-            except Exception:
-                logger.error("ImageReward score is 0. No image in response.")
+            except Exception as e:
                 return 0.0
 
             _, scores = self.scoring_model.inference_rank(

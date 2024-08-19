@@ -10,7 +10,7 @@ from neurons.constants import (
     IA_BUCKET_NAME,
     IA_TEST_BUCKET_NAME,
 )
-from neurons.validator.config import get_config
+from neurons.config import get_config
 
 
 def get_bucket_name() -> str:

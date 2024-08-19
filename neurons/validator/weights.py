@@ -1,7 +1,7 @@
 import queue
 import time
 import traceback
-from typing import List
+from typing import List, Optional
 from multiprocessing import Event, Queue
 
 import torch
@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
 from neurons.utils.exceptions import BittensorBrokenPipe
-from neurons.validator.config import (
+from neurons.config import (
     get_config,
     get_wallet,
     get_metagraph,
@@ -22,10 +22,15 @@ from neurons.validator.backend.exceptions import PostWeightsError
 from neurons.validator.utils.version import get_validator_spec_version
 
 
+class WeightSettingError(Exception):
+    pass
+
+
 class SetWeightsTask(BaseModel):
     epoch: int
     hotkeys: List[str]
     weights: List[float]  # Changed from torch.Tensor to List[float]
+    tries: Optional[int] = 0
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -52,6 +57,10 @@ async def set_weights_loop(
 
     logger.info("Gathered a weights setting task")
 
+    if weights_event.tries > 2:
+        logger.error("Weights failed to set 3 times, dropping task...")
+        return
+
     try:
         block: int = ttl_get_block()
         epoch: int = weights_event.epoch
@@ -69,6 +78,20 @@ async def set_weights_loop(
     except BittensorBrokenPipe:
         logger.info("[set_weights_loop] bittensor broken pipe")
         should_quit.set()
+
+    except WeightSettingError:
+        logger.info("[set_weights_loop] failed to set weights")
+        try:
+            set_weights_queue.put_nowait(
+                SetWeightsTask(
+                    epoch=weights_event.epoch,
+                    hotkeys=weights_event.hotkeys,
+                    weights=weights_event.weights,
+                    tries=weights_event.tries + 1,
+                )
+            )
+        except queue.Full:
+            logger.error("Cannot add weights setting task, queue is full!")
 
 
 async def set_weights(
@@ -153,4 +176,5 @@ async def set_weights(
         logger.info(f"set_weights message: {message}")
 
     except Exception as e:
-        logger.error(f"Failed to set weights: {e}")
+        logger.error(e)
+        raise WeightSettingError from e

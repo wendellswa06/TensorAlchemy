@@ -24,7 +24,7 @@ from neurons.validator.backend.exceptions import (
     PostWeightsError,
     UpdateTaskError,
 )
-from neurons.validator.config import get_config
+from neurons.config import get_config
 from neurons.validator.backend.models import TaskState
 from neurons.validator.schemas import Batch
 
@@ -40,11 +40,11 @@ class TensorAlchemyBackendClient:
 
         self.api_url = MAINNET_URL
 
-        if self.config.alchemy.host == "develop":
+        if self.config.netuid == 25:
             self.api_url = DEVELOP_URL
 
-        elif self.config.alchemy.host == "testnet":
-            self.api_url = TESTNET_URL
+            if self.config.alchemy.host == "testnet":
+                self.api_url = TESTNET_URL
 
         logger.info(f"Using backend server {self.api_url}")
 
@@ -61,7 +61,7 @@ class TensorAlchemyBackendClient:
         )
 
     # Get tasks from the client server
-    async def poll_task(self, timeout: int = 60, backoff: int = 1):
+    async def poll_task(self, timeout: int = 30, backoff: int = 1):
         """Performs polling for new task.
         If no new task found within `timeout`
         returns None."""
@@ -101,6 +101,7 @@ class TensorAlchemyBackendClient:
                 response = await client.get(
                     f"{self.api_url}/tasks", timeout=timeout
                 )
+
         except httpx.ReadTimeout as ex:
             raise GetTaskError(f"/tasks read timeout ({timeout}s)") from ex
         except Exception as ex:
@@ -124,6 +125,8 @@ class TensorAlchemyBackendClient:
 
         if response.status_code == 401:
             if task.get("code") == "VALIDATOR_NOT_FOUND_YET":
+                return None
+            if task.get("code") == "PENDING_SYNC_METAGRAPH":
                 return None
             if task.get("code") == "VALIDATOR_HAS_NOT_ENOUGH_STAKE":
                 return None
@@ -183,14 +186,33 @@ class TensorAlchemyBackendClient:
                 f"{response.status_code}: {self._error_response_text(response)}"
             )
 
+    async def fail_task(self, task_id: str, timeout: int = 10) -> Response:
+        """Task failed for some reason"""
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.api_url}/tasks/{task_id}/fail",
+                    timeout=timeout,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to fail task {str(e)}")
+
+        return response
+
     async def post_batch(self, batch: Batch, timeout: int = 10) -> Response:
         """Post batch of images"""
-        async with self._client() as client:
-            response = await client.post(
-                f"{self.api_url}/batches",
-                json=batch.dict(),
-                timeout=timeout,
-            )
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self.api_url}/batches",
+                    json=batch.model_dump(),
+                    timeout=timeout,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to upload batch {str(e)}")
+
         return response
 
     async def post_weights(

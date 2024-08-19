@@ -26,19 +26,20 @@ from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
-from neurons.validator.scoring.models.types import RewardModelType
-from neurons.validator.config import (
+from scoring.models.types import RewardModelType
+from neurons.config import (
     get_config,
     get_device,
+    get_wallet,
     get_metagraph,
     get_backend_client,
     get_blacklist,
 )
-from neurons.validator.scoring.types import (
+from scoring.types import (
     ScoringResult,
     ScoringResults,
 )
-from neurons.validator.scoring.pipeline import (
+from scoring.pipeline import (
     get_scoring_results,
     apply_masking_functions,
 )
@@ -202,22 +203,18 @@ async def query_axons_and_process_responses(
 
         # Create batch from single response and enqueue uploading
         # Batch will be merged at backend side
-        batch_for_upload: Batch = await create_batch_for_upload(
-            validator_wallet=validator.wallet,
-            metagraph=validator.metagraph,
-            batch_id=task.task_id,
-            prompt=task.prompt,
-            responses=[response],
-            masked_rewards=masked_rewards,
-        )
+        try:
+            await create_batch_for_upload(
+                validator,
+                batch_id=task.task_id,
+                prompt=task.prompt,
+                responses=[response],
+                masked_rewards=masked_rewards,
+            )
+        except InvalidBatch:
+            await get_backend_client().fail_task(task.task_id)
 
         responses.append(response)
-
-        if batch_for_upload:
-            try:
-                validator.batches_upload_queue.put_nowait(batch_for_upload)
-            except Exception as e:
-                logger.error(f"Could not add compute to upload queue {e}")
 
     return responses
 
@@ -264,9 +261,12 @@ def log_event(event: dict):
     logger.info(f"[log_event]: {event}")
 
 
+class InvalidBatch(Exception):
+    pass
+
+
 async def create_batch_for_upload(
-    validator_wallet: bt.wallet,
-    metagraph: "bt.metagraph.Metagraph",
+    validator: "StableValidator",
     batch_id: str,
     prompt: str,
     responses: List[bt.Synapse],
@@ -291,9 +291,10 @@ async def create_batch_for_upload(
         else:
             images.append("NO_IMAGE")
             should_drop_entries.append(1)
+            continue
 
-            # TODO: Should we just drop it?
-            return None
+    if not len(images):
+        raise InvalidBatch()
 
     nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
         RewardModelType.NSFW,
@@ -303,10 +304,13 @@ async def create_batch_for_upload(
     )
 
     if not nsfw_scores:
-        return None
+        raise InvalidBatch()
 
     if not blacklist_scores:
-        return None
+        raise InvalidBatch()
+
+    wallet: bt.wallet = get_wallet()
+    metagraph: bt.metagraph = get_metagraph()
 
     # Update batches to be sent to the human validation platform
     # if batch_id not in validator.batches.keys():
@@ -315,7 +319,7 @@ async def create_batch_for_upload(
         computes=images,
         batch_id=batch_id,
         should_drop_entries=should_drop_entries,
-        validator_hotkey=str(validator_wallet.hotkey.ss58_address),
+        validator_hotkey=str(wallet.hotkey.ss58_address),
         miner_hotkeys=[metagraph.hotkeys[uid] for uid in uids],
         miner_coldkeys=[metagraph.coldkeys[uid] for uid in uids],
         # Scores

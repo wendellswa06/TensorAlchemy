@@ -6,14 +6,15 @@ from loguru import logger
 
 from neurons.protocol import ModelType
 from neurons.utils.log import summarize_rewards
-from neurons.validator.config import get_device, get_metagraph
+from neurons.config import get_device, get_metagraph
 
-from neurons.validator.scoring.models.types import PackedRewardModel
-from neurons.validator.scoring.models import (
+from scoring.models.types import PackedRewardModel
+from scoring.models import (
     get_reward_functions,
     get_masking_functions,
 )
-from neurons.validator.scoring.types import (
+from neurons.validator.utils.uid import get_isalive_dict
+from scoring.types import (
     ScoringResult,
     ScoringResults,
     combine_uids,
@@ -50,7 +51,7 @@ async def apply_function(
     logger.info(
         #
         function.name
-        + f" - {summarize_rewards(result.scores)}"
+        + f": {summarize_rewards(result.scores)}"
     )
 
     # Build up a new score instead of re-using the one above
@@ -216,16 +217,15 @@ async def get_scoring_results(
         # Simple list concatenation
         scores=rewards.scores + masks.scores,
         # And the actual result scores
-        combined_scores=combined_scores,
+        combined_scores=filter_rewards(combined_scores),
         # And the combined UIDs
         combined_uids=combine_uids(rewards.combined_uids, masks.combined_uids),
     )
 
 
 def filter_rewards(
-    isalive_dict: Dict[int, int],
-    isalive_threshold: int,
     rewards: torch.Tensor,
+    isalive_threshold: int = 8,
 ) -> torch.Tensor:
     """
     Adjust rewards based on the 'isalive' status of miners.
@@ -240,6 +240,8 @@ def filter_rewards(
     This helps in maintaining a balanced and diverse
     set of active miners in the network.
     """
+    isalive_dict = get_isalive_dict()
+
     for uid, count in isalive_dict.items():
         if count >= isalive_threshold:
             rewards[uid] = 0.0

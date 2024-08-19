@@ -10,7 +10,7 @@ from transformers import CLIPImageProcessor
 from neurons.protocol import ModelType
 from neurons.miners.StableMiner.schema import TaskType, TaskConfig
 from neurons.miners.StableMiner.stable_miner import StableMiner
-from neurons.safety import StableDiffusionSafetyChecker
+from scoring.models.safety import StableDiffusionSafetyChecker
 from neurons.utils.log import configure_logging
 
 

@@ -5,6 +5,12 @@ from torch import nn
 from transformers import CLIPConfig, CLIPVisionModel, PreTrainedModel
 
 
+def cosine_distance(image_embeds, text_embeds):
+    normalized_image_embeds = nn.functional.normalize(image_embeds)
+    normalized_text_embeds = nn.functional.normalize(text_embeds)
+    return torch.mm(normalized_image_embeds, normalized_text_embeds.t())
+
+
 class StableDiffusionSafetyChecker(PreTrainedModel):
     config_class = CLIPConfig
 
@@ -35,7 +41,7 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
         self.transform = transforms.Compose([transforms.PILToTensor()])
 
     @torch.no_grad()
-    def forward(self, clip_input, images):
+    def forward(self, clip_input):
         pooled_output = self.vision_model(clip_input)[1]  # pooled_output
         image_embeds = self.visual_projection(pooled_output)
         # we always cast to float32 as this does not cause significant
@@ -102,10 +108,4 @@ class StableDiffusionSafetyChecker(PreTrainedModel):
                 + "A black image will be returned instead."
                 " Try again with a different prompt and/or seed."
             )
-        return images, has_nsfw_concepts
-
-
-def cosine_distance(image_embeds, text_embeds):
-    normalized_image_embeds = nn.functional.normalize(image_embeds)
-    normalized_text_embeds = nn.functional.normalize(text_embeds)
-    return torch.mm(normalized_image_embeds, normalized_text_embeds.t())
+        return has_nsfw_concepts

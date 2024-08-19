@@ -1,10 +1,11 @@
 import torch
-from typing import List, Optional
+import copy
+import asyncio
 
+from typing import Dict, List, Optional, Any
 from loguru import logger
-
-from neurons.protocol import ModelType
-
+from neurons.protocol import ModelType, ImageGeneration
+from neurons.config import get_config
 from neurons.miners.StableMiner.model_loader import ModelLoader
 from neurons.miners.StableMiner.schema import (
     TaskType,
@@ -12,9 +13,12 @@ from neurons.miners.StableMiner.schema import (
     MinerConfig,
     TaskModelConfig,
 )
-
+from neurons.utils.nsfw import clean_nsfw_from_prompt
 from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.utils import warm_up
+from neurons.utils.image import image_to_base64
+import torchvision.transforms as transforms
+from diffusers.callbacks import SDXLCFGCutoffCallback
 
 
 class StableMiner(BaseMiner):
@@ -24,7 +28,6 @@ class StableMiner(BaseMiner):
 
         self.task_configs = task_configs
         self.miner_config = MinerConfig()
-        # TODO: Fix safety checker and processor to allow different values for each task config
         self.safety_checker: Optional[torch.nn.Module] = None
         self.processor: Optional[torch.nn.Module] = None
 
@@ -49,7 +52,7 @@ class StableMiner(BaseMiner):
         self.log_gpu_memory_usage("after freeing cache")
         logger.info(f"Loading model for task: {task_config.task_type}")
         model = self.load_model(
-            self.bt_config.miner.custom_model, task_config.task_type
+            get_config().miner.custom_model, task_config.task_type
         )
 
         if task_config.model_type not in self.miner_config.model_configs:
@@ -69,12 +72,11 @@ class StableMiner(BaseMiner):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
             ].safety_checker = ModelLoader(
-                self.bt_config.miner
+                get_config().miner
             ).load_safety_checker(
                 task_config.safety_checker,
                 task_config.safety_checker_model_name,
             )
-            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
             self.safety_checker = self.miner_config.model_configs[
                 task_config.model_type
             ][task_config.task_type].safety_checker
@@ -87,23 +89,22 @@ class StableMiner(BaseMiner):
         ):
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].processor = ModelLoader(self.bt_config.miner).load_processor(
+            ].processor = ModelLoader(get_config().miner).load_processor(
                 task_config.processor
             )
-            # TODO: temporary hack so nsfw_image_filter works; refactor later to allow different safety_checkers
             self.processor = self.miner_config.model_configs[
                 task_config.model_type
             ][task_config.task_type].processor
 
         if (
-            self.bt_config.refiner.enable
+            get_config().refiner.enable
             and task_config.refiner_class
             and task_config.refiner_model_name
         ):
             logger.info(f"Loading refiner for task: {task_config.task_type}")
             self.miner_config.model_configs[task_config.model_type][
                 task_config.task_type
-            ].refiner = ModelLoader(self.bt_config).load_refiner(
+            ].refiner = ModelLoader(get_config()).load_refiner(
                 model, task_config
             )
             logger.info(f"Refiner loaded for task: {task_config.task_type}")
@@ -136,7 +137,7 @@ class StableMiner(BaseMiner):
         try:
             logger.info(f"Loading model {model_name} for task {task_type}...")
             task_config = self.get_config_for_task_type(task_type)
-            model_loader = ModelLoader(self.bt_config)
+            model_loader = ModelLoader(get_config())
             model = model_loader.load(model_name, task_config)
             logger.info(f"Model {model_name} loaded successfully.")
             return model
@@ -163,9 +164,15 @@ class StableMiner(BaseMiner):
 
     def get_args_for_task(self, task_type: TaskType) -> dict:
         if task_type == TaskType.TEXT_TO_IMAGE:
-            return self.t2i_args
+            return {
+                "guidance_scale": 7.5,
+                "num_inference_steps": 20,
+            }
         elif task_type == TaskType.IMAGE_TO_IMAGE:
-            return self.i2i_args
+            return {
+                "guidance_scale": 5,
+                "strength": 0.6,
+            }
         else:
             return {}
 
@@ -187,7 +194,7 @@ class StableMiner(BaseMiner):
 
     def optimize_models(self) -> None:
         logger.info("Optimizing models...")
-        if not self.bt_config.miner.optimize:
+        if not get_config().miner.optimize:
             logger.info("Model optimization is disabled.")
             return
 
@@ -207,3 +214,138 @@ class StableMiner(BaseMiner):
         except Exception as e:
             logger.error(f"Error optimizing models: {e}")
             raise
+
+    async def _attempt_generate_images(
+        self, synapse: ImageGeneration, model_config: TaskModelConfig
+    ) -> List[str]:
+        images = []
+        for attempt in range(3):
+            try:
+                model_args = self._setup_model_args(synapse, model_config)
+                seed: int = synapse.seed
+                model_args["generator"] = [
+                    torch.Generator(
+                        device=get_config().miner.device
+                    ).manual_seed(seed)
+                ]
+
+                # Set CFG Cutoff
+                model_args["callback_on_step_end"] = SDXLCFGCutoffCallback(
+                    cutoff_step_ratio=0.4
+                )
+
+                images = self.generate_with_refiner(model_args, model_config)
+
+                logger.info(
+                    f"Successful image generation after {attempt + 1} attempt(s).",
+                )
+                break
+            except Exception as e:
+                logger.error(
+                    f"Error in attempt number {attempt + 1} to generate an image:"
+                    + f" {e}... sleeping for 5 seconds..."
+                )
+                await asyncio.sleep(5)
+
+        if len(images) == 0:
+            logger.info(f"Failed to generate any images after {3} attempts.")
+
+        images = self._filter_nsfw_images(images)
+        return [image_to_base64(image) for image in images]
+
+    def _setup_model_args(
+        self, synapse: ImageGeneration, model_config: TaskModelConfig
+    ) -> Dict[str, Any]:
+        model_args: Dict[str, Any] = copy.deepcopy(model_config.args)
+        try:
+            model_args["prompt"] = [clean_nsfw_from_prompt(synapse.prompt)]
+            model_args["width"] = synapse.width
+            model_args["denoising_end"] = 0.8
+            model_args["output_type"] = "latent"
+            model_args["height"] = synapse.height
+            model_args["num_images_per_prompt"] = synapse.num_images_per_prompt
+            model_args["guidance_scale"] = synapse.guidance_scale
+            if synapse.negative_prompt:
+                model_args["negative_prompt"] = [synapse.negative_prompt]
+
+            model_args["num_inference_steps"] = getattr(
+                synapse, "steps", model_args.get("num_inference_steps", 50)
+            )
+
+            if synapse.generation_type.upper() == TaskType.IMAGE_TO_IMAGE:
+                model_args["image"] = transforms.transforms.ToPILImage()(
+                    bt.Tensor.deserialize(synapse.prompt_image)
+                )
+        except AttributeError as e:
+            logger.error(f"Error setting up model args: {e}")
+
+        return model_args
+
+    def generate_with_refiner(
+        self, model_args: Dict[str, Any], model_config: TaskModelConfig
+    ) -> List:
+        model = model_config.model.to(get_config().miner.device)
+        refiner = (
+            model_config.refiner.to(get_config().miner.device)
+            if model_config.refiner
+            else None
+        )
+
+        if refiner and get_config().refiner.enable:
+            # Init refiner args
+            refiner_args = self.setup_refiner_args(model_args)
+            images = model(**model_args).images
+
+            refiner_args["image"] = images
+            images = refiner(**refiner_args).images
+
+        else:
+            images = model(
+                **self.without_keys(
+                    model_args, ["denoising_end", "output_type"]
+                )
+            ).images
+        return images
+
+    def setup_refiner_args(self, model_args: Dict[str, Any]) -> Dict[str, Any]:
+        refiner_args = {
+            "denoising_start": model_args["denoising_end"],
+            "prompt": model_args["prompt"],
+            "num_inference_steps": int(model_args["num_inference_steps"] * 0.2),
+        }
+        model_args["num_inference_steps"] = int(
+            model_args["num_inference_steps"] * 0.8
+        )
+        return refiner_args
+
+    def _filter_nsfw_images(
+        self, images: List[torch.Tensor]
+    ) -> List[torch.Tensor]:
+        if not images:
+            return images
+        try:
+            if any(self.nsfw_image_filter(images)):
+                logger.info("An image was flagged as NSFW: discarding image.")
+                self.stats.nsfw_count += 1
+                return [self.empty_image_tensor() for _ in images]
+        except Exception as e:
+            logger.error(f"Error in NSFW filtering: {e}")
+        return images
+
+    def nsfw_image_filter(self, images: List[torch.Tensor]) -> List[bool]:
+        clip_input = self.processor(
+            [image for image in images],
+            return_tensors="pt",
+        ).to(get_config().miner.device)
+
+        return self.safety_checker.forward(
+            clip_input.pixel_values.to(
+                get_config().miner.device,
+            ),
+        )
+
+    def empty_image_tensor(self) -> torch.Tensor:
+        return torch.zeros(3, 512, 512, dtype=torch.uint8)
+
+    def without_keys(self, d: Dict, keys: List[str]) -> Dict:
+        return {k: v for k, v in d.items() if k not in keys}

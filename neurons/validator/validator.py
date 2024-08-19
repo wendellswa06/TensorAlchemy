@@ -6,6 +6,7 @@ import time
 import traceback
 import uuid
 import queue
+import inspect
 from math import ceil
 from threading import Thread
 from multiprocessing import Event, Manager, Queue, Process, set_start_method
@@ -36,16 +37,16 @@ from neurons.utils import (
 )
 from neurons.utils.log import configure_logging
 from neurons.validator.schemas import Batch
-from neurons.validator.config import (
+from neurons.config import (
     get_device,
     get_config,
     get_wallet,
     get_metagraph,
     get_subtensor,
     get_backend_client,
-    update_validator_settings,
     validator_run_id,
 )
+from neurons.validator.config import update_validator_settings
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
 from neurons.validator.forward import run_step
@@ -90,26 +91,24 @@ async def upload_image(
     batch: Batch = batches_upload_queue.get(block=False)
     logger.info(
         #
-        f"uploading ({len(batch.computes)} compute "
+        f"uploading ({len(batch.computes)}) computes "
         + f"for batch {batch.batch_id} ..."
     )
     await backend_client.post_batch(batch)
 
 
-def upload_images_loop(
+async def upload_images_loop(
     _should_quit: Event,
     batches_upload_queue: Queue,
 ) -> None:
     # Send new batches to the Human Validation Bot
     try:
         backend_client: TensorAlchemyBackendClient = get_backend_client()
-        asyncio.run(
-            asyncio.gather(
-                *[
-                    upload_image(backend_client, batches_upload_queue)
-                    for _i in range(32)
-                ]
-            )
+        await asyncio.gather(
+            *[
+                upload_image(backend_client, batches_upload_queue)
+                for _i in range(32)
+            ]
         )
 
     except queue.Empty:
@@ -251,7 +250,7 @@ class StableValidator:
         asyncio.run(self.sync())
 
         # Init stats
-        self.stats = get_defaults(self)
+        self.stats = get_defaults()
 
         # Get vali index
         self.validator_index = self.get_validator_index()
@@ -273,7 +272,7 @@ class StableValidator:
         self.upload_images_process: MultiprocessBackgroundTimer = None
 
         # Start all background threads
-        self.start_threads()
+        self.start_threads(True)
 
     def start_thread(self, thread: ThreadLike, is_startup: bool = True) -> None:
         if thread.is_alive():
@@ -293,7 +292,7 @@ class StableValidator:
         ]:
             getattr(self, thread).cancel()
 
-    def start_threads(self, is_startup: bool = True) -> None:
+    def start_threads(self, is_startup: bool = False) -> None:
         logger.info(f"[start_threads] is_startup={is_startup}")
         thread_configs: List[Tuple[str, object, float, callable, list]] = [
             (
@@ -301,7 +300,7 @@ class StableValidator:
                 BackgroundTimer,
                 60,
                 background_loop,
-                [self, True],
+                [self.should_quit],
             ),
             (
                 "upload_images_process",
@@ -420,13 +419,17 @@ class StableValidator:
             self.resync_metagraph()
 
         if self.should_set_weights():
-            self.set_weights_queue.put_nowait(
-                SetWeightsTask(
-                    epoch=ttl_get_block(),
-                    hotkeys=copy.deepcopy(self.hotkeys),
-                    weights=tensor_to_list(self.moving_average_scores),
+            try:
+                self.set_weights_queue.put_nowait(
+                    SetWeightsTask(
+                        epoch=ttl_get_block(),
+                        hotkeys=copy.deepcopy(self.hotkeys),
+                        weights=tensor_to_list(self.moving_average_scores),
+                    )
                 )
-            )
+            except queue.Full:
+                logger.error("Cannot add weights setting task, queue is full!")
+
             logger.info(
                 f"Added a weight setting task to the queue"
                 f" (current size={self.set_weights_queue.qsize()})"
@@ -733,10 +736,17 @@ class StableValidator:
             return False
 
     async def post_step(self):
-        try:
-            await self.sync()
-            self.save_state()
-            await self.reload_settings()
-            self.start_threads(is_startup=False)
-        except Exception as e:
-            logger.error(f"Post-step failed: {str(e)}")
+        for method in [
+            self.sync,
+            self.save_state,
+            self.reload_settings,
+            self.start_threads,
+        ]:
+            try:
+                logger.info(f"Running post step: {method.__name__}")
+                if inspect.iscoroutinefunction(method):
+                    await method()
+                else:
+                    method()
+            except Exception:
+                logger.error(f"{method.__name__} failed: {str(e)}")

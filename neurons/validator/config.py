@@ -7,8 +7,9 @@ import argparse
 from typing import Dict
 import bittensor as bt
 from loguru import logger
-from .device import get_default_device
-from .constants import AlchemyHost
+
+from neurons.config.constants import AlchemyHost
+from neurons.config.device import get_default_device
 
 
 def add_args(parser: argparse.ArgumentParser) -> None:

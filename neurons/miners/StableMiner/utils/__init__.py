@@ -6,7 +6,7 @@ import bittensor as bt
 from loguru import logger
 
 from diffusers import DiffusionPipeline
-from neurons.miners.config import get_metagraph
+from neurons.config import get_metagraph
 
 
 def get_caller_stake(synapse: bt.Synapse) -> Optional[float]:

@@ -23,7 +23,7 @@ class PromptBreakdown(TypedDict):
 BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
 
 # Configuration functions
-from neurons.validator.config import get_openai_client, get_corcel_api_key
+from neurons.config import get_openai_client, get_corcel_api_key
 
 
 def get_prompt_breakdown_function() -> ChatCompletionToolParam:
@@ -122,7 +122,7 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
         "model": "corcel/text-davinci-003",
         "messages": [{"role": m.role, "content": m.content} for m in messages],
         "temperature": 0,
-        "tools": [tool.dict()],
+        "tools": [tool.model_dump()],
         "tool_choice": {
             "type": "function",
             "function": {"name": tool.function.name},

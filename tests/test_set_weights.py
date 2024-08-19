@@ -23,6 +23,9 @@ def mock_dependencies(monkeypatch):
         ),
     }
 
+    # Update the subtensor mock to return a tuple
+    mocks["subtensor"].set_weights.return_value = (True, "Success")
+
     monkeypatch.setattr(
         "neurons.validator.weights.get_config", lambda: mocks["config"]
     )

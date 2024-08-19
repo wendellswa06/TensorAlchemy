@@ -16,11 +16,11 @@ from neurons.utils.image import (
     image_tensor_to_base64,
     bytesio_to_base64,
 )
-from neurons.validator.scoring.models.rewards.image_reward import (
+from scoring.models.rewards.image_reward import (
     ImageRewardModel,
 )
-from neurons.validator.scoring.models.masks.blacklist import BlacklistFilter
-from neurons.validator.scoring.models.masks.nsfw import NSFWRewardModel
+from scoring.models.masks.blacklist import BlacklistFilter
+from scoring.models.masks.nsfw import NSFWRewardModel
 from tests.fixtures import TEST_IMAGES
 
 
@@ -68,7 +68,7 @@ def create_mock_synapse(images, height, width, hotkey):
 
 @pytest.mark.asyncio
 @patch(
-    "neurons.validator.scoring.models.base.get_metagraph",
+    "scoring.models.base.get_metagraph",
     return_value=mock_meta,
 )
 async def test_black_image(mock_meta, blacklist_filter):
@@ -92,7 +92,7 @@ async def test_black_image(mock_meta, blacklist_filter):
 
 @pytest.mark.asyncio
 @patch(
-    "neurons.validator.scoring.models.base.get_metagraph",
+    "scoring.models.base.get_metagraph",
     return_value=mock_meta,
 )
 async def test_incorrect_image_size(mock_meta, blacklist_filter):
@@ -110,19 +110,21 @@ async def test_incorrect_image_size(mock_meta, blacklist_filter):
 
     rewards = await blacklist_filter.get_rewards(responses[0], responses)
 
-    # Correct size image should not be blacklisted
-    assert rewards[0].item() == 0.0
-    # Incorrect size image should be blacklisted
-    assert rewards[1].item() == 1.0
+    assert (
+        rewards[0].item() == 0.0
+    ), "Correct size image should not be blacklisted"
+    assert (
+        rewards[1].item() == 1.0
+    ), "Incorrect size image should be blacklisted"
 
 
 @pytest.mark.asyncio
 @patch(
-    "neurons.validator.scoring.models.base.get_metagraph",
+    "scoring.models.base.get_metagraph",
     return_value=mock_meta,
 )
 async def test_nsfw_image(mock_meta, nsfw_reward_model):
-    nsfw_image_url = "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a05eaa75-ac8c-4460-b6b0-b7eb47e06987/width=64/00027-4120052916.jpeg"
+    nsfw_image_url = "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a05eaa75-ac8c-4460-b6b0-b7eb47e06987/width=256/00027-4120052916.jpeg"
 
     nsfw_image = bytesio_to_base64(
         BytesIO(
@@ -135,24 +137,25 @@ async def test_nsfw_image(mock_meta, nsfw_reward_model):
     response_nsfw = create_mock_synapse([nsfw_image], 512, 512, "hotkey_0")
     response_safe = create_mock_synapse([safe_image], 512, 512, "hotkey_1")
 
-    responses = [response_nsfw, response_safe]
+    rewards = await nsfw_reward_model.get_rewards(
+        response_safe,
+        [response_nsfw, response_safe],
+    )
 
-    rewards = await nsfw_reward_model.get_rewards(responses[0], responses)
-
-    assert rewards[0].item() == 1.0  # NSFW image should be flagged
-    assert rewards[1].item() == 0.0  # Safe image should not be flagged
+    assert rewards[0].item() == 1.0, "NSFW image should be flagged"
+    assert rewards[1].item() == 0.0, "Safe image should not be flagged"
 
     assert (
         rewards.shape[0] == 5
-    )  # Ensure we have rewards for all hotkeys in the mock metagraph
+    ), "Ensure we have rewards for all hotkeys in the mock metagraph"
     assert torch.all(
         (rewards == 0) | (rewards == 1)
-    )  # Ensure all rewards are either 0 or 1
+    ), "Ensure all rewards are either 0 or 1"
 
 
 @pytest.mark.asyncio
 @patch(
-    "neurons.validator.scoring.models.base.get_metagraph",
+    "scoring.models.base.get_metagraph",
     return_value=mock_meta,
 )
 @pytest.mark.skipif(IS_CI_ENV, reason="Skipping this test in CI environment")
@@ -172,9 +175,13 @@ async def test_image_reward_model(mock_meta, image_reward_model):
     rewards = await image_reward_model.get_rewards(responses[0], responses)
     logger.info("rewards={rewards}".format(rewards=rewards))
 
-    assert math.isclose(rewards[0].item(), 1.2128, rel_tol=1e-3)
-    assert math.isclose(rewards[1].item(), 0.2446, rel_tol=1e-3)
+    assert math.isclose(
+        rewards[0].item(), 1.2128, rel_tol=1e-3
+    ), "Expected reward"
+    assert math.isclose(
+        rewards[1].item(), 0.2446, rel_tol=1e-3
+    ), "Expected reward"
 
     assert (
         rewards.shape[0] == 5
-    )  # Ensure we have rewards for all hotkeys in the mock metagraph
+    ), "Ensure we have rewards for all hotkeys in the mock metagraph"
