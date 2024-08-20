@@ -312,7 +312,9 @@ async def test_full_pipeline_integration_multiple_runs(num_runs):
 
     for i in range(1, num_runs):
         assert torch.allclose(
-            all_final_rewards[0], all_final_rewards[i], atol=1e-6
+            all_final_rewards[0],
+            all_final_rewards[i],
+            atol=1e-6,
         ), f"Inconsistent results between run 1 and run {i + 1}"
 
     for run in range(num_runs):
@@ -327,7 +329,9 @@ async def test_full_pipeline_integration_multiple_runs(num_runs):
                 f"Expected {score_0.type}, got {score_run.type}"
             )
             assert torch.allclose(
-                score_0.scores, score_run.scores, atol=1e-6
+                score_0.scores,
+                score_run.scores,
+                atol=1e-6,
             ), (
                 f"Inconsistent scores for {score_0.type} in run {run + 1}. "
                 f"Run 0 scores: {score_0.scores}, "
@@ -374,7 +378,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
 
     for i in range(1, num_runs):
         assert torch.allclose(
-            all_final_rewards[0], all_final_rewards=1e-6
+            all_final_rewards[0],
+            all_final_rewards[i],
+            atol=1e-6,
         ), f"Inconsistent filtered rewards between run 1 and run {i + 1}"
 
     for run in range(num_runs):
@@ -398,7 +404,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
 
             try:
                 assert torch.allclose(
-                    score_0.scores, score_run.scores, atol=1e-6
+                    score_0.scores,
+                    score_run.scores,
+                    atol=1e-6,
                 ), (
                     f"Inconsistent scores for {score_0.type} in run {run + 1}. "
                     f"Run 0 scores: {score_0.scores}, "
@@ -416,7 +424,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
     ), f"Final moving average scores not in range [0, 1]: {moving_average_scores}"
 
     assert not torch.allclose(
-        ma_history[0], ma_history[-1], atol=1e-6
+        ma_history[0],
+        ma_history[-1],
+        atol=1e-6,
     ), "Moving averages should change over multiple runs"
 
     logger.info("All runs completed successfully with consistent results!")

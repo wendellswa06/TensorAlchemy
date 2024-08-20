@@ -193,8 +193,8 @@ async def select_uids(count: int = 12) -> torch.tensor:
         + ", ".join([str(i) for i in active_uids])
     )
 
-    if not active_uids:
-        return None
+    if len(active_uids) < 1:
+        return torch.tensor([]).to(get_device())
 
     selected_uids = torch.tensor(
         active_uids[:N_NEURONS],
