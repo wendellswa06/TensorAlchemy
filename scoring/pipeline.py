@@ -13,7 +13,6 @@ from scoring.models import (
     get_reward_functions,
     get_masking_functions,
 )
-from neurons.validator.utils.uid import get_isalive_dict
 from scoring.types import (
     ScoringResult,
     ScoringResults,
@@ -221,29 +220,3 @@ async def get_scoring_results(
         # And the combined UIDs
         combined_uids=combine_uids(rewards.combined_uids, masks.combined_uids),
     )
-
-
-def filter_rewards(
-    rewards: torch.Tensor,
-    isalive_threshold: int = 8,
-) -> torch.Tensor:
-    """
-    Adjust rewards based on the 'isalive' status of miners.
-
-    This function is crucial for maintaining the health and fairness of
-    the network.
-
-    By zeroing out rewards for miners that have exceeded the
-    'isalive' threshold, we prevent overactive or potentially
-    malicious miners from dominating the reward distribution.
-
-    This helps in maintaining a balanced and diverse
-    set of active miners in the network.
-    """
-    isalive_dict = get_isalive_dict()
-
-    for uid, count in isalive_dict.items():
-        if count >= isalive_threshold:
-            rewards[uid] = 0.0
-
-    return rewards

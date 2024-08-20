@@ -55,7 +55,7 @@ from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
     ttl_get_block,
     generate_random_prompt_gpt,
-    get_all_active_uids,
+    get_active_uids,
 )
 from neurons.validator.weights import (
     SetWeightsTask,
@@ -690,7 +690,14 @@ class StableValidator:
 
     async def pre_step(self):
         try:
-            self.active_uids = await get_all_active_uids()
+            self.task = await self.get_image_generation_task()
+            if not self.task:
+                logger.warning(
+                    "Image generation task was not generated successfully."
+                )
+                return False
+
+            self.active_uids = await get_active_uids(limit=18)
             logger.info(
                 f"Found {len(self.active_uids)} active miners: "
                 + ", ".join([str(i) for i in self.active_uids])
@@ -699,13 +706,6 @@ class StableValidator:
             if not self.active_uids:
                 logger.info("No active miners found, retrying in 20 seconds...")
                 await asyncio.sleep(20)
-                return False
-
-            self.task = await self.get_image_generation_task()
-            if not self.task:
-                logger.warning(
-                    "Image generation task was not generated successfully."
-                )
                 return False
 
             return True
