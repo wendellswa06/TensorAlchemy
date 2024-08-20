@@ -4,40 +4,20 @@ import time
 import traceback
 from typing import List, Tuple, Dict, Any
 from functools import wraps
-from multiprocessing import Manager
 
 import bittensor as bt
 import torch
 from loguru import logger
 
 from neurons.protocol import IsAlive
-from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO
+from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO, N_NEURONS
 from neurons.config import (
+    get_device,
     get_config,
     get_dendrite,
     get_metagraph,
     get_blacklist,
 )
-
-isalive_threshold = 8
-
-# Global variables to hold our Manager instance and managed dictionary
-_manager = None
-_isalive_dict = None
-
-
-def get_manager():
-    global _manager
-    if _manager is None:
-        _manager = Manager()
-    return _manager
-
-
-def get_isalive_dict():
-    global _isalive_dict
-    if _isalive_dict is None:
-        _isalive_dict = get_manager().dict()
-    return _isalive_dict
 
 
 async def check_uid(uid: int) -> Tuple[bool, float]:
@@ -56,16 +36,8 @@ async def check_uid(uid: int) -> Tuple[bool, float]:
 
         response: IsAlive = responses[0]
 
-        isalive_dict = get_isalive_dict()
-
         if response.is_success:
-            isalive_dict[uid] = 0
             return uid, True, time.perf_counter() - t1
-
-        if uid in isalive_dict:
-            isalive_dict[uid] += 1
-        else:
-            isalive_dict[uid] = 1
 
         return uid, False, -1
     except Exception:
@@ -127,7 +99,9 @@ def is_uid_available(uid: int, vpermit_tao_limit: int) -> bool:
     return True
 
 
-async def filter_available_uids(exclude: List[int] = None) -> List[int]:
+async def filter_available_uids(
+    exclude: List[int] = None,
+) -> List[int]:
     """
     Filter available UIDs based on availability and exclusion list.
 
@@ -180,24 +154,15 @@ async def check_uids_alive(uids: List[int]) -> Tuple[List[int], List[float]]:
     return alive_uids, response_times
 
 
-def update_isalive_dict() -> None:
-    isalive_dict = get_isalive_dict()
-    # Start following this UID
-    for uid in range(get_metagraph().n.item()):
-        if uid not in isalive_dict:
-            isalive_dict[uid] = 0
-
-
 @memoize_with_expiration(20)
-async def get_all_active_uids() -> List[int]:
+async def get_active_uids(limit: int = -1) -> List[int]:
     """
     Fetch all active (alive) UIDs. Results are memoized for 20 seconds.
 
     Returns:
         List[int]: List of all active UIDs.
     """
-    logger.info("Fetching all active UIDs")
-    update_isalive_dict()
+    logger.info(f"Fetching active UIDs {limit=}")
 
     available_uids = await filter_available_uids()
 
@@ -210,62 +175,46 @@ async def get_all_active_uids() -> List[int]:
         active_uids, _ = await check_uids_alive(batch)
         all_active_uids.extend(active_uids)
 
+        if limit > 0:
+            if len(active_uids) >= limit:
+                break
+
     logger.info(f"Found {len(all_active_uids)} active UIDs")
     logger.info(f"Active miners: {all_active_uids}")
 
     return all_active_uids
 
 
-async def get_random_uids(
-    k: int, exclude: List[int] = None
-) -> torch.LongTensor:
-    """
-    Get random active UIDs.
+async def select_uids(count: int = 12) -> torch.tensor:
+    active_uids = await get_active_uids(limit=count * 1.5)
 
-    Args:
-        k (int): Number of random UIDs to select.
-        exclude (List[int], optional): List of UIDs to exclude. Defaults to None.
-
-    Returns:
-        torch.LongTensor: Tensor of randomly selected active UIDs.
-    """
-    start_time = time.perf_counter()
-
-    all_active_uids = await get_all_active_uids()
-
-    if exclude:
-        all_active_uids = [uid for uid in all_active_uids if uid not in exclude]
-
-    selected_uids = (
-        all_active_uids
-        if len(all_active_uids) <= k
-        else random.sample(all_active_uids, k)
-    )
-
-    end_time = time.perf_counter()
     logger.info(
-        f"Time to find {len(selected_uids)} random UIDs: {end_time - start_time:.2f}s"
+        f"Found {len(active_uids)} active miners: "
+        + ", ".join([str(i) for i in active_uids])
     )
 
-    return torch.tensor(selected_uids, dtype=torch.long)
+    if len(active_uids) < 1:
+        return torch.tensor([]).to(get_device())
+
+    selected_uids = torch.tensor(
+        active_uids[:N_NEURONS],
+        dtype=torch.long,
+    ).to(get_device())
+
+    logger.info(f"Selected miners: {selected_uids.tolist()}")
+
+    return selected_uids
 
 
 # Example usage
 async def main():
     # Get all active UIDs
-    all_active = await get_all_active_uids()
+    all_active = await get_active_uids()
     logger.info(f"Total active UIDs: {len(all_active)}")
 
-    # Get 5 random active UIDs
-    random_uids = await get_random_uids(k=5)
-    logger.info(f"Random 5 active UIDs: {random_uids.tolist()}")
-
-    # Call get_all_active_uids again (should use cached result)
-    all_active_cached = await get_all_active_uids()
+    # Call get_active_uids again (should use cached result)
+    all_active_cached = await get_active_uids()
     logger.info(f"Total active UIDs (cached): {len(all_active_cached)}")
-
-    # Print the contents of isalive_dict
-    logger.info(f"isalive_dict contents: {dict(get_isalive_dict())}")
 
 
 if __name__ == "__main__":

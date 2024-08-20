@@ -1,3 +1,4 @@
+import pathlib
 import subprocess
 
 import requests
@@ -41,11 +42,17 @@ def show_warning_message(local_commit, remote_commit):
     new_line = f"\n{line}"
     empty_line = create_line("")
     warning_lines = [
-        create_line("WARNING: Your TensorAlchemy OUTDATED"),
+        create_line("WARNING"),
+        create_line("Your TensorAlchemy is OUTDATED"),
+        create_line(""),
         create_line("Your local TensorAlchemy is not up-to-date with"),
         create_line("the TensorAlchemy repository."),
-        create_line(f"Your hash  : {local_commit}"),
+        create_line(f"Your hash:   {local_commit}"),
         create_line(f"Remote hash: {remote_commit}"),
+        create_line(""),
+        create_line("Please update:"),
+        create_line("1) git fetch && git reset --hard origin/main"),
+        create_line("2) Restart your validator"),
     ]
 
     message = "\n".join(
@@ -55,7 +62,9 @@ def show_warning_message(local_commit, remote_commit):
     logger.warning(message)
 
 
-def check_for_updates(local_repo_path, repo_url):
+def check_for_updates() -> None:
+    repo_url: str = "TensorAlchemy/TensorAlchemy"
+
     current_branch = get_current_branch()
 
     local_commit = get_local_commit_hash(current_branch)
@@ -63,9 +72,17 @@ def check_for_updates(local_repo_path, repo_url):
 
     if local_commit and remote_commit and local_commit != remote_commit:
         show_warning_message(local_commit, remote_commit)
+
     elif local_commit == remote_commit:
         logger.info(
             "Your local repository is up-to-date with the GitHub repository."
         )
     else:
         logger.info("Unable to determine the update status.")
+
+
+def safely_check_for_updates():
+    try:
+        check_for_updates()
+    except Exception as e:
+        logger.error(f"Failed to check for updates {e}")

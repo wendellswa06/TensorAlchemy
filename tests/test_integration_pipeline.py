@@ -9,10 +9,7 @@ from neurons.utils.image import image_tensor_to_base64, image_to_tensor
 from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.forward import update_moving_averages
 from scoring.models import RewardModelType
-from scoring.pipeline import (
-    get_scoring_results,
-    filter_rewards,
-)
+from scoring.pipeline import get_scoring_results
 from scoring.types import ScoringResults
 from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 
@@ -267,35 +264,26 @@ async def run_pipeline_test():
             f"Score: {results.combined_scores[i]}"
         )
 
-    from neurons.validator.utils.uid import get_isalive_dict
+    final_rewards = results.combined_scores.clone()
 
-    isalive_dict = get_isalive_dict()
-    isalive_dict[0] = 10
-    isalive_dict[2] = 5
-
-    filtered_rewards = filter_rewards(results.combined_scores.clone())
-
-    logger.info(f"isalive_dict: {isalive_dict}")
-    logger.info(f"Final filtered rewards: {filtered_rewards}")
-
-    assert filtered_rewards[0] == 0, (
+    assert final_rewards[0] == 0, (
         f"Rewards not zeroed for miner exceeding isalive threshold. "
-        f"Value: {filtered_rewards[0]}"
+        f"Value: {final_rewards[0]}"
     )
-    assert filtered_rewards[2] != 0, (
+    assert final_rewards[2] != 0, (
         f"Rewards incorrectly zeroed for miner below isalive threshold. "
-        f"Value: {filtered_rewards[2]}"
+        f"Value: {final_rewards[2]}"
     )
 
     for i in range(1, 5):
         if i != 2:
-            assert filtered_rewards[i] == results.combined_scores[i], (
+            assert final_rewards[i] == results.combined_scores[i], (
                 f"Reward for miner {i} changed unexpectedly. "
                 f"Before: {results.combined_scores[i]}, "
-                f"After: {filtered_rewards[i]}"
+                f"After: {final_rewards[i]}"
             )
 
-    non_zero_rewards = filtered_rewards[filtered_rewards != 0]
+    non_zero_rewards = final_rewards[final_rewards != 0]
     sorted_rewards, indices = torch.sort(non_zero_rewards, descending=True)
     logger.info(f"Non-zero rewards: {non_zero_rewards}")
     logger.info(f"Sorted non-zero rewards: {sorted_rewards}")
@@ -306,7 +294,7 @@ async def run_pipeline_test():
         f"than lowest reward ({sorted_rewards[-1]})"
     )
 
-    return results, filtered_rewards
+    return results, final_rewards
 
 
 @pytest.mark.asyncio
@@ -314,17 +302,19 @@ async def run_pipeline_test():
 @apply_patches
 async def test_full_pipeline_integration_multiple_runs(num_runs):
     all_results = []
-    all_filtered_rewards = []
+    all_final_rewards = []
 
     for run in range(num_runs):
         logger.info(f"Starting run {run + 1} of {num_runs}")
-        results, filtered_rewards = await run_pipeline_test()
+        results, final_rewards = await run_pipeline_test()
         all_results.append(results)
-        all_filtered_rewards.append(filtered_rewards)
+        all_final_rewards.append(final_rewards)
 
     for i in range(1, num_runs):
         assert torch.allclose(
-            all_filtered_rewards[0], all_filtered_rewards[i], atol=1e-6
+            all_final_rewards[0],
+            all_final_rewards[i],
+            atol=1e-6,
         ), f"Inconsistent results between run 1 and run {i + 1}"
 
     for run in range(num_runs):
@@ -339,7 +329,9 @@ async def test_full_pipeline_integration_multiple_runs(num_runs):
                 f"Expected {score_0.type}, got {score_run.type}"
             )
             assert torch.allclose(
-                score_0.scores, score_run.scores, atol=1e-6
+                score_0.scores,
+                score_run.scores,
+                atol=1e-6,
             ), (
                 f"Inconsistent scores for {score_0.type} in run {run + 1}. "
                 f"Run 0 scores: {score_0.scores}, "
@@ -354,7 +346,7 @@ async def test_full_pipeline_integration_multiple_runs(num_runs):
 @apply_patches
 async def test_full_pipeline_integration_with_moving_averages(num_runs):
     all_results = []
-    all_filtered_rewards = []
+    all_final_rewards = []
     moving_average_scores = torch.zeros(11)
     ma_history = [moving_average_scores.clone()]
 
@@ -365,9 +357,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
     ):
         for run in range(num_runs):
             logger.info(f"Starting run {run + 1} of {num_runs}")
-            scoring_results, filtered_rewards = await run_pipeline_test()
+            scoring_results, final_rewards = await run_pipeline_test()
             all_results.append(scoring_results)
-            all_filtered_rewards.append(filtered_rewards)
+            all_final_rewards.append(final_rewards)
 
             moving_average_scores = await update_moving_averages(
                 moving_average_scores,
@@ -386,7 +378,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
 
     for i in range(1, num_runs):
         assert torch.allclose(
-            all_filtered_rewards[0], all_filtered_rewards[i], atol=1e-6
+            all_final_rewards[0],
+            all_final_rewards[i],
+            atol=1e-6,
         ), f"Inconsistent filtered rewards between run 1 and run {i + 1}"
 
     for run in range(num_runs):
@@ -410,7 +404,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
 
             try:
                 assert torch.allclose(
-                    score_0.scores, score_run.scores, atol=1e-6
+                    score_0.scores,
+                    score_run.scores,
+                    atol=1e-6,
                 ), (
                     f"Inconsistent scores for {score_0.type} in run {run + 1}. "
                     f"Run 0 scores: {score_0.scores}, "
@@ -428,7 +424,9 @@ async def test_full_pipeline_integration_with_moving_averages(num_runs):
     ), f"Final moving average scores not in range [0, 1]: {moving_average_scores}"
 
     assert not torch.allclose(
-        ma_history[0], ma_history[-1], atol=1e-6
+        ma_history[0],
+        ma_history[-1],
+        atol=1e-6,
     ), "Moving averages should change over multiple runs"
 
     logger.info("All runs completed successfully with consistent results!")
