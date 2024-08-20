@@ -18,10 +18,10 @@ import numpy as np
 from loguru import logger
 
 from neurons.constants import (
-    N_NEURONS,
     IA_VALIDATOR_SETTINGS_FILE,
 )
 
+from neurons.update_checker import safely_check_for_updates
 from neurons.protocol import (
     ModelType,
     denormalize_image_model,
@@ -53,9 +53,9 @@ from neurons.validator.forward import run_step
 from neurons.validator.services.openai.service import get_openai_service
 from neurons.validator.utils.version import get_validator_version
 from neurons.validator.utils import (
+    select_uids,
     ttl_get_block,
     generate_random_prompt_gpt,
-    get_active_uids,
 )
 from neurons.validator.weights import (
     SetWeightsTask,
@@ -291,6 +291,9 @@ class StableValidator:
             "set_weights_process",
         ]:
             getattr(self, thread).cancel()
+
+    def update_check(self) -> None:
+        safely_check_for_updates()
 
     def start_threads(self, is_startup: bool = False) -> None:
         logger.info(f"[start_threads] is_startup={is_startup}")
@@ -697,17 +700,6 @@ class StableValidator:
                 )
                 return False
 
-            self.active_uids = await get_active_uids(limit=18)
-            logger.info(
-                f"Found {len(self.active_uids)} active miners: "
-                + ", ".join([str(i) for i in self.active_uids])
-            )
-
-            if not self.active_uids:
-                logger.info("No active miners found, retrying in 20 seconds...")
-                await asyncio.sleep(20)
-                return False
-
             return True
         except Exception:
             logger.error(traceback.format_exc())
@@ -716,10 +708,12 @@ class StableValidator:
 
     async def mid_step(self):
         try:
-            selected_uids = torch.tensor(
-                self.active_uids[:N_NEURONS], dtype=torch.long
-            ).to(self.device)
-            logger.info(f"Selected miners: {selected_uids.tolist()}")
+            selected_uids: torch.Tensor = await select_uids(count=12)
+            if selected_uids.numel() == 0:
+                logger.info("No active miners found, retrying in 20 seconds...")
+                await asyncio.sleep(20)
+                return False
+
             axons = [self.metagraph.axons[uid] for uid in selected_uids]
 
             await run_step(
@@ -741,6 +735,7 @@ class StableValidator:
             self.save_state,
             self.reload_settings,
             self.start_threads,
+            self.update_check,
         ]:
             try:
                 logger.info(f"Running post step: {method.__name__}")

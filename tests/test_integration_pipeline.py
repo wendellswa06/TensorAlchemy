@@ -9,10 +9,7 @@ from neurons.utils.image import image_tensor_to_base64, image_to_tensor
 from neurons.validator.backend.exceptions import PostMovingAveragesError
 from neurons.validator.forward import update_moving_averages
 from scoring.models import RewardModelType
-from scoring.pipeline import (
-    get_scoring_results,
-    filter_rewards,
-)
+from scoring.pipeline import get_scoring_results
 from scoring.types import ScoringResults
 from tests.fixtures import TEST_IMAGES, mock_get_metagraph
 

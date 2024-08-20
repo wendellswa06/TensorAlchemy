@@ -216,7 +216,7 @@ async def get_scoring_results(
         # Simple list concatenation
         scores=rewards.scores + masks.scores,
         # And the actual result scores
-        combined_scores=filter_rewards(combined_scores),
+        combined_scores=combined_scores,
         # And the combined UIDs
         combined_uids=combine_uids(rewards.combined_uids, masks.combined_uids),
     )

@@ -10,8 +10,9 @@ import torch
 from loguru import logger
 
 from neurons.protocol import IsAlive
-from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO
+from neurons.constants import N_NEURONS_TO_QUERY, VPERMIT_TAO, N_NEURONS
 from neurons.config import (
+    get_device,
     get_config,
     get_dendrite,
     get_metagraph,
@@ -161,7 +162,7 @@ async def get_active_uids(limit: int = -1) -> List[int]:
     Returns:
         List[int]: List of all active UIDs.
     """
-    logger.info("Fetching all active UIDs")
+    logger.info(f"Fetching active UIDs {limit=}")
 
     available_uids = await filter_available_uids()
 
@@ -184,9 +185,30 @@ async def get_active_uids(limit: int = -1) -> List[int]:
     return all_active_uids
 
 
+async def select_uids(count: int = 12) -> torch.tensor:
+    active_uids = await get_active_uids(limit=count * 1.5)
+
+    logger.info(
+        f"Found {len(active_uids)} active miners: "
+        + ", ".join([str(i) for i in active_uids])
+    )
+
+    if not active_uids:
+        return None
+
+    selected_uids = torch.tensor(
+        active_uids[:N_NEURONS],
+        dtype=torch.long,
+    ).to(get_device())
+
+    logger.info(f"Selected miners: {selected_uids.tolist()}")
+
+    return selected_uids
+
+
 # Example usage
 async def main():
-    # Get all active UIDs,,,
+    # Get all active UIDs
     all_active = await get_active_uids()
     logger.info(f"Total active UIDs: {len(all_active)}")
 
