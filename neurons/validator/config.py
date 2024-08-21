@@ -123,7 +123,7 @@ def get_config() -> bt.config:
     return config
 
 
-async def update_validator_settings() -> bt.config:
+async def update_validator_settings() -> None:
     """
     Update the validator settings in the global configuration.
 
@@ -174,7 +174,6 @@ async def update_validator_settings() -> bt.config:
     logger.info(
         f"Retrieved the latest validator settings: {validator_settings}"
     )
-    return config
 
 
 config: bt.config = None
