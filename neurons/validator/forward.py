@@ -47,8 +47,11 @@ from scoring.pipeline import (
 transform = T.Compose([T.PILToTensor()])
 
 
-def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
-    for uid in range(1, 255):
+def log_moving_averages(
+    moving_average_scores: torch.FloatTensor,
+    uids: List[int] = range(0, 255),
+) -> None:
+    for uid in uids:
         try:
             score = float(moving_average_scores[uid])
             score_log = f"{score:.4f}"
@@ -59,6 +62,9 @@ def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
                 )
         except IndexError:
             continue
+
+        except Exception as e:
+            logger.error(str(e))
 
 
 async def update_moving_averages(
@@ -122,10 +128,10 @@ async def update_moving_averages(
     # Ensure values don't go below zero
     updated_ma_scores = torch.clamp(updated_ma_scores, min=0)
 
-    try:
-        log_moving_averages(updated_ma_scores)
-    except Exception:
-        pass
+    log_moving_averages(
+        updated_ma_scores,
+        uids_to_scatter,
+    )
 
     # Save moving averages scores on backend
     try:
