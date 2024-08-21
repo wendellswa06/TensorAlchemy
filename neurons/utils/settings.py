@@ -1,6 +1,7 @@
 import httpx
 import json
 import asyncio
+from loguru import logger
 
 
 async def download_validator_settings():
@@ -14,14 +15,13 @@ async def download_validator_settings():
         # Parse the JSON content
         data = response.json()
         # Print the downloaded JSON data
-        print("Downloaded JSON data:")
-        print(json.dumps(data, indent=2))
+        logger.success(f"Downloaded JSON data: {json.dumps(data, indent=2)}")
         return data
     except httpx.RequestError as e:
-        print(f"An error occurred while downloading the JSON: {e}")
+        logger.error(f"An error occurred while downloading the JSON: {e}")
         return None
     except json.JSONDecodeError as e:
-        print(f"An error occurred while parsing the JSON: {e}")
+        logger.error(f"An error occurred while parsing the JSON: {e}")
         return None
 
 
@@ -29,9 +29,9 @@ async def download_validator_settings():
 async def main():
     result = await download_validator_settings()
     if result:
-        print("Successfully downloaded and parsed the settings.")
+        logger.success("Successfully downloaded and parsed the settings.")
     else:
-        print("Failed to download or parse the settings.")
+        logger.error("Failed to download or parse the settings.")
 
 
 # Run the async main function
