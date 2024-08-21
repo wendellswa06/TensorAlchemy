@@ -117,7 +117,7 @@ async def update_moving_averages(
     # this prevents miners from just turning off and still getting rewarded
     updated_ma_scores *= 1.0 - get_config().alchemy.ma_decay
 
-    # Apply decay and ensure values don't go below zero
+    # Ensure values don't go below zero
     updated_ma_scores = torch.clamp(updated_ma_scores, min=0)
 
     try:
