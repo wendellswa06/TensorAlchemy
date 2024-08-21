@@ -51,6 +51,8 @@ def log_moving_averages(
     moving_average_scores: torch.FloatTensor,
     uids: List[int] = range(0, 255),
 ) -> None:
+    logger.info(f"MA scores: {moving_average_scores}")
+
     for uid in uids:
         try:
             score = float(moving_average_scores[uid])
