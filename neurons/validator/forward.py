@@ -109,13 +109,15 @@ async def update_moving_averages(
     uids_to_scatter: torch.Tensor = scoring_results.combined_uids.to(torch.long)
     logger.info(f"Scattering MA deltas over UIDS {uids_to_scatter}")
 
-    updated_ma_scores[uids_to_scatter] = new_moving_average_scores[
-        uids_to_scatter
-    ]
-
     # Now each step we apply a small decay to the weights
     # this prevents miners from just turning off and still getting rewarded
     updated_ma_scores *= 1.0 - get_config().alchemy.ma_decay
+
+    # But actually set scores for the miners who replied to us
+    # This prevents overly negatively weighting the miner response over time
+    updated_ma_scores[uids_to_scatter] = new_moving_average_scores[
+        uids_to_scatter
+    ]
 
     # Ensure values don't go below zero
     updated_ma_scores = torch.clamp(updated_ma_scores, min=0)
