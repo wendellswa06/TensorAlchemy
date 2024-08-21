@@ -176,7 +176,7 @@ async def get_active_uids(limit: int = -1) -> List[int]:
         all_active_uids.extend(active_uids)
 
         if limit > 0:
-            if len(active_uids) >= limit:
+            if len(all_active_uids) >= limit:
                 break
 
     logger.info(f"Found {len(all_active_uids)} active UIDs")
@@ -187,11 +187,6 @@ async def get_active_uids(limit: int = -1) -> List[int]:
 
 async def select_uids(count: int = 12) -> torch.tensor:
     active_uids = await get_active_uids(limit=count * 1.5)
-
-    logger.info(
-        f"Found {len(active_uids)} active miners: "
-        + ", ".join([str(i) for i in active_uids])
-    )
 
     if len(active_uids) < 1:
         return torch.tensor([]).to(get_device())
