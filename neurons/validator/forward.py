@@ -113,6 +113,10 @@ async def update_moving_averages(
         uids_to_scatter
     ]
 
+    # Now each step we apply a small decay to the weights
+    # this prevents miners from just turning off and still getting rewarded
+    updated_ma_scores *= 1.0 - get_config().alchemy.ma_decay
+
     try:
         log_moving_averages(updated_ma_scores)
     except Exception:

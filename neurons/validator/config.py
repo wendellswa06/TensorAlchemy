@@ -56,6 +56,12 @@ def add_args(parser: argparse.ArgumentParser) -> None:
         default=None,
     )
     parser.add_argument(
+        "--alchemy.ma_decay",
+        type=float,
+        default=0.001,
+        help="How much do the moving averages decay each step?",
+    )
+    parser.add_argument(
         "--alchemy.request_frequency",
         type=int,
         default=35,
@@ -137,6 +143,12 @@ def update_validator_settings(validator_settings: Dict) -> bt.config:
         logger.error("Failed to update validator settings")
         return config
 
+    config.alchemy.ma_decay = float(
+        validator_settings.get(
+            "ma_decay",
+            config.ma_decay,
+        )
+    )
     config.alchemy.request_frequency = int(
         validator_settings.get(
             "request_frequency",
