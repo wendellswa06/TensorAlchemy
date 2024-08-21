@@ -53,7 +53,7 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--alchemy.ma_decay",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="How much do the moving averages decay each step?",
     )
     parser.add_argument(
