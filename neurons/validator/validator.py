@@ -743,5 +743,5 @@ class StableValidator:
                     await method()
                 else:
                     method()
-            except Exception:
+            except Exception as e:
                 logger.error(f"{method.__name__} failed: {str(e)}")
