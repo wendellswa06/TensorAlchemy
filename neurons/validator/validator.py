@@ -18,7 +18,7 @@ import numpy as np
 from loguru import logger
 
 from neurons.constants import (
-    IA_VALIDATOR_SETTINGS_FILE,
+    VALIDATOR_SETTINGS_FILE,
 )
 
 from neurons.update_checker import safely_check_for_updates
@@ -342,11 +342,7 @@ class StableValidator:
 
     async def reload_settings(self) -> None:
         # Update settings from google cloud
-        update_validator_settings(
-            await retrieve_public_file(
-                IA_VALIDATOR_SETTINGS_FILE,
-            )
-        )
+        await update_validator_settings()
 
     async def get_image_generation_task(
         self,
