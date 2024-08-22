@@ -26,3 +26,7 @@ class MinimumValidImagesError(ApiError):
     status: int = 400
     message: str = f"Submitted compute count must be greater than {MINIMUM_COMPUTES_FOR_SUBMIT}"
     code: str = "MINIMUM_VALID_IMAGES_ERROR"
+
+class StakeBelowThreshold(Exception):
+    """Exception raised when stake is below the required threshold."""
+    pass
