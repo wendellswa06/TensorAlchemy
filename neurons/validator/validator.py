@@ -107,9 +107,14 @@ async def upload_images_loop(
     _should_quit: Event,
     batches_upload_queue: Queue,
 ) -> None:
-    global suspension_end_time
-    if suspension_end_time and datetime.now() < suspension_end_time:
-        logger.info(f"Skipping uploads until {suspension_end_time}")
+    global upload_images_loop_suspension_end_time
+    if (
+        upload_images_loop_suspension_end_time
+        and datetime.now() < upload_images_loop_suspension_end_time
+    ):
+        logger.info(
+            f"Skipping uploads until {upload_images_loop_suspension_end_time}"
+        )
         return
 
     # Send new batches to the Human Validation Bot
@@ -128,7 +133,9 @@ async def upload_images_loop(
         logger.error(
             f"Exception occurred: {str(e)}. Suspending uploads for 2 hours."
         )
-        suspension_end_time = datetime.now() + timedelta(hours=2)
+        upload_images_loop_suspension_end_time = datetime.now() + timedelta(
+            hours=2
+        )
 
     except Exception as e:
         logger.info(
