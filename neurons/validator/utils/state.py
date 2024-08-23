@@ -33,7 +33,7 @@ def save_ma_scores(moving_average_scores: torch.Tensor) -> None:
         logger.error(f"Failed to save model with error: {e}")
 
 
-def get_default_ma_scores(use_metagraph_weights: bool = True) -> torch.Tensor:
+def get_default_ma_scores(use_metagraph_weights: bool = False) -> torch.Tensor:
     if use_metagraph_weights:
         logger.info("Loaded MA scores from metagraph weights.")
         return get_metagraph().weights.to(get_device())
