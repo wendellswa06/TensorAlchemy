@@ -634,6 +634,9 @@ class StableValidator:
         except Exception as e:
             logger.error(f"Failed to load model with error: {e}")
 
+            self.moving_average_scores = self.metagraph.I
+            logger.info("Loaded MA scores from incentives.")
+
     def serve_axon(self):
         """Serve axon to enable external connections."""
 
