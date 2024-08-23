@@ -437,7 +437,7 @@ class StableValidator:
             self.prev_block = ttl_get_block()
 
         if sum(self.moving_average_scores) == 0.0:
-            self.moving_average_scores = self.metagraph.I
+            self.moving_average_scores = self.metagraph.I.to(get_device())
             logger.info("Loaded MA scores from incentives.")
 
     def get_validator_index(self):
