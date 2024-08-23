@@ -35,10 +35,9 @@ def save_ma_scores(moving_average_scores: torch.Tensor) -> None:
 def load_ma_scores() -> torch.Tensor:
     """Load hotkeys and moving average scores from filesystem."""
     logger.info("Loading previously saved validator state...")
-    moving_average_scores: torch.Tensor = torch.zeros_like(
-        get_metagraph().uids,
-        dtype=torch.float32,
-    ).to(get_device())
+
+    moving_average_scores: torch.Tensor = get_metagraph().I.to(get_device())
+    logger.info("Loaded MA scores from incentives.")
 
     file_path = f"{get_config().alchemy.full_path}/model.torch"
 
@@ -103,3 +102,5 @@ def load_ma_scores() -> torch.Tensor:
 
     except Exception as e:
         logger.error(f"Failed to load model with error: {e}")
+
+    return moving_average_scores

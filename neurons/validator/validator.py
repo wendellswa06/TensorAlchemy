@@ -234,9 +234,6 @@ class StableValidator:
         # Init sync with the network. Updates the metagraph.
         self.resync_metagraph()
 
-        self.moving_average_scores = self.metagraph.I.to(get_device())
-        logger.info("Loaded MA scores from incentives.")
-
         # Serve axon to enable external connections.
         self.serve_axon()
 
