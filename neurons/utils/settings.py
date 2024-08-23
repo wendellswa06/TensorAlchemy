@@ -23,6 +23,9 @@ async def download_validator_settings():
     except json.JSONDecodeError as e:
         logger.error(f"An error occurred while parsing the JSON: {e}")
         return None
+    except Exception as e:
+        logger.error(f"An unknown error occurred: {e}")
+        return None
 
 
 # Example of how to run the async function
