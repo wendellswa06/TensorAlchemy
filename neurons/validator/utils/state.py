@@ -40,6 +40,23 @@ def load_ma_scores() -> torch.Tensor:
         dtype=torch.float32,
     ).to(get_device())
 
+    file_path = f"{get_config().alchemy.full_path}/model.torch"
+
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"State file not found at {file_path}")
+
+    # Get file's last modified time
+    last_modified = os.path.getmtime(file_path)
+    last_modified_datetime = datetime.fromtimestamp(last_modified)
+
+    # Get current time
+    current_time = datetime.now()
+
+    # Check if current time is more than 2 hours ahead of last modified time
+    if current_time - last_modified_datetime > timedelta(hours=2):
+        raise ValueError("State file is more than 2 hours old")
+
     try:
         state_dict = torch.load(f"{get_config().alchemy.full_path}/model.torch")
         neuron_weights = torch.tensor(state_dict["neuron_weights"])
