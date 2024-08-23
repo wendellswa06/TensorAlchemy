@@ -234,6 +234,10 @@ class StableValidator:
         # Init sync with the network. Updates the metagraph.
         self.resync_metagraph()
 
+        # Now load the moving average scores
+        # or initialize them from the current metagraph incentives
+        self.moving_average_scores = load_ma_scores()
+
         # Serve axon to enable external connections.
         self.serve_axon()
 
@@ -588,7 +592,6 @@ class StableValidator:
 
     async def run(self):
         logger.info("Starting validator loop.")
-        self.moving_average_scores = load_ma_scores()
         self.step = 0
 
         while not self.should_quit.is_set():
