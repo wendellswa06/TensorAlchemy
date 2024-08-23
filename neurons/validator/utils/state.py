@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import torch
 from loguru import logger
 
-from neurons.config.clients import (
+from neurons.config import (
     get_device,
     get_config,
     get_metagraph,
