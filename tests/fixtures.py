@@ -1,5 +1,6 @@
 import torch
 import random
+from unittest.mock import MagicMock
 from PIL import Image, ImageDraw
 
 import bittensor as bt
@@ -17,6 +18,18 @@ class MockMetagraph:
 
 def mock_get_metagraph(n: int = 10):
     return MockMetagraph(n=n)
+
+
+def mock_get_config(**kwargs):
+    config = MagicMock()
+    config.alchemy = MagicMock()
+
+    config.alchemy.ma_decay = 0.0001
+
+    for key, value in kwargs.items():
+        config.alchemy[key] = value
+
+    return config
 
 
 def generate_synapse(

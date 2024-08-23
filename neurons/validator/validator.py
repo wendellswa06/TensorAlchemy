@@ -7,19 +7,20 @@ import traceback
 import uuid
 import queue
 import inspect
+
 from math import ceil
 from threading import Thread
-from multiprocessing import Event, Manager, Queue, Process, set_start_method
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Union
+from multiprocessing import Event, Manager, Queue, Process, set_start_method
+
 
 import bittensor as bt
 import torch
 import numpy as np
 from loguru import logger
 
-from neurons.constants import (
-    IA_VALIDATOR_SETTINGS_FILE,
-)
+from neurons.exceptions import StakeBelowThreshold
 
 from neurons.update_checker import safely_check_for_updates
 from neurons.protocol import (
@@ -28,7 +29,6 @@ from neurons.protocol import (
     ImageGenerationTaskModel,
 )
 from neurons.utils.common import log_dependencies
-from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
     BackgroundTimer,
@@ -46,6 +46,7 @@ from neurons.config import (
     get_backend_client,
     validator_run_id,
 )
+from neurons.validator.utils.state import save_ma_scores, load_ma_scores
 from neurons.validator.config import update_validator_settings
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
@@ -68,6 +69,8 @@ set_start_method("spawn", force=True)
 
 # Define a type alias for our thread-like objects
 ThreadLike = Union[Thread, Process]
+
+upload_images_loop_suspension_end_time = None
 
 
 def is_valid_current_directory() -> bool:
@@ -101,6 +104,16 @@ async def upload_images_loop(
     _should_quit: Event,
     batches_upload_queue: Queue,
 ) -> None:
+    global upload_images_loop_suspension_end_time
+    if (
+        upload_images_loop_suspension_end_time
+        and datetime.now() < upload_images_loop_suspension_end_time
+    ):
+        logger.info(
+            f"Skipping uploads until {upload_images_loop_suspension_end_time}"
+        )
+        return
+
     # Send new batches to the Human Validation Bot
     try:
         backend_client: TensorAlchemyBackendClient = get_backend_client()
@@ -113,7 +126,13 @@ async def upload_images_loop(
 
     except queue.Empty:
         return
-
+    except StakeBelowThreshold as e:
+        logger.error(
+            f"Exception occurred: {str(e)}. Suspending uploads for 2 hours."
+        )
+        upload_images_loop_suspension_end_time = datetime.now() + timedelta(
+            hours=2
+        )
     except Exception as e:
         logger.info(
             "An error occurred trying to submit a batch: "
@@ -212,11 +231,6 @@ class StableValidator:
             dtype=torch.float32,
         )
 
-        # Init Weights.
-        self.moving_average_scores = torch.zeros(
-            (self.metagraph.n),
-        ).to(self.device)
-
         # Each validator gets a unique identity (UID)
         # in the network for differentiation.
         self.my_subnet_uid = self.metagraph.hotkeys.index(
@@ -238,7 +252,11 @@ class StableValidator:
         self.step = 0
 
         # Init sync with the network. Updates the metagraph.
-        asyncio.run(self.sync())
+        self.resync_metagraph()
+
+        # Now load the moving average scores
+        # or initialize them from the current metagraph incentives
+        self.moving_average_scores = load_ma_scores()
 
         # Serve axon to enable external connections.
         self.serve_axon()
@@ -284,13 +302,21 @@ class StableValidator:
         else:
             logger.error(f"{thread} had segfault, restarted")
 
-    def stop_threads(self) -> None:
-        for thread in [
+    def stop_processes(self) -> None:
+        processes: List[str] = [
             "background_loop",
             "upload_images_process",
             "set_weights_process",
-        ]:
-            getattr(self, thread).cancel()
+        ]
+
+        for process_name in processes:
+            process: Process = getattr(self, process_name)
+            if process.is_alive():
+                process.terminate()
+
+        for process_name in processes:
+            process: Process = getattr(self, process_name)
+            process.join()
 
     def update_check(self) -> None:
         safely_check_for_updates()
@@ -342,11 +368,7 @@ class StableValidator:
 
     async def reload_settings(self) -> None:
         # Update settings from google cloud
-        update_validator_settings(
-            await retrieve_public_file(
-                IA_VALIDATOR_SETTINGS_FILE,
-            )
-        )
+        await update_validator_settings()
 
     async def get_image_generation_task(
         self,
@@ -463,7 +485,7 @@ class StableValidator:
             "emissions": self.metagraph.emission[self.validator_index],
         }
 
-    def resync_metagraph(self):
+    def resync_metagraph(self, **kwargs):
         """Resyncs the metagraph and updates the hotkeys
         and moving averages based on the new metagraph."""
 
@@ -471,7 +493,7 @@ class StableValidator:
         previous_metagraph = copy.deepcopy(self.metagraph)
 
         # Sync the metagraph.
-        self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph.sync(subtensor=self.subtensor, **kwargs)
 
         # Check if the metagraph axon info has changed.
         if previous_metagraph.axons == self.metagraph.axons:
@@ -525,11 +547,6 @@ class StableValidator:
         # Check if all moving_averages_scores are 0s or 1s
         ma_scores = self.moving_average_scores
         ma_scores_sum = sum(ma_scores)
-        logger.debug(
-            #
-            f"Moving average scores: {ma_scores},"
-            + f" Sum: {ma_scores_sum}"
-        )
 
         if ma_scores_sum == len(ma_scores) or ma_scores_sum == 0:
             logger.info(
@@ -566,77 +583,6 @@ class StableValidator:
 
         return should_set
 
-    def save_state(self):
-        """Save hotkeys, neuron model and moving average scores to filesystem."""
-        logger.info("Saving current validator state...")
-        try:
-            neuron_state_dict = {
-                "neuron_weights": self.moving_average_scores.to("cpu").tolist(),
-            }
-            torch.save(
-                neuron_state_dict,
-                f"{self.config.alchemy.full_path}/model.torch",
-            )
-            logger.info(
-                f"Saved model {self.config.alchemy.full_path}/model.torch",
-            )
-            # empty cache
-            torch.cuda.empty_cache()
-            logger.info("Saved current validator state.")
-        except Exception as e:
-            logger.error(f"Failed to save model with error: {e}")
-
-    def load_state(self):
-        """Load hotkeys and moving average scores from filesystem."""
-        logger.info("Loading previously saved validator state...")
-        try:
-            state_dict = torch.load(
-                f"{self.config.alchemy.full_path}/model.torch"
-            )
-            neuron_weights = torch.tensor(state_dict["neuron_weights"])
-
-            has_nans = torch.isnan(neuron_weights).any()
-            has_infs = torch.isinf(neuron_weights).any()
-
-            if has_nans:
-                logger.info(f"Nans found in the model state: {has_nans}")
-
-            if has_infs:
-                logger.info(f"Infs found in the model state: {has_infs}")
-
-            # Check to ensure that the size of the neruon
-            # weights matches the metagraph size.
-            if neuron_weights.shape != (self.metagraph.n,):
-                logger.warning(
-                    f"Neuron weights shape {neuron_weights.shape} "
-                    + f"does not match metagraph n {self.metagraph.n}"
-                    "Populating new moving_averaged_scores IDs with zeros"
-                )
-                self.moving_average_scores[
-                    : len(neuron_weights)
-                ] = neuron_weights.to(self.device)
-                # self.update_hotkeys()
-
-            # Check for nans in saved state dict
-            elif not any([has_nans, has_infs]):
-                self.moving_average_scores = neuron_weights.to(self.device)
-                logger.info(f"MA scores: {self.moving_average_scores}")
-                # self.update_hotkeys()
-            else:
-                logger.info("Loaded MA scores from scratch.")
-
-            # Zero out any negative scores
-            for i, average in enumerate(self.moving_average_scores):
-                if average < 0:
-                    self.moving_average_scores[i] = 0
-
-            logger.info(
-                f"Loaded model {self.config.alchemy.full_path}/model.torch",
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to load model with error: {e}")
-
     def serve_axon(self):
         """Serve axon to enable external connections."""
 
@@ -669,7 +615,6 @@ class StableValidator:
 
     async def run(self):
         logger.info("Starting validator loop.")
-        self.load_state()
         self.step = 0
 
         while not self.should_quit.is_set():
@@ -688,8 +633,12 @@ class StableValidator:
                 logger.success(
                     "Keyboard interrupt detected. Exiting validator."
                 )
+                break
             except Exception:
                 logger.error(traceback.format_exc())
+                await asyncio.sleep(5)
+
+        self.stop_processes()
 
     async def pre_step(self):
         try:
@@ -726,16 +675,16 @@ class StableValidator:
             )
             return True
         except Exception as e:
-            logger.error(f"Mid-step failed: {str(e)}")
+            logger.error(f"Mid-step failed: {traceback.format_exc()}")
             return False
 
     async def post_step(self):
         for method in [
             self.sync,
-            self.save_state,
             self.reload_settings,
             self.start_threads,
             self.update_check,
+            lambda: save_ma_scores(self.moving_average_scores),
         ]:
             try:
                 logger.info(f"Running post step: {method.__name__}")
@@ -743,5 +692,7 @@ class StableValidator:
                     await method()
                 else:
                     method()
-            except Exception:
-                logger.error(f"{method.__name__} failed: {str(e)}")
+            except Exception as e:
+                logger.error(
+                    f"{method.__name__} failed: " + traceback.format_exc()
+                )

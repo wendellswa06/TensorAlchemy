@@ -47,18 +47,27 @@ from scoring.pipeline import (
 transform = T.Compose([T.PILToTensor()])
 
 
-def log_moving_averages(moving_average_scores: torch.FloatTensor) -> None:
-    for uid in range(1, 255):
+def log_moving_averages(
+    moving_average_scores: torch.FloatTensor,
+    uids: List[int] = range(0, 255),
+) -> None:
+    list_ma: List[float] = moving_average_scores.tolist()
+
+    formatted_list = [f"{x:.4f}" for x in list_ma]
+    logger.info(f"MA scores: [{', '.join(formatted_list)}]")
+
+    for uid in uids:
         try:
-            score = float(moving_average_scores[uid])
-            score_log = f"{score:.4f}"
+            score = float(list_ma[uid])
             if score > 0:
                 logger.info(
-                    f"miner_uid={uid}, miner_score={score_log}",
-                    extra={"miner_uid": uid, "miner_score": score},
+                    f"miner_uid={uid}, miner_score={score:.4f}",
                 )
         except IndexError:
             continue
+
+        except Exception as e:
+            logger.error(str(e))
 
 
 async def update_moving_averages(
@@ -109,14 +118,23 @@ async def update_moving_averages(
     uids_to_scatter: torch.Tensor = scoring_results.combined_uids.to(torch.long)
     logger.info(f"Scattering MA deltas over UIDS {uids_to_scatter}")
 
+    # Now each step we apply a small decay to the weights
+    # this prevents miners from just turning off and still getting rewarded
+    updated_ma_scores *= 1.0 - get_config().alchemy.ma_decay
+
+    # But actually set scores for the miners who replied to us
+    # This prevents overly negatively weighting the miner response over time
     updated_ma_scores[uids_to_scatter] = new_moving_average_scores[
         uids_to_scatter
     ]
 
-    try:
-        log_moving_averages(updated_ma_scores)
-    except Exception:
-        pass
+    # Ensure values don't go below zero
+    updated_ma_scores = torch.clamp(updated_ma_scores, min=0)
+
+    log_moving_averages(
+        updated_ma_scores,
+        uids_to_scatter,
+    )
 
     # Save moving averages scores on backend
     try:

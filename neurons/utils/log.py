@@ -45,8 +45,8 @@ def summarize_rewards(reward_tensor: torch.Tensor) -> str:
 
     return (
         f"Non-zero: {len(non_zero)}/{len(reward_tensor)}, "
-        f"Mean: {reward_tensor.mean():.4f}, "
-        f"Max: {reward_tensor.max():.4f}, "
+        f"Mean: {non_zero.mean():.4f}, "
+        f"Max: {non_zero.max():.4f}, "
         f"Min non-zero: {non_zero.min():.4f}"
     )
 

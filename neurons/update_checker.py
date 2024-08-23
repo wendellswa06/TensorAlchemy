@@ -1,7 +1,6 @@
-import pathlib
 import subprocess
 
-import requests
+import httpx
 from loguru import logger
 
 
@@ -23,11 +22,23 @@ def get_local_commit_hash(branch):
 
 def get_remote_commit_hash(repo_url, branch):
     api_url = f"https://api.github.com/repos/{repo_url}/commits/{branch}"
-    response = requests.get(api_url, timeout=10)
-    if response.status_code == 200:
+    try:
+        with httpx.Client(timeout=10) as client:
+            response = client.get(api_url)
+            response.raise_for_status()
+
         return response.json()["sha"]
 
-    logger.error("Failed to fetch remote commit hash")
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "HTTP error occurred: "
+            + f"{e.response.status_code} {e.response.reason_phrase}"
+        )
+
+    except httpx.RequestError as e:
+        logger.error(
+            "An error occurred while requesting " + e.request.url,
+        )
     return None
 
 

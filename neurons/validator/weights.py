@@ -50,9 +50,6 @@ async def set_weights_loop(
             return
 
     except queue.Empty:
-        # Only output each minute to prevent spamming
-        if int(time.time()) % 60 == 0:
-            logger.info("[weights] queue is empty")
         return
 
     logger.info("Gathered a weights setting task")
@@ -160,8 +157,8 @@ async def set_weights(
         )
         return
 
-    logger.info(f"Processed weights: {processed_weights}")
-    logger.info(f"Processed weight UIDs: {processed_weight_uids}")
+    logger.info(f"Processed weights: {processed_weights.tolist()}")
+    logger.info(f"Processed weight UIDs: {processed_weight_uids.tolist()}")
 
     try:
         _success, message = subtensor.set_weights(

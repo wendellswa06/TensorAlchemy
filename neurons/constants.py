@@ -30,8 +30,9 @@ ENABLE_IMAGE2IMAGE = False
 IA_VALIDATOR_BLACKLIST = "blacklist_for_validators.json"
 IA_VALIDATOR_WHITELIST = "whitelist_for_validators.json"
 IA_VALIDATOR_WEIGHT_FILES = "weights.json"
-IA_VALIDATOR_SETTINGS_FILE = "validator_settings.json"
 IA_MINER_WARNINGLIST = "warninglist_for_miners.json"
+
+VALIDATOR_SETTINGS_FILE = "https://raw.githubusercontent.com/TensorAlchemy/validator-settings/main/settings.json"
 
 MAINNET_URL = "https://api.tensoralchemy.ai/api"
 TESTNET_URL = "https://api-testnet.tensoralchemy.ai/api"

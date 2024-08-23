@@ -10,6 +10,7 @@ from loguru import logger
 
 from neurons.config.constants import AlchemyHost
 from neurons.config.device import get_default_device
+from neurons.utils.settings import download_validator_settings
 
 
 def add_args(parser: argparse.ArgumentParser) -> None:
@@ -29,7 +30,7 @@ def add_args(parser: argparse.ArgumentParser) -> None:
         "--alchemy.name",
         type=str,
         help="Validator name",
-        default="image_alchemy_validator",
+        default="tensor_alchemy_validator",
     )
     parser.add_argument(
         "--alchemy.debug",
@@ -50,10 +51,10 @@ def add_args(parser: argparse.ArgumentParser) -> None:
         help="Choose the Alchemy host",
     )
     parser.add_argument(
-        "--alchemy.streamlit_port",
-        type=int,
-        help="Port number for streamlit app",
-        default=None,
+        "--alchemy.ma_decay",
+        type=float,
+        default=0.000001,
+        help="How much do the moving averages decay each step?",
     )
     parser.add_argument(
         "--alchemy.request_frequency",
@@ -122,7 +123,7 @@ def get_config() -> bt.config:
     return config
 
 
-def update_validator_settings(validator_settings: Dict) -> bt.config:
+async def update_validator_settings() -> None:
     """
     Update the validator settings in the global configuration.
 
@@ -133,10 +134,18 @@ def update_validator_settings(validator_settings: Dict) -> bt.config:
         bt.config: The updated global configuration object.
     """
     global config
+    validator_settings: Dict = await download_validator_settings()
+
     if not validator_settings:
         logger.error("Failed to update validator settings")
         return config
 
+    config.alchemy.ma_decay = float(
+        validator_settings.get(
+            "ma_decay",
+            config.ma_decay,
+        )
+    )
     config.alchemy.request_frequency = int(
         validator_settings.get(
             "request_frequency",
@@ -165,7 +174,6 @@ def update_validator_settings(validator_settings: Dict) -> bt.config:
     logger.info(
         f"Retrieved the latest validator settings: {validator_settings}"
     )
-    return config
 
 
 config: bt.config = None

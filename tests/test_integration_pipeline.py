@@ -1,7 +1,7 @@
 import pytest
 import torch
 from loguru import logger
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 import bittensor as bt
 from neurons.protocol import ImageGeneration, ModelType
@@ -11,7 +11,7 @@ from neurons.validator.forward import update_moving_averages
 from scoring.models import RewardModelType
 from scoring.pipeline import get_scoring_results
 from scoring.types import ScoringResults
-from tests.fixtures import TEST_IMAGES, mock_get_metagraph
+from tests.fixtures import TEST_IMAGES, mock_get_metagraph, mock_get_config
 
 
 class MockScoringModel:
@@ -89,10 +89,14 @@ def mock_local_get_metagraph(n: int = 11):
 # Patch configuration
 mock_configs = {
     "neurons.config": {
+        "get_config": mock_get_config,
         "get_metagraph": mock_local_get_metagraph,
         "get_backend_client": mock_get_backend_client,
     },
-    "neurons.validator.forward": {"get_metagraph": mock_local_get_metagraph},
+    "neurons.validator.forward": {
+        "get_config": mock_get_config,
+        "get_metagraph": mock_local_get_metagraph,
+    },
     "scoring.models.base": {"get_metagraph": mock_local_get_metagraph},
     "scoring.pipeline": {"get_metagraph": mock_local_get_metagraph},
     "scoring.models.rewards.human": {
