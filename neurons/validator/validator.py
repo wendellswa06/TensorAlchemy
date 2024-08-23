@@ -302,13 +302,21 @@ class StableValidator:
         else:
             logger.error(f"{thread} had segfault, restarted")
 
-    def stop_threads(self) -> None:
-        for thread in [
+    def stop_processes(self) -> None:
+        processes: List[str] = [
             "background_loop",
             "upload_images_process",
             "set_weights_process",
-        ]:
-            getattr(self, thread).cancel()
+        ]
+
+        for process_name in processes:
+            process: Process = getattr(self, process_name)
+            if process.is_alive():
+                process.terminate()
+
+        for process_name in processes:
+            process: Process = getattr(self, process_name)
+            process.join()
 
     def update_check(self) -> None:
         safely_check_for_updates()
