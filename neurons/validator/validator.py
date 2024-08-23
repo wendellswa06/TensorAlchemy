@@ -657,7 +657,7 @@ class StableValidator:
             self.reload_settings,
             self.start_threads,
             self.update_check,
-            lambda x: save_ma_scores(self.moving_average_scores),
+            lambda: save_ma_scores(self.moving_average_scores),
         ]:
             try:
                 logger.info(f"Running post step: {method.__name__}")
