@@ -648,7 +648,7 @@ class StableValidator:
             )
             return True
         except Exception as e:
-            logger.error(f"Mid-step failed: {str(e)}")
+            logger.error(f"Mid-step failed: {traceback.format_exc()}")
             return False
 
     async def post_step(self):
@@ -666,4 +666,6 @@ class StableValidator:
                 else:
                     method()
             except Exception as e:
-                logger.error(f"{method.__name__} failed: {str(e)}")
+                logger.error(
+                    f"{method.__name__} failed: " + traceback.format_exc()
+                )
