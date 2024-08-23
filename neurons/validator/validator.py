@@ -619,7 +619,8 @@ class StableValidator:
                 logger.info(f"MA scores: {self.moving_average_scores}")
                 # self.update_hotkeys()
             else:
-                logger.info("Loaded MA scores from scratch.")
+                self.moving_average_scores = self.metagraph.I
+                logger.info("Loaded MA scores from incentives.")
 
             # Zero out any negative scores
             for i, average in enumerate(self.moving_average_scores):
