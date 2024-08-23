@@ -627,6 +627,7 @@ class StableValidator:
                 )
             except Exception:
                 logger.error(traceback.format_exc())
+                await asyncio.sleep(5)
 
     async def pre_step(self):
         try:
