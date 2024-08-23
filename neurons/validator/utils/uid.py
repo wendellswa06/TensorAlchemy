@@ -186,7 +186,7 @@ async def get_active_uids(limit: int = -1) -> List[int]:
 
 
 async def select_uids(count: int = 12) -> torch.tensor:
-    active_uids = await get_active_uids(limit=count * 1.5)
+    active_uids = await get_active_uids(limit=count)
 
     if len(active_uids) < 1:
         return torch.tensor([]).to(get_device())

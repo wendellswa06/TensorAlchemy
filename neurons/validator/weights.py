@@ -50,9 +50,6 @@ async def set_weights_loop(
             return
 
     except queue.Empty:
-        # Only output each minute to prevent spamming
-        if int(time.time() * 10) / 10.0 % 60 == 0:
-            logger.info("[weights] queue is empty")
         return
 
     logger.info("Gathered a weights setting task")

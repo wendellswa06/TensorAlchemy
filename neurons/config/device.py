@@ -34,6 +34,7 @@ def get_device(new_device: Optional[torch.device] = None) -> torch.device:
     global device
     if not device:
         device = new_device or get_default_device()
+
     return device
 
 
