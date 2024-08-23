@@ -539,11 +539,6 @@ class StableValidator:
         # Check if all moving_averages_scores are 0s or 1s
         ma_scores = self.moving_average_scores
         ma_scores_sum = sum(ma_scores)
-        logger.debug(
-            #
-            f"Moving average scores: {ma_scores},"
-            + f" Sum: {ma_scores_sum}"
-        )
 
         if ma_scores_sum == len(ma_scores) or ma_scores_sum == 0:
             logger.info(
