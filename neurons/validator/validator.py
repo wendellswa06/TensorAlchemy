@@ -7,19 +7,18 @@ import traceback
 import uuid
 import queue
 import inspect
+
 from math import ceil
 from threading import Thread
-from multiprocessing import Event, Manager, Queue, Process, set_start_method
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Union
+from multiprocessing import Event, Manager, Queue, Process, set_start_method
+
 
 import bittensor as bt
 import torch
 import numpy as np
 from loguru import logger
-
-from neurons.constants import (
-    VALIDATOR_SETTINGS_FILE,
-)
 
 from neurons.update_checker import safely_check_for_updates
 from neurons.protocol import (
@@ -28,7 +27,6 @@ from neurons.protocol import (
     ImageGenerationTaskModel,
 )
 from neurons.utils.common import log_dependencies
-from neurons.utils.gcloud import retrieve_public_file
 from neurons.utils.defaults import get_defaults
 from neurons.utils import (
     BackgroundTimer,
@@ -46,6 +44,7 @@ from neurons.config import (
     get_backend_client,
     validator_run_id,
 )
+from neurons.validator.utils.state import save_ma_scores, load_ma_scores
 from neurons.validator.config import update_validator_settings
 from neurons.validator.backend.client import TensorAlchemyBackendClient
 from neurons.validator.backend.models import TaskState
@@ -212,11 +211,6 @@ class StableValidator:
             dtype=torch.float32,
         )
 
-        # Init Weights.
-        self.moving_average_scores = torch.zeros(
-            (self.metagraph.n),
-        ).to(self.device)
-
         # Each validator gets a unique identity (UID)
         # in the network for differentiation.
         self.my_subnet_uid = self.metagraph.hotkeys.index(
@@ -238,7 +232,10 @@ class StableValidator:
         self.step = 0
 
         # Init sync with the network. Updates the metagraph.
-        asyncio.run(self.sync())
+        self.resync_metagraph()
+
+        self.moving_average_scores = self.metagraph.I.to(get_device())
+        logger.info("Loaded MA scores from incentives.")
 
         # Serve axon to enable external connections.
         self.serve_axon()
@@ -436,10 +433,6 @@ class StableValidator:
 
             self.prev_block = ttl_get_block()
 
-        if sum(self.moving_average_scores) == 0.0:
-            self.moving_average_scores = self.metagraph.I.to(get_device())
-            logger.info("Loaded MA scores from incentives.")
-
     def get_validator_index(self):
         """
         Retrieve the given miner's index in the metagraph.
@@ -566,78 +559,6 @@ class StableValidator:
 
         return should_set
 
-    def save_state(self):
-        """Save hotkeys, neuron model and moving average scores to filesystem."""
-        logger.info("Saving current validator state...")
-        try:
-            neuron_state_dict = {
-                "neuron_weights": self.moving_average_scores.to("cpu").tolist(),
-            }
-            torch.save(
-                neuron_state_dict,
-                f"{self.config.alchemy.full_path}/model.torch",
-            )
-            logger.info(
-                f"Saved model {self.config.alchemy.full_path}/model.torch",
-            )
-            # empty cache
-            torch.cuda.empty_cache()
-            logger.info("Saved current validator state.")
-        except Exception as e:
-            logger.error(f"Failed to save model with error: {e}")
-
-    def load_state(self):
-        """Load hotkeys and moving average scores from filesystem."""
-        logger.info("Loading previously saved validator state...")
-        try:
-            state_dict = torch.load(
-                f"{self.config.alchemy.full_path}/model.torch"
-            )
-            neuron_weights = torch.tensor(state_dict["neuron_weights"])
-
-            has_nans = torch.isnan(neuron_weights).any()
-            has_infs = torch.isinf(neuron_weights).any()
-
-            if has_nans:
-                logger.info(f"Nans found in the model state: {has_nans}")
-
-            if has_infs:
-                logger.info(f"Infs found in the model state: {has_infs}")
-
-            # Check to ensure that the size of the neruon
-            # weights matches the metagraph size.
-            if neuron_weights.shape != (self.metagraph.n,):
-                logger.warning(
-                    f"Neuron weights shape {neuron_weights.shape} "
-                    + f"does not match metagraph n {self.metagraph.n}"
-                    "Populating new moving_averaged_scores IDs with zeros"
-                )
-                self.moving_average_scores[
-                    : len(neuron_weights)
-                ] = neuron_weights.to(self.device)
-                # self.update_hotkeys()
-
-            # Check for nans in saved state dict
-            elif not any([has_nans, has_infs]):
-                self.moving_average_scores = neuron_weights.to(self.device)
-                logger.info(f"MA scores: {self.moving_average_scores}")
-                # self.update_hotkeys()
-            else:
-                self.moving_average_scores = self.metagraph.I
-                logger.info("Loaded MA scores from incentives.")
-
-            # Zero out any negative scores
-            for i, average in enumerate(self.moving_average_scores):
-                if average < 0:
-                    self.moving_average_scores[i] = 0
-
-            logger.info(
-                f"Loaded model {self.config.alchemy.full_path}/model.torch",
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to load model with error: {e}")
-
     def serve_axon(self):
         """Serve axon to enable external connections."""
 
@@ -670,7 +591,7 @@ class StableValidator:
 
     async def run(self):
         logger.info("Starting validator loop.")
-        self.load_state()
+        self.moving_average_scores = load_ma_scores()
         self.step = 0
 
         while not self.should_quit.is_set():
@@ -733,10 +654,10 @@ class StableValidator:
     async def post_step(self):
         for method in [
             self.sync,
-            self.save_state,
             self.reload_settings,
             self.start_threads,
             self.update_check,
+            lambda x: save_ma_scores(self.moving_average_scores),
         ]:
             try:
                 logger.info(f"Running post step: {method.__name__}")
