@@ -58,10 +58,9 @@ def log_moving_averages(
     for uid in uids:
         try:
             score = float(list_ma[uid])
-            score_log = f"{score}"
             if score > 0:
                 logger.info(
-                    f"miner_uid={uid}, miner_score={score_log:.4f}",
+                    f"miner_uid={uid}, miner_score={score:.4f}",
                     extra={"miner_uid": uid, "miner_score": score},
                 )
         except IndexError:
