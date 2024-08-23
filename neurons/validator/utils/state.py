@@ -102,7 +102,6 @@ def load_ma_scores_from_path(config_path: str) -> torch.Tensor:
     # Check for nans in saved state dict
     elif not any([has_nans, has_infs]):
         moving_average_scores = neuron_weights.to(get_device())
-        logger.info(f"MA scores: {moving_average_scores}")
 
     # Zero out any negative scores
     for i, average in enumerate(moving_average_scores):

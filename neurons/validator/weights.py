@@ -157,8 +157,8 @@ async def set_weights(
         )
         return
 
-    logger.info(f"Processed weights: {processed_weights}")
-    logger.info(f"Processed weight UIDs: {processed_weight_uids}")
+    logger.info(f"Processed weights: {processed_weights.tolist()}")
+    logger.info(f"Processed weight UIDs: {processed_weight_uids.tolist()}")
 
     try:
         _success, message = subtensor.set_weights(

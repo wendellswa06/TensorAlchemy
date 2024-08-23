@@ -51,15 +51,17 @@ def log_moving_averages(
     moving_average_scores: torch.FloatTensor,
     uids: List[int] = range(0, 255),
 ) -> None:
-    logger.info(f"MA scores: {moving_average_scores}")
+    list_ma: List[float] = moving_average_scores.tolist()
+
+    logger.info(f"MA scores: {list_ma}")
 
     for uid in uids:
         try:
-            score = float(moving_average_scores[uid])
-            score_log = f"{score:.4f}"
+            score = float(list_ma[uid])
+            score_log = f"{score}"
             if score > 0:
                 logger.info(
-                    f"miner_uid={uid}, miner_score={score_log}",
+                    f"miner_uid={uid}, miner_score={score_log:.4f}",
                     extra={"miner_uid": uid, "miner_score": score},
                 )
         except IndexError:
