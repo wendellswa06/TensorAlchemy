@@ -16,6 +16,7 @@ from tenacity import (
 
 
 from neurons.constants import DEVELOP_URL, TESTNET_URL, MAINNET_URL
+from neurons.exceptions import StakeBelowThreshold
 from neurons.protocol import denormalize_image_model, ImageGenerationTaskModel
 from neurons.validator.backend.exceptions import (
     GetVotesError,
@@ -210,10 +211,19 @@ class TensorAlchemyBackendClient:
                     timeout=timeout,
                 )
 
-        except Exception as e:
-            logger.error(f"Failed to upload batch {str(e)}")
+                if response.status_code == 200:
+                    response_data = await response.json()
+                    if response_data.get("code") == "STAKE_BELOW_THRESHOLD":
+                        raise StakeBelowThreshold("Stake is below the required threshold.")
 
-        return response
+                return response
+
+        except StakeBelowThreshold as e:
+            logger.error(f"StakeBelowThreshold: {str(e)}")
+            raise
+
+        except Exception as e:
+            logger.error(f"Failed to upload batch: {str(e)}")
 
     async def post_weights(
         self, hotkeys: List[str], raw_weights: torch.Tensor, timeout: int = 10

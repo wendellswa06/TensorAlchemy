@@ -20,6 +20,8 @@ import torch
 import numpy as np
 from loguru import logger
 
+from neurons.exceptions import StakeBelowThreshold
+
 from neurons.update_checker import safely_check_for_updates
 from neurons.protocol import (
     ModelType,
@@ -68,6 +70,8 @@ set_start_method("spawn", force=True)
 # Define a type alias for our thread-like objects
 ThreadLike = Union[Thread, Process]
 
+upload_images_loop_suspension_end_time = None
+
 
 def is_valid_current_directory() -> bool:
     # NOTE: We use Alchemy for support
@@ -100,6 +104,16 @@ async def upload_images_loop(
     _should_quit: Event,
     batches_upload_queue: Queue,
 ) -> None:
+    global upload_images_loop_suspension_end_time
+    if (
+        upload_images_loop_suspension_end_time
+        and datetime.now() < upload_images_loop_suspension_end_time
+    ):
+        logger.info(
+            f"Skipping uploads until {upload_images_loop_suspension_end_time}"
+        )
+        return
+
     # Send new batches to the Human Validation Bot
     try:
         backend_client: TensorAlchemyBackendClient = get_backend_client()
@@ -112,7 +126,13 @@ async def upload_images_loop(
 
     except queue.Empty:
         return
-
+    except StakeBelowThreshold as e:
+        logger.error(
+            f"Exception occurred: {str(e)}. Suspending uploads for 2 hours."
+        )
+        upload_images_loop_suspension_end_time = datetime.now() + timedelta(
+            hours=2
+        )
     except Exception as e:
         logger.info(
             "An error occurred trying to submit a batch: "
