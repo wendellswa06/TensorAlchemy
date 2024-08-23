@@ -633,9 +633,12 @@ class StableValidator:
                 logger.success(
                     "Keyboard interrupt detected. Exiting validator."
                 )
+                break
             except Exception:
                 logger.error(traceback.format_exc())
                 await asyncio.sleep(5)
+
+        self.stop_processes()
 
     async def pre_step(self):
         try:
