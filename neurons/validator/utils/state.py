@@ -98,25 +98,18 @@ def load_ma_scores_from_path(config_path: str) -> torch.Tensor:
         moving_average_scores[: len(neuron_weights)] = neuron_weights.to(
             get_device()
         )
-        # self.update_hotkeys()
 
     # Check for nans in saved state dict
     elif not any([has_nans, has_infs]):
         moving_average_scores = neuron_weights.to(get_device())
         logger.info(f"MA scores: {moving_average_scores}")
-        # self.update_hotkeys()
-    else:
-        moving_average_scores = get_metagraph().I
-        logger.info("Loaded MA scores from incentives.")
 
     # Zero out any negative scores
     for i, average in enumerate(moving_average_scores):
         if average < 0:
             moving_average_scores[i] = 0
 
-    logger.info(
-        f"Loaded model {file_path}",
-    )
+    logger.info(f"Loaded model {file_path}")
 
     return moving_average_scores
 
