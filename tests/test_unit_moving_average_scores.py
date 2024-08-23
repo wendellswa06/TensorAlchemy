@@ -8,6 +8,7 @@ from typing import Dict
 from neurons.validator.forward import update_moving_averages
 from scoring.types import ScoringResults
 from neurons.constants import MOVING_AVERAGE_ALPHA
+from tests.fixtures import mock_get_config
 
 
 def mock_metagraph():
@@ -34,6 +35,10 @@ mock_client = mock_backend_client()
 # Custom decorator to apply all patches
 def patch_all_dependencies(func):
     @wraps(func)
+    @patch(
+        "neurons.validator.forward.get_config",
+        return_value=mock_get_config(ma_decay=0.00001),
+    )
     @patch("neurons.validator.forward.get_metagraph", return_value=mock_meta)
     @patch(
         "neurons.validator.forward.get_backend_client", return_value=mock_client
