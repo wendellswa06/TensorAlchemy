@@ -58,7 +58,7 @@ def load_ma_scores() -> torch.Tensor:
         raise ValueError("State file is more than 2 hours old")
 
     try:
-        state_dict = torch.load(f"{get_config().alchemy.full_path}/model.torch")
+        state_dict = torch.load(file_path)
         neuron_weights = torch.tensor(state_dict["neuron_weights"])
 
         has_nans = torch.isnan(neuron_weights).any()
@@ -98,7 +98,7 @@ def load_ma_scores() -> torch.Tensor:
                 moving_average_scores[i] = 0
 
         logger.info(
-            f"Loaded model {get_config().alchemy.full_path}/model.torch",
+            f"Loaded model {file_path}",
         )
 
     except Exception as e:
