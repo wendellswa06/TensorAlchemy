@@ -457,7 +457,7 @@ class StableValidator:
             "emissions": self.metagraph.emission[self.validator_index],
         }
 
-    def resync_metagraph(self):
+    def resync_metagraph(self, **kwargs):
         """Resyncs the metagraph and updates the hotkeys
         and moving averages based on the new metagraph."""
 
@@ -465,7 +465,7 @@ class StableValidator:
         previous_metagraph = copy.deepcopy(self.metagraph)
 
         # Sync the metagraph.
-        self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph.sync(subtensor=self.subtensor, **kwargs)
 
         # Check if the metagraph axon info has changed.
         if previous_metagraph.axons == self.metagraph.axons:

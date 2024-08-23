@@ -33,10 +33,12 @@ def save_ma_scores(moving_average_scores: torch.Tensor) -> None:
         logger.error(f"Failed to save model with error: {e}")
 
 
-def get_default_ma_scores(use_metagraph_weights: bool = False) -> torch.Tensor:
-    if use_metagraph_weights:
-        logger.info("Loaded MA scores from metagraph weights.")
-        return get_metagraph().weights.to(get_device())
+def get_default_ma_scores(
+    use_metagraph_incentive: bool = False,
+) -> torch.Tensor:
+    if use_metagraph_incentive:
+        logger.info("Loaded MA scores from metagraph incentive.")
+        return get_metagraph().I.to(get_device())
 
     # NOTE: This was the old format of the way to initialize MA values
     #       this will be removed in the near future, with preference on the above

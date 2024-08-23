@@ -116,7 +116,11 @@ def get_metagraph(**kwargs) -> bt.metagraph:
         netuid: int = config.netuid or 26
         network: str = get_subtensor().chain_endpoint or "finney"
         logger.info(f"Creating connection to metagraph: {netuid=}: {network=}")
-        metagraph = bt.metagraph(netuid=netuid, network=network, **kwargs)
+        metagraph = bt.metagraph(
+            netuid=netuid,
+            network=network,
+            **kwargs,
+        )
 
     return metagraph
 
