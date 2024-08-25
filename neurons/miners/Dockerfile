@@ -1,15 +1,22 @@
 FROM python:3.10-slim
 
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV USE_TORCH=1
 ENV AXON_PORT=8101
 
+RUN apt update && \
+    apt install -y gcc curl && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-COPY requirements.txt /app/
+COPY pyproject.toml poetry.lock ./
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --only main
 
 COPY . /app/
 
