@@ -12,7 +12,9 @@ def mock_dependencies(monkeypatch):
     mocks = {
         "config": MagicMock(netuid=1),
         "metagraph": MagicMock(uids=torch.tensor([1, 2, 3, 4, 5])),
-        "subtensor": MagicMock(),
+        "subtensor": MagicMock(
+            set_weights=MagicMock(return_value=(True, "Success"))
+        ),
         "wallet": MagicMock(),
         "backend_client": AsyncMock(),
         "process_weights": MagicMock(
@@ -23,38 +25,28 @@ def mock_dependencies(monkeypatch):
         ),
     }
 
-    # Update the subtensor mock to return a tuple
-    mocks["subtensor"].set_weights.return_value = (True, "Success")
+    mock_modules = {
+        "neurons.validator.weights": {
+            "get_config": lambda: mocks["config"],
+            "get_metagraph": lambda: mocks["metagraph"],
+            "get_subtensor": lambda: mocks["subtensor"],
+            "get_wallet": lambda: mocks["wallet"],
+            "get_backend_client": lambda: mocks["backend_client"],
+        },
+        "bittensor.utils.weight_utils": {
+            "process_weights_for_netuid": mocks["process_weights"],
+        },
+    }
 
-    monkeypatch.setattr(
-        "neurons.validator.weights.get_config", lambda: mocks["config"]
-    )
-    monkeypatch.setattr(
-        "neurons.validator.weights.get_metagraph", lambda: mocks["metagraph"]
-    )
-    monkeypatch.setattr(
-        "neurons.validator.weights.get_subtensor", lambda: mocks["subtensor"]
-    )
-    monkeypatch.setattr(
-        "neurons.validator.weights.get_wallet", lambda: mocks["wallet"]
-    )
-    monkeypatch.setattr(
-        "neurons.validator.weights.get_backend_client",
-        lambda: mocks["backend_client"],
-    )
-    monkeypatch.setattr(
-        "bittensor.utils.weight_utils.process_weights_for_netuid",
-        mocks["process_weights"],
-    )
+    for module, functions in mock_modules.items():
+        for func_name, func in functions.items():
+            monkeypatch.setattr(f"{module}.{func_name}", func)
 
     class MockExecutor:
-        def __init__(self, *args, **kwargs):
-            pass
-
         def __enter__(self):
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        def __exit__(self, *args):
             pass
 
         def submit(self, fn, *args, **kwargs):
