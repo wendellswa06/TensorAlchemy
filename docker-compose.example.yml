@@ -16,8 +16,8 @@ services:
     ports:
       - "8101:8101"
     command: ["bash", "-c", "python3.10 /app/neurons/miners/StableMiner/main.py \
-        --wallet.name emre-wallet \
-        --wallet.hotkey 5HmSHCdk9WBAtUCNGJxg6kwGyhbsXKu6QJAsPzHc5VsE8Z9w \
+        --wallet.name YOUR_WALLET_NAME \
+        --wallet.hotkey YOUR_WALLET_HOTKEY \
         --netuid 25 \
         --subtensor.network test \
         --axon.port 8101 \
