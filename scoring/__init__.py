@@ -3,7 +3,7 @@ from typing import Dict, List
 
 import bittensor as bt
 from loguru import logger
-from PIL.Image import Image as ImageType
+from PIL.Image import Image as PILImage
 
 from neurons.utils.image import image_to_base64
 from neurons.protocol import ImageGeneration, ModelType
@@ -53,14 +53,14 @@ async def score_images(synapses: List[bt.Synapse]) -> ScoringResults:
         raise
 
 
-async def score_imageset(
+async def score_b64_imageset(
     prompt: str,
-    images: List[ImageType],
+    images: List[str],
 ) -> ScoringResults:
     synapses = []
 
     for image in images:
-        synapses.append(generate_synapse(prompt, image_to_base64(image)))
+        synapses.append(generate_synapse(prompt, image))
 
     class MetagraphMock:
         """
@@ -76,9 +76,19 @@ async def score_imageset(
     return await score_images(synapses)
 
 
+async def score_imageset(
+    prompt: str,
+    images: List[PILImage],
+) -> ScoringResults:
+    return await score_b64_imageset(
+        prompt,
+        [image_to_base64(image) for image in images],
+    )
+
+
 async def score_named_imageset(
     prompt: str,
-    images: Dict[str, ImageType],
+    images: Dict[str, PILImage],
 ) -> Dict[str, float]:
     # Call the score_imageset function with the list of images
     results: ScoringResults = await score_imageset(
