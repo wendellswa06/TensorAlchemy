@@ -226,11 +226,6 @@ class StableValidator:
                     torch.from_numpy(getattr(self.metagraph, key)).float(),
                 )
 
-        self.scores = torch.zeros_like(
-            self.metagraph.stake,
-            dtype=torch.float32,
-        )
-
         # Each validator gets a unique identity (UID)
         # in the network for differentiation.
         self.my_subnet_uid = self.metagraph.hotkeys.index(
@@ -448,7 +443,7 @@ class StableValidator:
                 self.set_weights_queue.put_nowait(
                     SetWeightsTask(
                         epoch=ttl_get_block(),
-                        hotkeys=copy.deepcopy(get_metagraph().hotkeys),
+                        hotkeys=copy.deepcopy(self.hotkeys),
                         weights=tensor_to_list(self.moving_average_scores),
                     )
                 )
@@ -486,42 +481,49 @@ class StableValidator:
         }
 
     def resync_metagraph(self, **kwargs):
-        """Resyncs the metagraph and updates the hotkeys
-        and moving averages based on the new metagraph."""
+        """
+        Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph.
 
+        Args:
+            **kwargs: Additional keyword arguments to pass to metagraph.sync()
+        """
         metagraph: bt.metagraph = get_metagraph()
-
-        # Copies state of axons before syncing.
         previous_axons = copy.deepcopy(metagraph.axons)
 
-        # Sync the metagraph.
+        # Sync the metagraph
         metagraph.sync(subtensor=get_subtensor(), **kwargs)
 
-        # Check if the metagraph axon info has changed.
+        # Check if the metagraph axon info has changed
         if previous_axons == metagraph.axons:
             return
 
         logger.info(
-            "Metagraph updated, re-syncing hotkeys,"
-            + " dendrite pool and moving averages"
+            "Metagraph updated, re-syncing hotkeys, "
+            "dendrite pool and moving averages"
         )
 
-        # Zero out all hotkeys that have been replaced.
-        for uid, hotkey in enumerate(self.hotkeys):
-            if hotkey != metagraph.hotkeys[uid]:
-                self.scores[uid] = 0  # hotkey has been replaced
+        # Update the size of the moving average scores
+        new_moving_averages = torch.zeros(metagraph.n, device=get_device())
 
-        # Check to see if the metagraph has changed size.
-        # If so, we need to add new hotkeys and moving averages.
-        if len(self.hotkeys) < len(metagraph.hotkeys):
-            # Update the size of the moving average scores.
-            new_moving_average = torch.zeros((metagraph.n)).to(get_device())
-            min_len = min(len(self.hotkeys), len(self.scores))
-            new_moving_average[:min_len] = self.scores[:min_len]
-            self.scores = new_moving_average
+        # Create a mapping of old hotkeys to their scores
+        old_hotkey_scores = {
+            hotkey: score
+            for hotkey, score in zip(self.hotkeys, self.moving_average_scores)
+        }
 
-        # Update the hotkeys.
+        # Update moving averages and handle replaced hotkeys
+        for uid, new_hotkey in enumerate(metagraph.hotkeys):
+            if new_hotkey in old_hotkey_scores:
+                new_moving_averages[uid] = old_hotkey_scores[new_hotkey]
+            else:
+                # New hotkey, initialize with zero score
+                new_moving_averages[uid] = 0
+
+        # Update instance variables
+        self.moving_average_scores = new_moving_averages
         self.hotkeys = copy.deepcopy(metagraph.hotkeys)
+
+        logger.debug(f"Updated to {len(self.hotkeys)} hotkeys")
 
     def check_registered(self):
         # --- Check for registration.
