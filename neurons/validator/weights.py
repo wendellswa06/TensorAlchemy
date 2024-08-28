@@ -96,6 +96,16 @@ async def set_weights(
     moving_average_scores: torch.Tensor,
 ) -> None:
     logger.info("Going to set weights...")
+    config: bt.config = get_config()
+    subtensor: bt.subtensor = get_subtensor()
+    metagraph: bt.metagraph = get_metagraph()
+
+    all_uids: List[int] = [
+        #
+        metagraph.hotkeys.index(hotkey)
+        for hotkey in hotkeys
+    ]
+    logger.info(f"Pre-process weight UIDs: {all_uids}")
 
     # Ensure tensor is on CPU
     moving_average_scores = moving_average_scores.cpu()
@@ -113,10 +123,6 @@ async def set_weights(
         logger.info("Posted weights to API")
     except PostWeightsError as e:
         logger.error(f"Error logging weights to the weights API: {e}")
-
-    config: bt.config = get_config()
-    subtensor: bt.subtensor = get_subtensor()
-    metagraph: bt.metagraph = get_metagraph()
 
     valid_uids: List[int] = []
 
