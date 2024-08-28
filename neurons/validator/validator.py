@@ -201,11 +201,10 @@ class StableValidator:
         logger.info(f"Loaded dendrite pool: {self.dendrite}")
 
         # Init metagraph.
-        self.metagraph = get_metagraph(sync=False)
+        self.metagraph: bt.metagraph = get_metagraph(sync=False)
 
         # Sync metagraph with subtensor.
         self.metagraph.sync(subtensor=self.subtensor)
-        self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
 
         # Keep track of latest active miners
         self.active_uids: List[int] = []
@@ -443,7 +442,7 @@ class StableValidator:
                 self.set_weights_queue.put_nowait(
                     SetWeightsTask(
                         epoch=ttl_get_block(),
-                        hotkeys=copy.deepcopy(self.hotkeys),
+                        hotkeys=copy.deepcopy(get_metagraph().hotkeys),
                         weights=tensor_to_list(self.moving_average_scores),
                     )
                 )
@@ -489,12 +488,13 @@ class StableValidator:
             **kwargs: Additional keyword arguments to pass to metagraph.sync()
         """
         metagraph: bt.metagraph = get_metagraph()
+        previous_hotkeys: List[str] = metagraph.hotkeys
 
         # Sync the metagraph
         metagraph.sync(subtensor=get_subtensor(), **kwargs)
 
         # Check if the metagraph axon info has changed
-        if self.hotkeys == metagraph.hotkeys:
+        if previous_hotkeys == metagraph.hotkeys:
             logger.debug(
                 #
                 "No changes in metagraph hotkeys, "
@@ -513,7 +513,9 @@ class StableValidator:
         # Create a mapping of old hotkeys to their scores
         old_hotkey_scores = {
             hotkey: score
-            for hotkey, score in zip(self.hotkeys, self.moving_average_scores)
+            for hotkey, score in zip(
+                metagraph.hotkeys, self.moving_average_scores
+            )
         }
 
         # Update moving averages and handle replaced hotkeys
@@ -523,9 +525,6 @@ class StableValidator:
 
         # Update instance variables
         self.moving_average_scores = new_moving_averages
-        self.hotkeys = copy.deepcopy(metagraph.hotkeys)
-
-        logger.debug(f"Updated to {len(self.hotkeys)} hotkeys")
 
     def check_registered(self):
         # --- Check for registration.
