@@ -482,19 +482,24 @@ class StableValidator:
 
     def resync_metagraph(self, **kwargs):
         """
-        Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph.
+        Resyncs the metagraph and updates
+        the hotkeys and moving averages based on the new metagraph.
 
         Args:
             **kwargs: Additional keyword arguments to pass to metagraph.sync()
         """
         metagraph: bt.metagraph = get_metagraph()
-        previous_axons = copy.deepcopy(metagraph.axons)
 
         # Sync the metagraph
         metagraph.sync(subtensor=get_subtensor(), **kwargs)
 
         # Check if the metagraph axon info has changed
-        if previous_axons == metagraph.axons:
+        if self.hotkeys == metagraph.hotkeys:
+            logger.debug(
+                #
+                "No changes in metagraph hotkeys, "
+                + "skipping resync"
+            )
             return
 
         logger.info(
@@ -515,9 +520,6 @@ class StableValidator:
         for uid, new_hotkey in enumerate(metagraph.hotkeys):
             if new_hotkey in old_hotkey_scores:
                 new_moving_averages[uid] = old_hotkey_scores[new_hotkey]
-            else:
-                # New hotkey, initialize with zero score
-                new_moving_averages[uid] = 0
 
         # Update instance variables
         self.moving_average_scores = new_moving_averages
