@@ -514,7 +514,7 @@ class StableValidator:
         old_hotkey_scores = {
             hotkey: score
             for hotkey, score in zip(
-                metagraph.hotkeys, self.moving_average_scores
+                previous_hotkeys, self.moving_average_scores
             )
         }
 
