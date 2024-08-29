@@ -55,7 +55,7 @@ def log_moving_averages_for_grafana(
     formatted_list = [f"{x:.4f}" for x in list_ma]
     logger.info(f"MA scores: [{', '.join(formatted_list)}]")
 
-    for uid in range(moving_average_scores):
+    for uid in range(moving_average_scores.numel()):
         try:
             score = float(list_ma[uid])
             if score > 0:
