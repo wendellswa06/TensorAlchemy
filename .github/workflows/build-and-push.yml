@@ -13,7 +13,7 @@ on:
 
 jobs:
   set-sha:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       sha7: ${{ steps.set-sha.outputs.sha7 }}
       branch: ${{ steps.set-branch.outputs.branch }}
@@ -32,7 +32,7 @@ jobs:
           fi
 
   check-changes:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       validator_changed: ${{ steps.filter.outputs.validator }}
       miner_changed: ${{ steps.filter.outputs.miner }}
@@ -61,7 +61,7 @@ jobs:
               - 'neurons/*.py'
   build-base:
     needs: [set-sha, check-changes]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: ${{ github.ref_name }}
     steps:
       - name: Checkout code
@@ -79,7 +79,7 @@ jobs:
 
   build-packages:
     needs: [set-sha, check-changes]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: ${{ github.ref_name }}
 
     strategy:
@@ -113,7 +113,7 @@ jobs:
           }}
         with:
           context: .
-          file: ./${{ matrix.service }}/Dockerfile
+          file: ./neurons/${{ matrix.service }}/Dockerfile
           platforms: linux/amd64
           push: true
           build-args: |
