@@ -47,16 +47,12 @@ from scoring.pipeline import (
 transform = T.Compose([T.PILToTensor()])
 
 
-def log_moving_averages(
+def log_moving_averages_for_grafana(
     moving_average_scores: torch.FloatTensor,
-    uids: List[int] = range(0, 255),
 ) -> None:
     list_ma: List[float] = moving_average_scores.tolist()
 
-    formatted_list = [f"{x:.4f}" for x in list_ma]
-    logger.info(f"MA scores: [{', '.join(formatted_list)}]")
-
-    for uid in uids:
+    for uid in range(moving_average_scores.numel()):
         try:
             score = float(list_ma[uid])
             if score > 0:
@@ -131,10 +127,8 @@ async def update_moving_averages(
     # Ensure values don't go below zero
     updated_ma_scores = torch.clamp(updated_ma_scores, min=0)
 
-    log_moving_averages(
-        updated_ma_scores,
-        uids_to_scatter,
-    )
+    # Outputs MA scores for grafana
+    log_moving_averages_for_grafana(updated_ma_scores)
 
     # Save moving averages scores on backend
     try:

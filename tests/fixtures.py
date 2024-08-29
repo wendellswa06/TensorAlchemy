@@ -12,8 +12,11 @@ from neurons.utils.image import image_tensor_to_base64, image_to_tensor
 class MockMetagraph:
     def __init__(self, n: int = 10) -> None:
         self.n = n
-        self.hotkeys = [f"hotkey_{i}" for i in range(self.n)]
-        self.coldkeys = [f"coldkey_{i}" for i in range(self.n)]
+        self.hotkeys = self._generate_keys("hotkey")
+        self.coldkeys = self._generate_keys("coldkey")
+
+    def _generate_keys(self, prefix: str) -> list[str]:
+        return [f"{prefix}_{i}" for i in range(self.n)]
 
 
 def mock_get_metagraph(n: int = 10):
@@ -52,30 +55,23 @@ def generate_synapse(
     return synapse
 
 
+def random_color():
+    return tuple(random.randint(0, 255) for _ in range(3))
+
+
+def create_blob(draw, size):
+    color = random_color()
+    x, y = (random.randint(0, dim) for dim in size)
+    radius = random.randint(5, 20)
+    draw.ellipse([x - radius, y - radius, x + radius, y + radius], fill=color)
+
+
 def create_complex_image(size=(64, 64), num_blobs=3):
-    image = Image.new(
-        "RGB",
-        size,
-        color=(
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255),
-        ),
-    )
+    image = Image.new("RGB", size, color=random_color())
     draw = ImageDraw.Draw(image)
 
     for _ in range(num_blobs):
-        blob_color = (
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255),
-        )
-        x = random.randint(0, size[0])
-        y = random.randint(0, size[1])
-        radius = random.randint(5, 20)
-        draw.ellipse(
-            [x - radius, y - radius, x + radius, y + radius], fill=blob_color
-        )
+        create_blob(draw, size)
 
     return image
 
