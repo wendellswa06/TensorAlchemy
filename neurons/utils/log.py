@@ -193,6 +193,7 @@ def configure_logging():
         logger.warning("TensorAlchemy logger is disabled")
         return
 
+    logger.info("TensorAlchemy logger is enabled")
     logger.remove()
     logger.add(
         sys.stdout,
