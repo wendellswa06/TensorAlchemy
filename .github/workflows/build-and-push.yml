@@ -103,7 +103,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
 
-      - name: Build and push ${{ matrix.package }} image
+      - name: Build and push ${{ matrix.service }} image
         id: build-service
         uses: docker/build-push-action@v5
         if: >-
@@ -119,11 +119,11 @@ jobs:
           build-args: |
             BASE_IMAGE_TAG=${{ needs.set-sha.outputs.sha7 }}
           tags: |
-            tensoralchemy/${{ matrix.package }}:latest
-            tensoralchemy/${{ matrix.package }}:${{ needs.set-sha.outputs.sha7 }}
-            tensoralchemy/${{ matrix.package }}:${{ needs.set-sha.outputs.branch }}
+            tensoralchemy/${{ matrix.service }}:latest
+            tensoralchemy/${{ matrix.service }}:${{ needs.set-sha.outputs.sha7 }}
+            tensoralchemy/${{ matrix.service }}:${{ needs.set-sha.outputs.branch }}
           cache-from: |
-            type=registry,ref=tensoralchemy/${{ matrix.package }}:latest
+            type=registry,ref=tensoralchemy/${{ matrix.service }}:latest
           cache-to: type=inline
 
       - name: Log out from Docker Hub
