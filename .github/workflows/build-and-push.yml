@@ -28,7 +28,8 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "branch=" >> $GITHUB_OUTPUT
           else
-            echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+            sanitized_branch=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')
+            echo "branch=${sanitized_branch}" >> $GITHUB_OUTPUT
           fi
 
   check-changes:
