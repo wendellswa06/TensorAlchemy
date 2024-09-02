@@ -10,15 +10,12 @@ RUN apt update && \
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+COPY requirements.txt ./
 
-RUN pip install --no-cache-dir poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --only main
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/
 
 RUN echo "import warnings; warnings.simplefilter('ignore')" > /usr/local/lib/python3.10/site-packages/sitecustomize.py
 
-# Set a default command that can(should) be overridden
 CMD ["python3.10", "/app/neurons/validator/main.py"]
