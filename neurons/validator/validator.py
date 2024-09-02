@@ -167,6 +167,7 @@ class StableValidator:
     def __init__(self):
         # Init config
         self.config = get_config()
+        print("force build")
         bt.logging(
             config=self.config,
             debug=self.config.debug,
