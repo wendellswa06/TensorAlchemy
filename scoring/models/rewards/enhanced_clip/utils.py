@@ -124,9 +124,11 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
 
     payload = {
         "model": "corcel/text-davinci-003",
-        "messages": [{"role": m.role, "content": m.content} for m in messages],
+        "messages": [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ],
         "temperature": 0,
-        "tools": [tool.model_dump()],
+        "tools": [tool],
         "tool_choice": {
             "type": "function",
             "function": {"name": tool.function.name},
