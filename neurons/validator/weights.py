@@ -100,13 +100,6 @@ async def set_weights(
     subtensor: bt.subtensor = get_subtensor()
     metagraph: bt.metagraph = get_metagraph()
 
-    all_uids: List[int] = [
-        #
-        metagraph.hotkeys.index(hotkey)
-        for hotkey in hotkeys
-    ]
-    logger.info(f"Pre-process weight UIDs: {all_uids}")
-
     # Ensure tensor is on CPU
     moving_average_scores = moving_average_scores.cpu()
 
