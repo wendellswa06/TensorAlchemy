@@ -1,5 +1,6 @@
 import time
 import traceback
+
 from math import floor
 from typing import Any, Callable
 from builtins import BrokenPipeError
@@ -46,6 +47,6 @@ def ttl_get_block() -> int:
     except Exception:
         logger.error(
             "An unexpected error occurred "
-            + "while attempting to get the current block!"
-            traceback.format_exc()
+            + "while attempting to get the current block: "
+            + traceback.format_exc()
         )
