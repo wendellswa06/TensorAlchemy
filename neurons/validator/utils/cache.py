@@ -2,6 +2,7 @@ import time
 from functools import lru_cache, update_wrapper
 from math import floor
 from typing import Any, Callable
+from builtins import BrokenPipeError
 
 from neurons.config import get_subtensor
 
@@ -33,4 +34,7 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 
 @ttl_cache(maxsize=1, ttl=12)
 def ttl_get_block() -> int:
-    return get_subtensor().get_current_block()
+    try:
+        return get_subtensor().get_current_block()
+    except BrokenPipeError:
+        return get_subtensor(nocache=True).get_current_block()

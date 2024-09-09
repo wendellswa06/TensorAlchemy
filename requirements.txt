@@ -1,9 +1,4 @@
-# Patched bittensor 7.3.1
-# NOTE: This was unavailable as a whl at this time
-#       We need it however to be able to
-#       set weights on testnet
-https://github.com/opentensor/bittensor/archive/b4854b6dd933e95b4555ea95a17fa9e603908919.zip
-
+bittensor==7.4.0
 imagehash==4.3.1
 msgpack==1.0.8
 torch==2.3.0

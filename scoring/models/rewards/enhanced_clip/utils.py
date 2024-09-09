@@ -9,6 +9,13 @@ from openai.types.chat import (
 )
 from openai.types.shared_params import FunctionDefinition
 
+# Configuration functions
+from neurons.config import (
+    get_openai_client,
+    get_corcel_api_key,
+    MissingApiKeyError,
+)
+
 
 # Type definitions
 class ElementDict(TypedDict):
@@ -21,9 +28,6 @@ class PromptBreakdown(TypedDict):
 
 
 BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
-
-# Configuration functions
-from neurons.config import get_openai_client, get_corcel_api_key
 
 
 def get_prompt_breakdown_function() -> ChatCompletionToolParam:
@@ -109,7 +113,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
 
 
 async def corcel_breakdown(prompt: str) -> PromptBreakdown:
-    api_key = get_corcel_api_key()
+    api_key = get_corcel_api_key(required=True)
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
@@ -145,14 +149,17 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
 
 
 async def break_down_prompt(
-    prompt: str, service: str = "openai"
+    prompt: str,
 ) -> PromptBreakdown:
     services: Dict[str, BreakdownFunction] = {
-        "openai": openai_breakdown,
         "corcel": corcel_breakdown,
+        "openai": openai_breakdown,
     }
 
-    if service not in services:
-        raise ValueError(f"Invalid service specified: {service}")
+    for service_method in services.values():
+        try:
+            return await service_method(prompt)
+        except MissingApiKeyError:
+            pass
 
-    return await services[service](prompt)
+    raise MissingApiKeyError("Both services had missing API keys")
