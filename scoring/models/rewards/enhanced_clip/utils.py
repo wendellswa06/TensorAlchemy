@@ -1,6 +1,15 @@
-from typing import List, Dict, Union, TypedDict, Callable, Awaitable
 import json
+from typing import (
+    List,
+    Dict,
+    Union,
+    TypedDict,
+    Callable,
+    Awaitable,
+)
+
 import httpx
+from loguru import logger
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionToolParam,
@@ -131,7 +140,7 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
         "tools": [tool],
         "tool_choice": {
             "type": "function",
-            "function": {"name": tool.function.name},
+            "function": {"name": tool["function"]["name"]},
         },
     }
 
@@ -161,7 +170,12 @@ async def break_down_prompt(
     for service_method in services.values():
         try:
             return await service_method(prompt)
+
         except MissingApiKeyError:
             pass
+
+        except Exception as e:
+            logger.error(e)
+            continue
 
     raise MissingApiKeyError("Both services had missing API keys")
