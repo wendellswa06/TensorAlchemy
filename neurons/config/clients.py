@@ -57,7 +57,7 @@ def get_openai_client(nocache: bool = False, **kwargs) -> AsyncOpenAI:
     Get or create the global OpenAI client.
 
     Args:
-        config (Optional[bt.config]): The configuration object.
+        nocache (Optional[Bool]): Forced reinit of subtensor.
 
     Returns:
         AsyncOpenAI: The global OpenAI client.
@@ -78,7 +78,7 @@ def get_wallet(nocache: bool = False, **kwargs) -> bt.wallet:
     Get or create the global wallet.
 
     Args:
-        config (Optional[bt.config]): The configuration object.
+        nocache (Optional[Bool]): Forced reinit of subtensor.
 
     Returns:
         bt.wallet: The global wallet.
@@ -96,7 +96,7 @@ def get_dendrite(nocache: bool = False, **kwargs) -> bt.dendrite:
     Get or create the global dendrite.
 
     Args:
-        wallet (Optional[bt.wallet]): The wallet to use for the dendrite.
+        nocache (Optional[Bool]): Forced reinit of subtensor.
 
     Returns:
         bt.dendrite: The global dendrite.
@@ -114,7 +114,7 @@ def get_subtensor(nocache: bool = False, **kwargs) -> bt.subtensor:
     Get or create the global subtensor.
 
     Args:
-        config (Optional[bt.config]): The configuration object.
+        nocache (Optional[Bool]): Forced reinit of subtensor.
 
     Returns:
         bt.subtensor: The global subtensor.
@@ -137,6 +137,7 @@ def get_metagraph(nocache: bool = False, **kwargs) -> bt.metagraph:
     Get or create the global metagraph.
 
     Args:
+        nocache (Optional[Bool]): Forced reinit of subtensor.
         **kwargs: Additional arguments to pass to the metagraph constructor.
 
     Returns:
