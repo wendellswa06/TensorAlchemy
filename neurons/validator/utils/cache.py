@@ -1,8 +1,11 @@
 import time
-from functools import lru_cache, update_wrapper
+import traceback
 from math import floor
 from typing import Any, Callable
 from builtins import BrokenPipeError
+from functools import lru_cache, update_wrapper
+
+from loguru import logger
 
 from neurons.config import get_subtensor
 
@@ -36,5 +39,13 @@ def ttl_cache(maxsize: int = 128, typed: bool = False, ttl: int = -1):
 def ttl_get_block() -> int:
     try:
         return get_subtensor().get_current_block()
+
     except BrokenPipeError:
         return get_subtensor(nocache=True).get_current_block()
+
+    except Exception:
+        logger.error(
+            "An unexpected error occurred "
+            + "while attempting to get the current block!"
+            traceback.format_exc()
+        )
