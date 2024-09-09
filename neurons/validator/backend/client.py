@@ -212,9 +212,11 @@ class TensorAlchemyBackendClient:
                 )
 
                 if response.status_code == 200:
-                    response_data = await response.json()
+                    response_data = response.json()
                     if response_data.get("code") == "STAKE_BELOW_THRESHOLD":
-                        raise StakeBelowThreshold("Stake is below the required threshold.")
+                        raise StakeBelowThreshold(
+                            "Stake is below the required threshold."
+                        )
 
                 return response
 

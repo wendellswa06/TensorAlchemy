@@ -207,23 +207,24 @@ async def query_axons_and_process_responses(
         axons,
         synapse,
     ):
-        masked_rewards: ScoringResults = await apply_masking_functions(
-            validator.model_type,
-            synapse,
-            responses=[response],
-        )
-
         # Create batch from single response and enqueue uploading
         # Batch will be merged at backend side
         try:
-            await create_batch_for_upload(
+            batch_for_upload: Batch = await create_batch_for_upload(
+                synapse,
                 validator,
                 batch_id=task.task_id,
                 prompt=task.prompt,
                 responses=[response],
-                masked_rewards=masked_rewards,
             )
-        except InvalidBatch:
+
+            try:
+                validator.batches_upload_queue.put_nowait(batch_for_upload)
+            except Exception as e:
+                logger.error(f"Could not add compute to upload queue {e}")
+
+        except InvalidBatch as e:
+            logger.info(f"Batch was invalid: {e}")
             await get_backend_client().fail_task(task.task_id)
 
         responses.append(response)
@@ -278,35 +279,45 @@ class InvalidBatch(Exception):
 
 
 async def create_batch_for_upload(
+    synapse: bt.Synapse,
     validator: "StableValidator",
     batch_id: str,
     prompt: str,
     responses: List[bt.Synapse],
-    masked_rewards: ScoringResults,
 ) -> Optional[Batch]:
     should_drop_entries = []
     images = []
 
+    logger.info("Preparing batch for upload...")
+
+    masked_rewards: ScoringResults = await apply_masking_functions(
+        validator.model_type,
+        synapse,
+        responses=responses,
+    )
+
     uids = get_uids(responses)
-    rewards_for_uids = masked_rewards.combined_scores[uids]
+    masks_for_uids = masked_rewards.combined_scores[uids]
 
-    for response, reward in zip(responses, rewards_for_uids):
+    for response, mask in zip(responses, masks_for_uids):
         if response.images:
-            images.append(synapse_to_base64(response))
-
-            if response.is_success and reward.item() == 0:
+            if response.is_success and mask.item() == 0:
+                images.append(synapse_to_base64(response))
                 should_drop_entries.append(0)
             else:
                 # Generated image has non-zero mask,
                 # we will dropp it (nsfw, blacklist)
+                images.append("NO_IMAGE")
                 should_drop_entries.append(1)
         else:
             images.append("NO_IMAGE")
             should_drop_entries.append(1)
             continue
 
-    if not len(images):
-        raise InvalidBatch()
+    if all(image == "NO_IMAGE" for image in images):
+        raise InvalidBatch("All images dropped (NSFW)")
+
+    logger.info(f"{len(images)} compute responses remain after masking")
 
     nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
         RewardModelType.NSFW,
@@ -314,12 +325,6 @@ async def create_batch_for_upload(
     blacklist_scores: Optional[ScoringResult] = masked_rewards.get_score(
         RewardModelType.BLACKLIST,
     )
-
-    if not nsfw_scores:
-        raise InvalidBatch()
-
-    if not blacklist_scores:
-        raise InvalidBatch()
 
     wallet: bt.wallet = get_wallet()
     metagraph: bt.metagraph = get_metagraph()
