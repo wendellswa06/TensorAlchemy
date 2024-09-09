@@ -313,7 +313,8 @@ class StableValidator:
             process.join()
 
     def update_check(self) -> None:
-        safely_check_for_updates()
+        if self.step % 4 == 0:
+            safely_check_for_updates()
 
     def start_threads(self, is_startup: bool = False) -> None:
         logger.info(f"[start_threads] is_startup={is_startup}")
