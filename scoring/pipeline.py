@@ -59,6 +59,8 @@ async def apply_function(
         # We'll keep track of these to be able
         # to scatter the rewards across moving_averages later
         uids=result.uids,
+        # Raw scores
+        raw=result.scores,
         # Normalization of scores
         # [ 0.0, 0.2, 0.4, 1.0 ]
         normalized=result.normalized,

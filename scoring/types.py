@@ -34,6 +34,7 @@ class ScoringResult(BaseModel):
     type: RewardModelType
     scores: torch.Tensor
     normalized: torch.Tensor
+    raw: Optional[torch.Tensor] = None
 
 
 class ScoringResults(BaseModel):
