@@ -23,7 +23,7 @@ from neurons.utils.image import (
 )
 
 from neurons.validator.backend.exceptions import PostMovingAveragesError
-from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
+from neurons.validator.event import EventSchema, RewardScore
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
 from scoring.models.types import RewardModelType
@@ -267,13 +267,6 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def log_event(event: dict):
-    event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
-    # Reduce img output
-    event.images = [image_to_str(img) for img in event.images]
-    logger.info(f"[log_event]: {event}")
-
-
 class InvalidBatch(Exception):
     pass
 
@@ -470,46 +463,55 @@ async def run_step(
     )
 
     # Create event for logging
-    event: Dict = {}
-    rewards_list = scoring_results.combined_scores[uids].tolist()
-
+    rewards_dict = {}
     for reward_score in scoring_results.scores:
-        event[reward_score.type] = reward_score.scores[uids]
+        rewards_dict[reward_score.type.value] = RewardScore(
+            uids=reward_score.uids.tolist(),
+            scores=reward_score.scores.tolist(),
+            normalized=reward_score.normalized.tolist(),
+            raw=reward_score.raw.tolist()
+            if reward_score.raw is not None
+            else None,
+        )
+
+    validator_info = validator.get_validator_info()
 
     try:
-        # Log the step event.
-        event.update(
-            {
-                "task_type": task_type,
-                "block": ttl_get_block(),
-                "step_length": time.time() - start_time,
-                "prompt": prompt if task_type == "TEXT_TO_IMAGE" else None,
-                "uids": uids,
-                "hotkeys": [response.axon.hotkey for response in responses],
-                "images": [
-                    (
-                        response.images[0]
-                        if (response.images != [])
-                        else empty_image_tensor()
-                    )
-                    for response, reward in zip(responses, rewards_list)
-                ],
-                "rewards": rewards_list,
-                "model_type": model_type,
-            }
+        event = EventSchema(
+            task_type=task_type,
+            model_type=model_type,
+            block=ttl_get_block(),
+            uids=uids.tolist(),
+            hotkeys=[response.axon.hotkey for response in responses],
+            prompt=prompt if task_type == "TEXT_TO_IMAGE" else None,
+            step_length=time.time() - start_time,
+            images=[
+                response.images[0].tolist()
+                if response.images
+                else empty_image_tensor().tolist()
+                for response in responses
+            ],
+            rewards=rewards_dict,
+            stake=validator_info["stake"],
+            rank=validator_info["rank"],
+            vtrust=validator_info["vtrust"],
+            dividends=validator_info["dividends"],
+            emissions=validator_info["emissions"],
         )
-        event.update(validator_info)
 
-    # Should stop & restart the validator
     except BittensorBrokenPipe:
         raise
 
     except Exception as err:
-        logger.error(f"Error updating event dict: {err}")
+        logger.error(f"Error creating EventSchema: {err}")
 
     try:
-        log_event(event)
+        log_event(event.to_dict())
     except Exception as e:
         logger.error(f"Failed while logging event: {e}")
 
-    return event
+    return event.to_dict()
+
+
+def log_event(event: dict):
+    logger.info(f"[log_event]: {json.dumps(event)}")
