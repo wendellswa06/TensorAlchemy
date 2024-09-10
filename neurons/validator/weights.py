@@ -9,7 +9,6 @@ import bittensor as bt
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
-from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.config import (
     get_config,
     get_wallet,
@@ -72,9 +71,6 @@ async def set_weights_loop(
             weights_event.hotkeys,
             torch.tensor(weights_event.weights),
         )
-    except BittensorBrokenPipe:
-        logger.info("[set_weights_loop] bittensor broken pipe")
-        should_quit.set()
 
     except WeightSettingError:
         logger.info("[set_weights_loop] failed to set weights")

@@ -1,7 +1,7 @@
 import json
 import asyncio
 import time
-from typing import AsyncIterator, Dict, List, Optional, Tuple
+from typing import AsyncIterator, List, Optional, Tuple
 
 from datetime import datetime
 
@@ -14,7 +14,6 @@ from loguru import logger
 from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
-from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.utils.defaults import Stats
 from neurons.utils.log import image_to_str
 from neurons.utils.image import (
@@ -23,7 +22,7 @@ from neurons.utils.image import (
 )
 
 from neurons.validator.backend.exceptions import PostMovingAveragesError
-from neurons.validator.event import EventSchema, RewardScore
+from neurons.validator.event import EventSchema
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
 from scoring.models.types import RewardModelType
@@ -462,18 +461,6 @@ async def run_step(
         scoring_results,
     )
 
-    # Create event for logging
-    rewards_dict = {}
-    for reward_score in scoring_results.scores:
-        rewards_dict[reward_score.type.value] = RewardScore(
-            uids=reward_score.uids.tolist(),
-            scores=reward_score.scores.tolist(),
-            normalized=reward_score.normalized.tolist(),
-            raw=reward_score.raw.tolist()
-            if reward_score.raw is not None
-            else None,
-        )
-
     validator_info = validator.get_validator_info()
 
     try:
@@ -481,36 +468,33 @@ async def run_step(
             task_type=task_type,
             model_type=model_type,
             block=ttl_get_block(),
-            uids=uids.tolist(),
+            uids=uids,
             hotkeys=[response.axon.hotkey for response in responses],
             prompt=prompt if task_type == "TEXT_TO_IMAGE" else None,
             step_length=time.time() - start_time,
             images=[
-                response.images[0].tolist()
+                image_to_str(response.images[0])
                 if response.images
-                else empty_image_tensor().tolist()
+                else "NO IMAGE"
                 for response in responses
             ],
-            rewards=rewards_dict,
-            stake=validator_info["stake"],
-            rank=validator_info["rank"],
-            vtrust=validator_info["vtrust"],
-            dividends=validator_info["dividends"],
-            emissions=validator_info["emissions"],
+            results=scoring_results,
+            stake=validator_info["stake"].item(),
+            rank=validator_info["rank"].item(),
+            vtrust=validator_info["vtrust"].item(),
+            dividends=validator_info["dividends"].item(),
+            emissions=validator_info["emissions"].item(),
         )
 
-    except BittensorBrokenPipe:
-        raise
+        try:
+            log_event(event.to_dict())
+        except Exception as e:
+            logger.error(f"Failed while logging event: {e}")
+
+        return event.to_dict()
 
     except Exception as err:
         logger.error(f"Error creating EventSchema: {err}")
-
-    try:
-        log_event(event.to_dict())
-    except Exception as e:
-        logger.error(f"Failed while logging event: {e}")
-
-    return event.to_dict()
 
 
 def log_event(event: dict):

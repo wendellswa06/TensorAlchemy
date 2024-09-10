@@ -1,15 +1,11 @@
 from enum import Enum
 from typing import Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
+import torch
+
+from scoring.types import ScoringResults, ScoringResult
 from scoring.models.types import RewardModelType
-
-
-class RewardScore(BaseModel):
-    uids: List[int]
-    scores: List[float]
-    normalized: List[float]
-    raw: Optional[List[float]] = None
 
 
 class EventSchema(BaseModel):
@@ -21,52 +17,36 @@ class EventSchema(BaseModel):
     prompt: str
     step_length: float
     model_type: str
-    rewards: Dict[str, RewardScore]
-    stake: List[float]
-    rank: List[float]
-    vtrust: List[float]
-    dividends: List[float]
-    emissions: List[float]
-    set_weights: Optional[List[List[float]]] = None
-
-    @classmethod
-    def from_dict(cls, event_dict: dict) -> "EventSchema":
-        rewards = {}
-        for reward_type in RewardModelType:
-            if reward_type.value in event_dict:
-                reward_data = event_dict[reward_type.value]
-                rewards[reward_type.value] = RewardScore(
-                    uids=reward_data.uids.tolist(),
-                    scores=reward_data.scores.tolist(),
-                    normalized=reward_data.normalized.tolist(),
-                    raw=reward_data.raw.tolist()
-                    if reward_data.raw is not None
-                    else None,
-                )
-
-        return cls(
-            task_type=event_dict["task_type"],
-            model_type=event_dict["model_type"],
-            block=event_dict["block"],
-            uids=event_dict["uids"].tolist(),
-            hotkeys=event_dict["hotkeys"],
-            prompt=event_dict["prompt"],
-            step_length=event_dict["step_length"],
-            images=[
-                image.tolist() if hasattr(image, "tolist") else image
-                for image in event_dict["images"]
-            ],
-            rewards=rewards,
-            stake=event_dict["stake"],
-            rank=event_dict["rank"],
-            vtrust=event_dict["vtrust"],
-            dividends=event_dict["dividends"],
-            emissions=event_dict["emissions"],
-            set_weights=event_dict.get("set_weights"),
-        )
+    results: ScoringResults
+    stake: float
+    rank: float
+    vtrust: float
+    dividends: float
+    emissions: float
 
     def to_dict(self) -> dict:
-        return self.model_dump(exclude_none=True)
+        event_dict = self.model_dump(exclude_none=True)
+        results_dict = {}
+        for score in self.results.scores:
+            uids: torch.tensor = score.uids
+
+            results_dict[score.type.value] = {
+                "uids": uids.tolist(),
+                "scores": score.scores[uids].tolist(),
+                "normalized": score.normalized[uids].tolist(),
+                "raw": score.raw[uids].tolist()
+                if score.raw is not None
+                else None,
+            }
+
+        combined_uids: torch.tensor = self.results.combined_uids
+        event_dict["results"] = results_dict
+        event_dict["combined_uids"] = combined_uids.tolist()
+        event_dict["combined_scores"] = self.results.combined_scores[
+            combined_uids
+        ].tolist()
+
+        return event_dict
 
 
 def convert_enum_keys_to_strings(data):

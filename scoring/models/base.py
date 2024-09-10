@@ -115,7 +115,11 @@ class BaseRewardModel:
         # Find the indices of values that were touched during
         # the scoring run. This allows us to scatter the rewards
         # into the moving averages after all scoring has been completed.
-        non_zero_uids = torch.nonzero(rewards).squeeze().to(torch.long)
+        non_zero_uids = torch.nonzero(rewards).squeeze()
+
+        # Ensure non_zero_uids is always 1D, even if there's only one element
+        if non_zero_uids.dim() == 0:
+            non_zero_uids = non_zero_uids.unsqueeze(0)
 
         return ScoringResult(
             scores=rewards,
