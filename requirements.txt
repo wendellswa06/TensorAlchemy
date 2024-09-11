@@ -8,7 +8,7 @@ imagehash==4.3.1
 msgpack==1.0.8
 torch==2.3.0
 torchvision==0.18.0
-diffusers==0.29.2
+diffusers==0.27.0
 accelerate==0.28.0
 transformers==4.38.0
 image-reward==1.5
