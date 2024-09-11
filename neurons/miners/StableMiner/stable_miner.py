@@ -20,7 +20,7 @@ from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.utils import warm_up
 from neurons.utils.image import image_to_base64, base64_to_image
 import torchvision.transforms as transforms
-from diffusers.callbacks import SDXLCFGCutoffCallback
+# from diffusers.callbacks import SDXLCFGCutoffCallback
 
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 import redis
@@ -238,9 +238,9 @@ class StableMiner(BaseMiner):
                 ]
 
                 # Set CFG Cutoff
-                model_args["callback_on_step_end"] = SDXLCFGCutoffCallback(
-                    cutoff_step_ratio=0.4
-                )
+                # model_args["callback_on_step_end"] = SDXLCFGCutoffCallback(
+                #     cutoff_step_ratio=0.4
+                # )
 
                 # Note: Xrunner: Modify the code to use broker. First of all, comment out the generating part in the base code.
                 # images = self.generate_with_refiner(model_args, model_config)
