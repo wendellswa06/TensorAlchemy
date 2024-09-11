@@ -22,6 +22,7 @@ import redis
 import argparse
 from transformers import CLIPImageProcessor, CLIPProcessor, CLIPModel
 import pathlib, sys
+from neurons.utils.image import image_to_base64
 
 
 redis_async_result = RedisAsyncResultBackend(
@@ -35,20 +36,6 @@ broker = ListQueueBroker(
 )
 
 result = []
-def hash_function(input_string: str):
-    """
-    A simple hash function that converts a string input into an integer hash value.
-    
-    Args:
-        input_string (str): The input string to be hashed.
-    
-    Returns:
-        int: The hash value of the input string.
-    """
-    hash_value = 0
-    for char in input_string:
-        hash_value = (hash_value * 31 + ord(char)) % 2**32
-    return hash_value
 
 # Load VAE component
 vae = AutoencoderKL.from_pretrained(
@@ -85,31 +72,20 @@ clip_processor = CLIPProcessor.from_pretrained(
     )
 threshold = 0.0
 
-def pil_image_to_base64(image: Image.Image, format="JPEG") -> str:
-    if format not in ["JPEG", "PNG"]:
-        format = "JPEG"
-    image_stream = io.BytesIO()
-    image = image.convert("RGB")
-    image.save(image_stream, format=format)
-    base64_image = base64.b64encode(image_stream.getvalue()).decode("utf-8")
-    return base64_image
-
 @broker.task
 async def generate_image(prompt: str, guidance_scale: float, num_inference_steps: int):
     start_time = time.time()
     pipe.to("cuda")
     
     global result
-    # t2i_model.to("cuda")
+    
     """Solve all problems in the world."""
     
     print(f"-------------prompt in broker: {prompt}-------------------")
     print(f"-------------Guidance_scale in broker: {guidance_scale}-------------------")
-    # _prompt = prompt.strip(" .") + " in cartoony anime-like style."
-    # _prompt = prompt
+    
     images = pipe(prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024, num_inference_steps=30, guidance_scale=7.5).images
-    
-    
+        
     end_time = time.time()
 
     print(f"Successfully generated images in {end_time-start_time} seconds.")
@@ -120,8 +96,8 @@ async def generate_image(prompt: str, guidance_scale: float, num_inference_steps
     outputs = clip_model(**inputs)
     logit = outputs.logits_per_image.squeeze().tolist()
     # images[0].save(f"{score}-{prompt}.png")
-    # Note: encode <class 'PIL.Image.Image'>
-    base64_image = pil_image_to_base64(images[0])
+    # Note: Xrunner: encode <class 'PIL.Image.Image'>
+    base64_image = image_to_base64(images[0])
     print("All problems are solved!")
     # return images, score
     return {"prompt": prompt, "score": score, "logit": logit, "image": base64_image}
