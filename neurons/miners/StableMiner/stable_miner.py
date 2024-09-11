@@ -39,9 +39,8 @@ class StableMiner(BaseMiner):
         self.processor: Optional[torch.nn.Module] = None
 
         logger.info("Initializing StableMiner...")
-        # Note: Xrunner: comment out model loading as they're not used in miner side directly.
-        # self.initialize_all_models()
-        # self.optimize_models()
+        self.initialize_all_models()
+        self.optimize_models()
         self.start_axon()
         self.loop()
 
