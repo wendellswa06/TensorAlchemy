@@ -52,6 +52,13 @@ pipe.scheduler = KDPM2AncestralDiscreteScheduler.from_config(pipe.scheduler.conf
 negative_prompt = "nsfw, bad quality, bad anatomy, worst quality, low quality, low resolutions, extra fingers, blur, blurry, ugly, wrongs proportions, watermark, image artifacts, lowres, ugly, jpeg artifacts, deformed, noisy image"
 
 
+# Playground
+playground_pipe = DiffusionPipeline.from_pretrained(
+        "playgroundai/playground-v2.5-1024px-aesthetic",
+        torch_dtype=torch.float16,
+        variant="fp16",
+    )
+
 # model_path_list = ["stabilityai/stable-diffusion-xl-base-1.0", "RunDiffusion/Juggernaut-XL-v9"]
 # lora_path_list = ["checkpoint-5000" ,"Xrunner/dpo-juggernautxl"]
 # t2i_model = DiffusionPipeline.from_pretrained(model_path_list[1], torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
@@ -60,16 +67,12 @@ negative_prompt = "nsfw, bad quality, bad anatomy, worst quality, low quality, l
 # t2i_model.set_adapters(["imagereward-lora"], adapter_weights=[0.9])
 # print("Lora model loaded successfully.")
 
-# Load ImageReward model for every worker to evaluate the image quality by itself.
+# ImageReward model.
 scoring_model = reward.load("ImageReward-v1.0")
 
 # Clip model
-clip_model = CLIPModel.from_pretrained(
-            "openai/clip-vit-base-patch32"
-    )
-clip_processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-base-patch32"
-    )
+clip_model = CLIPModel.from_pretrained( "openai/clip-vit-base-patch32" )
+clip_processor = CLIPProcessor.from_pretrained( "openai/clip-vit-base-patch32" )
 threshold = 0.0
 
 @broker.task
@@ -85,7 +88,9 @@ async def generate_image(prompt: str, guidance_scale: float, num_inference_steps
     print(f"-------------Guidance_scale in broker: {guidance_scale}-------------------")
     
     images = pipe(prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024, num_inference_steps=30, guidance_scale=7.5).images
-        
+    # Playground
+    # images = playground_pipe(prompt=prompt, negative_prompt=negative_prompt, width=1024, height=1024, num_inference_steps=35, guidance_scale=3).images
+    
     end_time = time.time()
 
     print(f"Successfully generated images in {end_time-start_time} seconds.")
