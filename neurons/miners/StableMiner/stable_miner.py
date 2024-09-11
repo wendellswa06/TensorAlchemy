@@ -1,3 +1,5 @@
+import os
+import time
 import torch
 import copy
 import asyncio
@@ -16,9 +18,14 @@ from neurons.miners.StableMiner.schema import (
 from neurons.utils.nsfw import clean_nsfw_from_prompt
 from neurons.miners.StableMiner.base import BaseMiner
 from neurons.miners.StableMiner.utils import warm_up
-from neurons.utils.image import image_to_base64
+from neurons.utils.image import image_to_base64, base64_to_image
 import torchvision.transforms as transforms
 from diffusers.callbacks import SDXLCFGCutoffCallback
+
+from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
+import redis
+from neurons.miners.StableMiner import Tasks
+import bittensor as bt
 
 
 class StableMiner(BaseMiner):
@@ -235,8 +242,77 @@ class StableMiner(BaseMiner):
                     cutoff_step_ratio=0.4
                 )
 
-                images = self.generate_with_refiner(model_args, model_config)
+                # Note: Xrunner: Modify the code to use broker. First of all, comment out the generating part in the base code.
+                # images = self.generate_with_refiner(model_args, model_config)
+                bt.logging.info(f"prompt: {synapse.prompt}\n")
+                start_time = time.time()
+                tasks = []
+                results = []
+                num_images = 8
+                for i in range(num_images):
+                    guidance_scale = 7.5
+                    task = await Tasks.generate_image.kiq(model_args["prompt"][0], guidance_scale, 35)
+                    tasks.append(task)
+                
+                generated_images_number = 0
+                istimeout = False
+                reward_scores = []
+                clip_scores = []
+                
+                for task in tasks:                    
+                    tmp_time = time.time()
+                    if tmp_time - start_time > 20:
+                        istimeout = True
+                        break
+                    result = await task.wait_result()
+                    if result == None:
+                        continue
+                    results.append(result.return_value)
+                    reward_scores.append(result.return_value['score'])                    
+                    clip_scores.append(result.return_value['logit'])
+                    reward_tensor = torch.tensor(reward_scores)
+                    clip_tensor = torch.tensor(clip_scores)
 
+                    generated_images_number += 1
+                    print(f"{generated_images_number-1}-{result.return_value['score']}-{result.return_value['logit']}\n")
+
+                if len(results) == 0:
+                    bt.logging.info("No images are generated")
+                
+                reward_tensor = (reward_tensor - reward_tensor.min()) / (reward_tensor.max() - reward_tensor.min() + 1e-8)
+                clip_tensor = (clip_tensor - clip_tensor.min()) / (clip_tensor.max() - clip_tensor.min() + 1e-8)
+                result_tensor = reward_tensor * 0.68 + clip_tensor * 0.12
+                result_score = result_tensor.tolist()
+                # top_score = max(results, key=lambda x: x["score"])["score"]
+                # top_image = max(results, key=lambda x: x["score"])["image"]
+                top_score = max(result_score)
+                top_image = results[result_score.index(top_score)]["image"]
+                # Note: Xrunner: Logging scores
+                if not os.path.exists("score_logs"):
+                    os.mkdir("score_logs")
+                try:
+                    log_file = open(f'score_logs/{self.wallet.hotkey_str}.txt', 'a')
+                except:
+                    log_file = open(f'score_logs/{self.wallet.hotkey_str}.txt', 'w')
+                
+                if istimeout == True:
+                    log_file.write("Timeout\n")
+                log_file.write(f'{time.time() - start_time} | {top_score}\n')
+                log_file.close()
+                decoded_image = base64_to_image(top_image)
+    
+                # images = model(**local_args).images
+                images = []
+                images.append(decoded_image)
+                synapse.images = [
+                    bt.Tensor.serialize(self.transform(image)) for image in images
+                ]
+                end_time = time.time()
+                bt.logging.info(f"Successfully generate images in {end_time-start_time} seconds with score of {top_score}")
+                if not os.path.exists("output"):
+                    os.mkdir("output")
+                decoded_image.save(f"output/{top_score}-{synapse.prompt}.png")
+                
                 logger.info(
                     f"Successful image generation after {attempt + 1} attempt(s).",
                 )
