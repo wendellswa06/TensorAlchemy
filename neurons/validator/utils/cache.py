@@ -1,3 +1,4 @@
+import ssl
 import time
 import traceback
 
@@ -44,9 +45,17 @@ def ttl_get_block() -> int:
     except BrokenPipeError:
         return get_subtensor(nocache=True).get_current_block()
 
+    except ssl.SSLEOFError:
+        return get_subtensor(nocache=True).get_current_block()
+
     except Exception:
         logger.error(
             "An unexpected error occurred "
             + "while attempting to get the current block: "
             + traceback.format_exc()
         )
+
+        try:
+            return get_subtensor(nocache=True).get_current_block()
+        except Exception:
+            return -1
