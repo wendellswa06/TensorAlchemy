@@ -1,37 +1,15 @@
 from enum import Enum
-from dataclasses import dataclass
 from typing import Dict, List, Optional
+from pydantic import BaseModel, Field, ConfigDict
 
+import torch
+
+from scoring.types import ScoringResults, ScoringResult
 from scoring.models.types import RewardModelType
 
 
-def convert_enum_keys_to_strings(data) -> dict:
-    if isinstance(data, dict):
-        new_dict = {}
-        for k, v in data.items():
-            new_key = k.value if isinstance(k, Enum) else k
-            new_value = convert_enum_keys_to_strings(v)
-            new_dict[new_key] = new_value
-
-        return new_dict
-
-    if isinstance(data, list):
-        new_list = []
-        for item in data:
-            new_item = convert_enum_keys_to_strings(item)
-            new_list.append(new_item)
-
-        return new_list
-
-    if isinstance(data, Enum):
-        return data.value
-
-    return data
-
-
-@dataclass
-class EventSchema:
-    images: List
+class EventSchema(BaseModel):
+    images: List[str]  # Assuming images are stored as base64 strings
     task_type: str
     block: float
     uids: List[int]
@@ -39,49 +17,48 @@ class EventSchema:
     prompt: str
     step_length: float
     model_type: str
+    results: ScoringResults
+    stake: float
+    rank: float
+    vtrust: float
+    dividends: float
+    emissions: float
 
-    # Reward data
-    rewards: Dict[str, List[float]]
+    def to_dict(self) -> dict:
+        event_dict = self.model_dump(exclude_none=True)
+        results_dict = {}
+        for score in self.results.scores:
+            uids: torch.tensor = score.uids
 
-    # Bittensor data
-    stake: List[float]
-    rank: List[float]
-    vtrust: List[float]
-    dividends: List[float]
-    emissions: List[float]
-
-    set_weights: Optional[List[List[float]]]
-
-    @staticmethod
-    def from_dict(event_dict: dict) -> "EventSchema":
-        """Converts a dictionary to an EventSchema object."""
-
-        rewards = convert_enum_keys_to_strings(
-            {
-                RewardModelType.BLACKLIST: event_dict.get(
-                    RewardModelType.BLACKLIST
-                ),
-                RewardModelType.HUMAN: event_dict.get(RewardModelType.HUMAN),
-                RewardModelType.IMAGE: event_dict.get(RewardModelType.IMAGE),
-                RewardModelType.NSFW: event_dict.get(RewardModelType.NSFW),
+            results_dict[score.type.value] = {
+                "uids": uids.tolist(),
+                "scores": score.scores[uids].tolist(),
+                "normalized": score.normalized[uids].tolist(),
+                "raw": score.raw[uids].tolist()
+                if score.raw is not None
+                else None,
             }
-        )
 
-        return EventSchema(
-            task_type=event_dict["task_type"],
-            model_type=event_dict["model_type"],
-            block=event_dict["block"],
-            uids=event_dict["uids"],
-            hotkeys=event_dict["hotkeys"],
-            prompt=event_dict["prompt"],
-            step_length=event_dict["step_length"],
-            images=event_dict["images"],
-            rewards=rewards,
-            set_weights=None,
-            stake=event_dict["stake"],
-            rank=event_dict["rank"],
-            vtrust=event_dict["vtrust"],
-            dividends=event_dict["dividends"],
-            emissions=event_dict["emissions"],
-            # moving_averages=event_dict["moving_averages"]
-        )
+        combined_uids: torch.tensor = self.results.combined_uids
+        event_dict["results"] = results_dict
+        event_dict["combined_uids"] = combined_uids.tolist()
+        event_dict["combined_scores"] = self.results.combined_scores[
+            combined_uids
+        ].tolist()
+
+        return event_dict
+
+
+def convert_enum_keys_to_strings(data):
+    if isinstance(data, dict):
+        return {
+            k.value
+            if isinstance(k, Enum)
+            else k: convert_enum_keys_to_strings(v)
+            for k, v in data.items()
+        }
+    elif isinstance(data, list):
+        return [convert_enum_keys_to_strings(item) for item in data]
+    elif isinstance(data, Enum):
+        return data.value
+    return data

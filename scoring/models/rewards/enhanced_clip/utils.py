@@ -1,6 +1,15 @@
-from typing import List, Dict, Union, TypedDict, Callable, Awaitable
 import json
+from typing import (
+    List,
+    Dict,
+    Union,
+    TypedDict,
+    Callable,
+    Awaitable,
+)
+
 import httpx
+from loguru import logger
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionToolParam,
@@ -8,6 +17,13 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 from openai.types.shared_params import FunctionDefinition
+
+# Configuration functions
+from neurons.config import (
+    get_openai_client,
+    get_corcel_api_key,
+    MissingApiKeyError,
+)
 
 
 # Type definitions
@@ -21,9 +37,6 @@ class PromptBreakdown(TypedDict):
 
 
 BreakdownFunction = Callable[[str], Awaitable[PromptBreakdown]]
-
-# Configuration functions
-from neurons.config import get_openai_client, get_corcel_api_key
 
 
 def get_prompt_breakdown_function() -> ChatCompletionToolParam:
@@ -109,7 +122,7 @@ async def openai_breakdown(prompt: str) -> PromptBreakdown:
 
 
 async def corcel_breakdown(prompt: str) -> PromptBreakdown:
-    api_key = get_corcel_api_key()
+    api_key = get_corcel_api_key(required=True)
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
@@ -120,12 +133,14 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
 
     payload = {
         "model": "corcel/text-davinci-003",
-        "messages": [{"role": m.role, "content": m.content} for m in messages],
+        "messages": [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ],
         "temperature": 0,
-        "tools": [tool.model_dump()],
+        "tools": [tool],
         "tool_choice": {
             "type": "function",
-            "function": {"name": tool.function.name},
+            "function": {"name": tool["function"]["name"]},
         },
     }
 
@@ -145,14 +160,22 @@ async def corcel_breakdown(prompt: str) -> PromptBreakdown:
 
 
 async def break_down_prompt(
-    prompt: str, service: str = "openai"
+    prompt: str,
 ) -> PromptBreakdown:
     services: Dict[str, BreakdownFunction] = {
-        "openai": openai_breakdown,
         "corcel": corcel_breakdown,
+        "openai": openai_breakdown,
     }
 
-    if service not in services:
-        raise ValueError(f"Invalid service specified: {service}")
+    for service_method in services.values():
+        try:
+            return await service_method(prompt)
 
-    return await services[service](prompt)
+        except MissingApiKeyError:
+            pass
+
+        except Exception as e:
+            logger.error(e)
+            continue
+
+    raise MissingApiKeyError("Both services had missing API keys")

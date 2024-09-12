@@ -112,14 +112,34 @@ class BaseRewardModel:
 
         from scoring.types import ScoringResult
 
-        # Find the indices of values that were touched during
-        # the scoring run. This allows us to scatter the rewards
-        # into the moving averages after all scoring has been completed.
-        non_zero_uids = torch.nonzero(rewards).squeeze().to(torch.long)
+        # Get all UIDs from the responses
+        response_uids = get_uids(responses)
+
+        # Get non-zero UIDs from rewards
+        non_zero_uids = torch.nonzero(rewards).squeeze()
+        # Ensure non_zero_uids is always 1D, even if there's only one element
+        if non_zero_uids.dim() == 0:
+            non_zero_uids = non_zero_uids.unsqueeze(0)
+
+        # Combine response_uids and non_zero_uids, removing duplicates
+        all_uids = torch.unique(torch.cat([response_uids, non_zero_uids]))
 
         return ScoringResult(
             scores=rewards,
             type=self.name,
-            uids=non_zero_uids,
+            uids=all_uids,
             normalized=normalized_rewards,
         )
+
+
+def get_uids(responses: List[bt.Synapse]) -> torch.Tensor:
+    metagraph: bt.metagraph = get_metagraph()
+
+    return torch.tensor(
+        [
+            #
+            metagraph.hotkeys.index(response.axon.hotkey)
+            for response in responses
+        ],
+        dtype=torch.long,
+    ).to(get_device())

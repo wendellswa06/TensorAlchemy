@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import torch
@@ -16,6 +17,8 @@ from neurons import constants
 
 LOKI_VALIDATOR_APP_NAME = "tensoralchemy-validator"
 LOKI_MINER_APP_NAME = "tensoralchemy-miner"
+
+TA_LOGGER_DISABLED: bool = os.getenv("TA_LOGGER_DISABLED") == "true"
 
 
 def image_to_str(image: Any) -> str:
@@ -186,6 +189,10 @@ def patch_bt_logging():
 
 
 def configure_logging():
+    if TA_LOGGER_DISABLED:
+        logger.warning("TensorAlchemy logger is disabled")
+        return
+
     logger.remove()
     logger.add(
         sys.stdout,
@@ -195,4 +202,6 @@ def configure_logging():
     loki_logger_enabled = "--alchemy.disable_loki_logging" not in sys.argv
     if loki_logger_enabled:
         configure_loki_logger()
+
     patch_bt_logging()
+    logger.info("TensorAlchemy logger is enabled")

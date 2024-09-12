@@ -189,11 +189,11 @@ class StableValidator:
         self.prompt_generation_failures = 0
 
         # Init subtensor
-        self.subtensor = get_subtensor(config=self.config)
+        self.subtensor = get_subtensor()
         logger.info(f"Loaded subtensor: {self.subtensor}")
 
         # Init wallet.
-        self.wallet = get_wallet(config=self.config)
+        self.wallet = get_wallet()
         self.wallet.create_if_non_existent()
 
         # Dendrite pool for querying the network during training.
@@ -313,7 +313,8 @@ class StableValidator:
             process.join()
 
     def update_check(self) -> None:
-        safely_check_for_updates()
+        if self.step % 4 == 0:
+            safely_check_for_updates()
 
     def start_threads(self, is_startup: bool = False) -> None:
         logger.info(f"[start_threads] is_startup={is_startup}")
