@@ -24,6 +24,9 @@ from transformers import CLIPImageProcessor, CLIPProcessor, CLIPModel
 import pathlib, sys
 from neurons.utils.image import image_to_base64
 
+cuda_device_id = os.environ.get('CUDA_VISIBLE_DEVICES', 'Not')
+if cuda_device_id != 'Not':
+    cuda_device_id = int(cuda_device_id)
 
 redis_async_result = RedisAsyncResultBackend(
     redis_url="redis://localhost:6379",
@@ -37,27 +40,35 @@ broker = ListQueueBroker(
 
 result = []
 
+## proteus
 # Load VAE component
 vae = AutoencoderKL.from_pretrained(
     "madebyollin/sdxl-vae-fp16-fix", 
     torch_dtype=torch.float16
 )
-pipe = StableDiffusionXLPipeline.from_pretrained(
+proteus_pipe = StableDiffusionXLPipeline.from_pretrained(
     "dataautogpt3/ProteusV0.4", 
     vae=vae,
     torch_dtype=torch.float16
 )
 
-pipe.scheduler = KDPM2AncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+proteus_pipe.scheduler = KDPM2AncestralDiscreteScheduler.from_config(proteus_pipe.scheduler.config)
 negative_prompt = "nsfw, bad quality, bad anatomy, worst quality, low quality, low resolutions, extra fingers, blur, blurry, ugly, wrongs proportions, watermark, image artifacts, lowres, ugly, jpeg artifacts, deformed, noisy image"
 
 
-# Playground
+## playground
 playground_pipe = DiffusionPipeline.from_pretrained(
         "playgroundai/playground-v2.5-1024px-aesthetic",
         torch_dtype=torch.float16,
         variant="fp16",
     )
+
+## juggernautxl
+juggernautxl_pipe = DiffusionPipeline.from_pretrained("RunDiffusion/Juggernaut-XL-v9", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
+
+pipes = [proteus_pipe, playground_pipe, juggernautxl_pipe]
+pipe = pipes[cuda_device_id%3]
+print(f"CUDA_DEVICE_ID is {cuda_device_id}\n")
 
 # model_path_list = ["stabilityai/stable-diffusion-xl-base-1.0", "RunDiffusion/Juggernaut-XL-v9"]
 # lora_path_list = ["checkpoint-5000" ,"Xrunner/dpo-juggernautxl"]
