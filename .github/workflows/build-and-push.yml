@@ -1,0 +1,138 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - feature/docker-push-action
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: true
+        default: "testnet"
+        description: "Branch to deploy from"
+
+jobs:
+  set-sha:
+    runs-on: ubuntu-latest
+    outputs:
+      sha7: ${{ steps.set-sha.outputs.sha7 }}
+      branch: ${{ steps.set-branch.outputs.branch }}
+    steps:
+      - name: Set sha7 variable
+        id: set-sha
+        run: echo "sha7=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Set branch variable
+        id: set-branch
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "branch=" >> $GITHUB_OUTPUT
+          else
+            sanitized_branch=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')
+            echo "branch=${sanitized_branch}" >> $GITHUB_OUTPUT
+          fi
+
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      validator_changed: ${{ steps.filter.outputs.validator }}
+      miner_changed: ${{ steps.filter.outputs.miner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref_name }}
+          filters: |
+            validator:
+              - 'Dockerfile'
+              - 'pyproject.toml'
+              - 'requirements.txt'
+              - 'neurons/config/**'
+              - 'neurons/utils/**'
+              - 'neurons/validator/**'
+              - 'neurons/*.py'
+            miner:
+              - 'Dockerfile'
+              - 'pyproject.toml'
+              - 'requirements.txt'
+              - 'neurons/config/**'
+              - 'neurons/utils/**'
+              - 'neurons/miner/**'
+              - 'neurons/*.py'
+  build-base:
+    needs: [set-sha, check-changes]
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+
+
+  build-packages:
+    needs: [set-sha, check-changes]
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    strategy:
+      matrix:
+        service: [validator, miner]
+
+    outputs:
+      validator_status: ${{ steps.set-output.outputs.validator_status }}
+      miner_status: ${{ steps.set-output.outputs.miner_status }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+
+      - name: Build and push ${{ matrix.service }} image
+        id: build-service
+        uses: docker/build-push-action@v5
+        if: >-
+          ${{
+            contains(github.event.head_commit.message, 'BUILD') ||
+            needs.check-changes.outputs[format('{0}_changed', matrix.service)] == 'true'
+          }}
+        with:
+          context: .
+          file: ./neurons/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            BASE_IMAGE_TAG=${{ needs.set-sha.outputs.sha7 }}
+          tags: |
+            tensoralchemy/${{ matrix.service }}:latest
+            tensoralchemy/${{ matrix.service }}:${{ needs.set-sha.outputs.sha7 }}
+            tensoralchemy/${{ matrix.service }}:${{ needs.set-sha.outputs.branch }}
+          cache-from: |
+            type=registry,ref=tensoralchemy/${{ matrix.service }}:latest
+          cache-to: type=inline
+
+      - name: Log out from Docker Hub
+        if: always()
+        run: docker logout
+
+      - name: Set output
+        id: set-output
+        if: always()
+        run: |
+          echo "${{ matrix.service }}_status=${{ steps.build-service.outcome }}" >> $GITHUB_OUTPUT

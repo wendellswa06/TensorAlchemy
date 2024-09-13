@@ -1,7 +1,7 @@
 import json
 import asyncio
 import time
-from typing import AsyncIterator, Dict, List, Optional, Tuple
+from typing import AsyncIterator, List, Optional, Tuple
 
 from datetime import datetime
 
@@ -14,7 +14,6 @@ from loguru import logger
 from neurons.constants import MOVING_AVERAGE_ALPHA
 from neurons.protocol import ImageGeneration, ImageGenerationTaskModel
 
-from neurons.utils.exceptions import BittensorBrokenPipe
 from neurons.utils.defaults import Stats
 from neurons.utils.log import image_to_str
 from neurons.utils.image import (
@@ -23,7 +22,7 @@ from neurons.utils.image import (
 )
 
 from neurons.validator.backend.exceptions import PostMovingAveragesError
-from neurons.validator.event import EventSchema, convert_enum_keys_to_strings
+from neurons.validator.event import EventSchema
 from neurons.validator.schemas import Batch
 from neurons.validator.utils import ttl_get_block
 from scoring.models.types import RewardModelType
@@ -207,23 +206,24 @@ async def query_axons_and_process_responses(
         axons,
         synapse,
     ):
-        masked_rewards: ScoringResults = await apply_masking_functions(
-            validator.model_type,
-            synapse,
-            responses=[response],
-        )
-
         # Create batch from single response and enqueue uploading
         # Batch will be merged at backend side
         try:
-            await create_batch_for_upload(
+            batch_for_upload: Batch = await create_batch_for_upload(
+                synapse,
                 validator,
                 batch_id=task.task_id,
                 prompt=task.prompt,
                 responses=[response],
-                masked_rewards=masked_rewards,
             )
-        except InvalidBatch:
+
+            try:
+                validator.batches_upload_queue.put_nowait(batch_for_upload)
+            except Exception as e:
+                logger.error(f"Could not add compute to upload queue {e}")
+
+        except InvalidBatch as e:
+            logger.info(f"Batch was invalid: {e}")
             await get_backend_client().fail_task(task.task_id)
 
         responses.append(response)
@@ -266,47 +266,50 @@ def log_responses(responses: List[ImageGeneration], prompt: str):
         logger.error(f"Failed to log formatted responses: {e}")
 
 
-def log_event(event: dict):
-    event = EventSchema.from_dict(convert_enum_keys_to_strings(event))
-    # Reduce img output
-    event.images = [image_to_str(img) for img in event.images]
-    logger.info(f"[log_event]: {event}")
-
-
 class InvalidBatch(Exception):
     pass
 
 
 async def create_batch_for_upload(
+    synapse: bt.Synapse,
     validator: "StableValidator",
     batch_id: str,
     prompt: str,
     responses: List[bt.Synapse],
-    masked_rewards: ScoringResults,
 ) -> Optional[Batch]:
     should_drop_entries = []
     images = []
 
+    logger.info("Preparing batch for upload...")
+
+    masked_rewards: ScoringResults = await apply_masking_functions(
+        validator.model_type,
+        synapse,
+        responses=responses,
+    )
+
     uids = get_uids(responses)
-    rewards_for_uids = masked_rewards.combined_scores[uids]
+    masks_for_uids = masked_rewards.combined_scores[uids]
 
-    for response, reward in zip(responses, rewards_for_uids):
+    for response, mask in zip(responses, masks_for_uids):
         if response.images:
-            images.append(synapse_to_base64(response))
-
-            if response.is_success and reward.item() == 0:
+            if response.is_success and mask.item() == 0:
+                images.append(synapse_to_base64(response))
                 should_drop_entries.append(0)
             else:
                 # Generated image has non-zero mask,
                 # we will dropp it (nsfw, blacklist)
+                images.append("NO_IMAGE")
                 should_drop_entries.append(1)
         else:
             images.append("NO_IMAGE")
             should_drop_entries.append(1)
             continue
 
-    if not len(images):
-        raise InvalidBatch()
+    if all(image == "NO_IMAGE" for image in images):
+        raise InvalidBatch("All images dropped (NSFW)")
+
+    logger.info(f"{len(images)} compute responses remain after masking")
 
     nsfw_scores: Optional[ScoringResult] = masked_rewards.get_score(
         RewardModelType.NSFW,
@@ -314,12 +317,6 @@ async def create_batch_for_upload(
     blacklist_scores: Optional[ScoringResult] = masked_rewards.get_score(
         RewardModelType.BLACKLIST,
     )
-
-    if not nsfw_scores:
-        raise InvalidBatch()
-
-    if not blacklist_scores:
-        raise InvalidBatch()
 
     wallet: bt.wallet = get_wallet()
     metagraph: bt.metagraph = get_metagraph()
@@ -464,47 +461,41 @@ async def run_step(
         scoring_results,
     )
 
-    # Create event for logging
-    event: Dict = {}
-    rewards_list = scoring_results.combined_scores[uids].tolist()
-
-    for reward_score in scoring_results.scores:
-        event[reward_score.type] = reward_score.scores[uids]
+    validator_info = validator.get_validator_info()
 
     try:
-        # Log the step event.
-        event.update(
-            {
-                "task_type": task_type,
-                "block": ttl_get_block(),
-                "step_length": time.time() - start_time,
-                "prompt": prompt if task_type == "TEXT_TO_IMAGE" else None,
-                "uids": uids,
-                "hotkeys": [response.axon.hotkey for response in responses],
-                "images": [
-                    (
-                        response.images[0]
-                        if (response.images != [])
-                        else empty_image_tensor()
-                    )
-                    for response, reward in zip(responses, rewards_list)
-                ],
-                "rewards": rewards_list,
-                "model_type": model_type,
-            }
+        event = EventSchema(
+            task_type=task_type,
+            model_type=model_type,
+            block=ttl_get_block(),
+            uids=uids,
+            hotkeys=[response.axon.hotkey for response in responses],
+            prompt=prompt if task_type == "TEXT_TO_IMAGE" else None,
+            step_length=time.time() - start_time,
+            images=[
+                image_to_str(response.images[0])
+                if response.images
+                else "NO IMAGE"
+                for response in responses
+            ],
+            results=scoring_results,
+            stake=validator_info["stake"].item(),
+            rank=validator_info["rank"].item(),
+            vtrust=validator_info["vtrust"].item(),
+            dividends=validator_info["dividends"].item(),
+            emissions=validator_info["emissions"].item(),
         )
-        event.update(validator_info)
 
-    # Should stop & restart the validator
-    except BittensorBrokenPipe:
-        raise
+        try:
+            log_event(event.to_dict())
+        except Exception as e:
+            logger.error(f"Failed while logging event: {e}")
+
+        return event.to_dict()
 
     except Exception as err:
-        logger.error(f"Error updating event dict: {err}")
+        logger.error(f"Error creating EventSchema: {err}")
 
-    try:
-        log_event(event)
-    except Exception as e:
-        logger.error(f"Failed while logging event: {e}")
 
-    return event
+def log_event(event: dict):
+    logger.info(f"[log_event]: {json.dumps(event)}")

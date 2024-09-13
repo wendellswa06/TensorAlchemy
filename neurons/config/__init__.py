@@ -7,12 +7,14 @@ from .device import get_default_device, get_device
 from .parser import get_config
 from .clients import (
     get_corcel_api_key,
+    get_openai_api_key,
     get_openai_client,
     get_wallet,
     get_dendrite,
     get_subtensor,
     get_metagraph,
     get_backend_client,
+    MissingApiKeyError,
 )
 from .lists import get_blacklist, get_whitelist, get_warninglist
 
@@ -22,6 +24,8 @@ __all__ = [
     get_blacklist,
     get_config,
     get_corcel_api_key,
+    get_openai_api_key,
+    MissingApiKeyError,
     get_default_device,
     get_dendrite,
     get_device,
